@@ -1,6 +1,6 @@
-import {describe, expect, it, spyOn} from 'bun:test';
-import {init} from '../../src/init';
-import * as helpers from '../../src/helpers';
+import { describe, expect, it, spyOn } from 'bun:test';
+import { init } from '../../lib/init';
+import * as helpers from '../../lib/helpers';
 
 const isAsenaConfigExistsMock = spyOn(helpers, 'isAsenaConfigExists');
 

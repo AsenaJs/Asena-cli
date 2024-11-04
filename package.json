@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "author": "LibirSoft",
   "license": "MIT",
-  "bin": "./dist/src/index.js",
+  "bin": "./dist/bin/asena.js",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "bun test"

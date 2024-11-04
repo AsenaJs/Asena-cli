@@ -30,7 +30,5 @@
     "noUnusedParameters": true,
     "noPropertyAccessFromIndexSignature": true
   },
-  "include": [
-    "src"
-  ]
+  "include": ["lib", "bin"]
 }

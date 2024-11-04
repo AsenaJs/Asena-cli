@@ -1,7 +1,8 @@
 #! /usr/bin/env bun
-import {build} from './build';
-import {init} from './init';
-import {runProject} from './project';
+
+import { build } from '../lib/build';
+import { runProject } from '../lib/project';
+import { init } from '../lib/init';
 
 enum Commands {
   BUILD = 'build',
