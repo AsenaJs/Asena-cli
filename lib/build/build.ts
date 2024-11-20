@@ -1,9 +1,9 @@
-import type {IocConfig} from '../types';
-import {getInjectables, readConfigFile} from '../config';
-import {createBuildCode} from './buildGenerator';
+import type { IocConfig } from '../types';
+import { getInjectables, readConfigFile } from '../config';
+import { createBuildCode } from './buildGenerator';
 import path from 'path';
-import {getFileExtension} from '../helpers';
-import {$, type BuildConfig, write} from 'bun';
+import { createAsenaEntryFile, getAsenaEntryFromCode, getFileExtension, removeAsenaFromFile } from '../helpers';
+import { $, type BuildConfig, write } from 'bun';
 import fs from 'fs';
 
 const createExecutable = async (buildFilePath: string, _outfile?: string) => {
@@ -37,11 +37,21 @@ export const build = async () => {
 
   try {
     const configFile: IocConfig = readConfigFile();
-    const injections = await getInjectables(configFile);
-    const buildCode = await createBuildCode(configFile, injections);
-    let buildOutput = '';
 
     buildFilePath = `${path.dirname(configFile.rootFile)}/index.asena${getFileExtension(configFile.rootFile)}`;
+
+    const rootFileCode = await Bun.file(configFile.rootFile).text();
+
+    await createAsenaEntryFile(buildFilePath, removeAsenaFromFile(rootFileCode));
+
+    const injections = await getInjectables(configFile);
+
+    const buildCode = await createBuildCode(
+      removeAsenaFromFile(rootFileCode),
+      injections,
+      getAsenaEntryFromCode(rootFileCode),
+    );
+    let buildOutput = '';
 
     await write(buildFilePath, buildCode);
 

@@ -1,1 +1,1 @@
-export const IOC_OBJECT_KEY = '_iocObject';
+export const IOC_OBJECT_KEY = '_IIocObject';

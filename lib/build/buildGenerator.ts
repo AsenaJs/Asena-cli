@@ -1,9 +1,7 @@
-import type {Components, IocConfig} from '../types';
-import fs from 'fs';
-import {getImportType, importFormatter, type ImportType} from './importManager';
+import type { Components } from '../types';
+import { getImportType, importFormatter, type ImportType } from './importManager';
 
-const buildFileGenerator = (mainFilePath: IocConfig, injections: Components, importType: ImportType) => {
-  const mainFile = fs.readFileSync(mainFilePath.rootFile, 'utf-8');
+const buildFileGenerator = (code: string, injections: Components, importType: ImportType) => {
   let allComponents: string[][] = [];
   let imports = '\n';
 
@@ -11,13 +9,13 @@ const buildFileGenerator = (mainFilePath: IocConfig, injections: Components, imp
     if (injections[path].length > 0) {
       const { formattedImport, components } = importFormatter(injections[path], path, importType);
 
-      imports += formattedImport;
+      if (!path.includes('.asena.')) imports += formattedImport;
 
       allComponents.push(components);
     }
   }
 
-  return { newCode: imports + mainFile, allComponents };
+  return { newCode: imports + code, allComponents };
 };
 
 const findNewServerFunctionOffset = (code: string) => {
@@ -31,16 +29,16 @@ const findNewServerFunctionOffset = (code: string) => {
   return regex.lastIndex;
 };
 
-export const importComponentsToServer = (code: string, allComponents: string[]) => {
-  const endIndex = findNewServerFunctionOffset(code);
+export const importComponentsToServer = (asenaEntry: string, allComponents: string[]) => {
+  const endIndex = findNewServerFunctionOffset(asenaEntry);
   const componentsString = allComponents.join(',');
 
-  return `${code.substring(0, endIndex)}.components([${componentsString}])${code.substring(endIndex)}`;
+  return `${asenaEntry.substring(0, endIndex)}.components([${componentsString}])${asenaEntry.substring(endIndex)}`;
 };
 
-export const createBuildCode = async (mainFilePath: IocConfig, injections: Components) => {
+export const createBuildCode = async (code: string, injections: Components, asenaEntry: string) => {
   const importType = await getImportType();
-  const { newCode, allComponents } = buildFileGenerator(mainFilePath, injections, importType);
+  const { newCode, allComponents } = buildFileGenerator(code, injections, importType);
 
-  return importComponentsToServer(newCode, allComponents.flat(1));
+  return newCode + importComponentsToServer(asenaEntry, allComponents.flat(1));
 };
