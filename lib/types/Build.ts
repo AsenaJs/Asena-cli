@@ -1,6 +1,10 @@
-import type {BunPlugin, Loader, ModuleFormat, Target} from 'bun';
+import type { BunPlugin, Loader, ModuleFormat, Target } from 'bun';
 
 export type Class<T = any> = new (...args: any[]) => T;
+
+export interface ComponentsPath {
+  [key: string]: Class[];
+}
 
 export interface Components {
   [path: string]: Class[];
