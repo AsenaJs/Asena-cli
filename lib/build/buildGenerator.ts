@@ -1,6 +1,6 @@
-import type {Components, IocConfig} from '../types';
+import type { Components, IocConfig } from '../types';
 import fs from 'fs';
-import {getImportType, importFormatter, type ImportType} from './importManager';
+import { getImportType, importFormatter, type ImportType } from './importManager';
 
 const buildFileGenerator = (mainFilePath: IocConfig, injections: Components, importType: ImportType) => {
   const mainFile = fs.readFileSync(mainFilePath.rootFile, 'utf-8');

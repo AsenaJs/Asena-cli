@@ -1,6 +1,6 @@
 import * as fs from 'fs';
-import type {Class, TsConfig} from '../types';
-import {IMPORT_MODULES} from '../constants';
+import type { Class, TsConfig } from '../types';
+import { IMPORT_MODULES } from '../constants';
 import stripJsonComments from 'strip-json-comments';
 
 export enum ImportType {

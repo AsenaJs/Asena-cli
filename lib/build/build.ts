@@ -1,9 +1,9 @@
-import type {IocConfig} from '../types';
-import {getInjectables, readConfigFile} from '../config';
-import {createBuildCode} from './buildGenerator';
+import type { IocConfig } from '../types';
+import { getInjectables, readConfigFile } from '../config';
+import { createBuildCode } from './buildGenerator';
 import path from 'path';
-import {getFileExtension} from '../helpers';
-import {$, type BuildConfig, write} from 'bun';
+import { getFileExtension } from '../helpers';
+import { $, type BuildConfig, write } from 'bun';
 import fs from 'fs';
 
 const createExecutable = async (buildFilePath: string, _outfile?: string) => {

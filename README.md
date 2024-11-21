@@ -20,9 +20,9 @@ asena-cli --help
 
 Commands:
 
-asena-cli build    For building the project and preparing it for production deployment.
-asena-cli init    Creates a .asenarc.json file with default values (requires manual updates).
-asena-cli dev start    Builds the project and starts the output file in development mode.
+asena build    For building the project and preparing it for production deployment.
+asena init    Creates a .asenarc.json file with default values (requires manual updates).
+asena dev start    Builds the project and starts the output file in development mode.
 ```
 
 ### Build

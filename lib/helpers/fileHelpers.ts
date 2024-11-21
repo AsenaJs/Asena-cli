@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import {EXCLUDE_DIR_LIST} from '../constants';
+import { EXCLUDE_DIR_LIST } from '../constants';
 
 export const getAllFiles = (dirPath: string, arrayOfFiles: string[] = []): string[] => {
   try {
