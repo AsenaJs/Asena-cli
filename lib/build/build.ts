@@ -1,10 +1,11 @@
 import type { IocConfig } from '../types';
 import { getInjectables, readConfigFile } from '../config';
 import { createBuildCode } from './buildGenerator';
-import path from 'path';
+import { checkComponentExistence } from '../helpers/iocHelpers';
 import { createAsenaEntryFile, getAsenaEntryFromCode, getFileExtension, removeAsenaFromFile } from '../helpers';
 import { $, type BuildConfig, write } from 'bun';
 import fs from 'fs';
+import path from 'path';
 
 const createExecutable = async (buildFilePath: string, _outfile?: string) => {
   let outfile = _outfile;
@@ -45,6 +46,14 @@ export const build = async () => {
     await createAsenaEntryFile(buildFilePath, removeAsenaFromFile(rootFileCode));
 
     const injections = await getInjectables(configFile);
+
+    if (!checkComponentExistence(injections)) {
+      console.error('\x1b[31m%s\x1b[0m', 'No components has found');
+
+      fs.unlinkSync(buildFilePath);
+
+      process.exit(1);
+    }
 
     const buildCode = await createBuildCode(
       removeAsenaFromFile(rootFileCode),
