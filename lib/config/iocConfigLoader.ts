@@ -1,8 +1,8 @@
 import type { Class, Components, ComponentsPath, IocConfig } from '../types';
 import path from 'node:path';
-import { getAllFiles, readJson } from '../helpers';
-import { getMetadata } from 'reflect-metadata/no-conflict';
-import { IOC_OBJECT_KEY } from '../constants';
+import {getAllFiles, readJson} from '../helpers';
+import {getMetadata} from 'reflect-metadata/no-conflict';
+import {IOC_OBJECT_KEY} from '../constants';
 
 export const readConfigFile = (): IocConfig => {
   const folderPath = path.join(process.cwd());

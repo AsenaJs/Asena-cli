@@ -16,22 +16,22 @@ Documentation will be updated soon. For now you can use help command to see avai
 ### Help
 
 ```text
-asena-cli --help
+asena --help
 
 Commands:
 
-asena-cli build    For building the project and preparing it for production deployment.
-asena-cli init    Creates a .asenarc.json file with default values (requires manual updates).
-asena-cli dev start    Builds the project and starts the output file in development mode.
+asena build    For building the project and preparing it for production deployment.
+asena init    Creates a .asenarc.json file with default values (requires manual updates).
+asena dev start    Builds the project and starts the output file in development mode.
 ```
 
 ### Build
 
-Asena build autmaticly search for your .asenarc.json file in your project root directory. If you don't have one you can create it with `asena-cli init` command.
+Asena build autmaticly search for your .asenarc.json file in your project root directory. If you don't have one you can create it with `asena init` command.
 
 ```bash 
 
-asena-cli build
+asena build
 
 ```
 
@@ -40,6 +40,6 @@ asena-cli build
 Creates a .asenarc.json file with default values (requires manual updates).
 
 ```bash
-asena-cli init
+asena init
 ```
 
