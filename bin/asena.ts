@@ -55,9 +55,9 @@ const cli = async (command: string) => {
               'Asena cli usage\n' +
                 '\n' +
                 'Commands:\n\n' +
-                'asena-cli build    For building the project and preparing it for production deployment.\n' +
-                'asena-cli init    Creates a .asenarc.json file with default values (requires manual updates).\n' +
-                'asena-cli dev start    Builds the project and starts the output file in development mode.',
+                'asena build    For building the project and preparing it for production deployment.\n' +
+                'asena init    Creates a .asenarc.json file with default values (requires manual updates).\n' +
+                'asena dev start    Builds the project and starts the output file in development mode.',
             ),
           ),
         );
@@ -65,7 +65,7 @@ const cli = async (command: string) => {
         break;
 
       default:
-        console.log('Invalid command please type "asena-cli --help" to learn usage of the asena-cli');
+        console.log('Invalid command please type "asena --help" to learn usage of the asena-cli');
     }
   } catch (e) {
     console.error('asena-cli failed: ', e);
