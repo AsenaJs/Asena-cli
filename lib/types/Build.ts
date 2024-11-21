@@ -1,4 +1,4 @@
-import type { BunPlugin, Loader, ModuleFormat, Target } from 'bun';
+import type { BunPlugin, Loader, Target } from 'bun';
 
 export type Class<T = any> = new (...args: any[]) => T;
 
@@ -14,7 +14,7 @@ export interface BuildOptions {
   executable?: boolean;
   outdir?: string;
   target?: Target;
-  format?: ModuleFormat;
+  format?: 'esm' | 'cjs' | 'iife';
   naming?:
     | string
     | {

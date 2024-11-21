@@ -1,5 +1,5 @@
-import {isAsenaConfigExists} from '../helpers';
-import {INITIAL_ASENA_CONFIG} from '../constants';
+import { isAsenaConfigExists } from '../helpers';
+import { INITIAL_ASENA_CONFIG } from '../constants';
 
 export const init = async () => {
   if (!isAsenaConfigExists()) {

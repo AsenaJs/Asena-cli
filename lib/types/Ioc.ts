@@ -1,4 +1,4 @@
-import type {BuildOptions} from "./Build";
+import type { BuildOptions } from './Build';
 
 export interface IocConfig {
   sourceFolder: string;

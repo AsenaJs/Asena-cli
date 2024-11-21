@@ -1,6 +1,6 @@
-import {readConfigFile} from '../config';
-import {changeFileExtensionToAsenaJs, findBuildExecutable} from '../helpers';
-import {$} from 'bun';
+import { readConfigFile } from '../config';
+import { changeFileExtensionToAsenaJs, findBuildExecutable } from '../helpers';
+import { $ } from 'bun';
 
 export const runProject = async () => {
   const config = readConfigFile();
