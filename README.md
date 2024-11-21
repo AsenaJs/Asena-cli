@@ -16,7 +16,7 @@ Documentation will be updated soon. For now you can use help command to see avai
 ### Help
 
 ```text
-asena-cli --help
+asena --help
 
 Commands:
 
@@ -31,7 +31,7 @@ Asena build autmaticly search for your .asenarc.json file in your project root d
 
 ```bash 
 
-asena-cli build
+asena build
 
 ```
 
@@ -40,6 +40,6 @@ asena-cli build
 Creates a .asenarc.json file with default values (requires manual updates).
 
 ```bash
-asena-cli init
+asena init
 ```
 
