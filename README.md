@@ -27,12 +27,10 @@ asena dev start    Builds the project and starts the output file in development 
 
 ### Build
 
-Asena build autmaticly search for your .asenarc.json file in your project root directory. If you don't have one you can create it with `asena init` command.
+Asena automatically searches for your .asenarc.json file in the root directory of your project. If it doesn't find one, you can create it using the ``asena init`` command.
 
 ```bash 
-
 asena build
-
 ```
 
 ### Init
@@ -42,4 +40,3 @@ Creates a .asenarc.json file with default values (requires manual updates).
 ```bash
 asena init
 ```
-

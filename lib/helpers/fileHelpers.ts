@@ -76,3 +76,25 @@ export const findBuildExecutable = (buildDir: string, rootFile: string): string 
     return findBuildExecutable(buildDir, trimPath(rootFile));
   }
 };
+
+export const removeAsenaFromFile = (code: string) => {
+  const codeToRemove = /new\s+AsenaServer\((?:.|\n)*?\)\s*\.start\(\);/;
+
+  return code.replace(codeToRemove, '');
+};
+
+export const createAsenaEntryFile = async (filePath: string, code: string) => {
+  await Bun.write(filePath, code);
+};
+
+export const getAsenaEntryFromCode = (code: string) => {
+  const codeToRemove = /new\s+AsenaServer\((?:.|\n)*?\)\s*\.start\(\);/;
+
+  const codeBlock = codeToRemove.exec(code);
+
+  if (!codeBlock) {
+    throw new Error('No AsenaServer function found, please check your rootFile and .asenarc.json');
+  }
+
+  return codeBlock[0];
+};

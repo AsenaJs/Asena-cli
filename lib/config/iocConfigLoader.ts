@@ -1,8 +1,8 @@
-import type { Class, Components, IocConfig } from '../types';
+import type { Class, Components, ComponentsPath, IocConfig } from '../types';
 import path from 'node:path';
-import { getAllFiles, readJson } from '../helpers';
-import { getMetadata } from 'reflect-metadata/no-conflict';
-import { IOC_OBJECT_KEY } from '../constants';
+import {getAllFiles, readJson} from '../helpers';
+import {getMetadata} from 'reflect-metadata/no-conflict';
+import {IOC_OBJECT_KEY} from '../constants';
 
 export const readConfigFile = (): IocConfig => {
   const folderPath = path.join(process.cwd());
@@ -56,7 +56,7 @@ export const getInjectables = async (config: IocConfig) => {
     }),
   );
 
-  const injectionsByFile: { [key: string]: Class[] } = {};
+  const injectionsByFile: ComponentsPath = {};
 
   for (const file of Object.keys(components)) {
     injectionsByFile[file] = Object.values(components[file])
