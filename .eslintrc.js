@@ -19,6 +19,7 @@ module.exports = {
     ecmaVersion: 'latest',
     sourceType: 'module',
   },
+  plugins: ['import'],
   rules: {
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     'lines-between-class-members': ['error', 'always'],
@@ -32,6 +33,17 @@ module.exports = {
       { blankLine: 'always', prev: 'class', next: '*' },
       { blankLine: 'always', prev: ['for', 'if', 'iife', 'do', 'expression', 'try', 'while'], next: '*' },
       { blankLine: 'any', prev: ['const', 'let', 'var'], next: ['const', 'let', 'var'] },
+    ],
+    'import/order': [
+      'error',
+      {
+        groups: ['builtin', 'external', 'internal', ['parent', 'sibling', 'index'], 'object', 'type'],
+        alphabetize: {
+          order: 'asc', // Sort alphabetically
+          caseInsensitive: false,
+        },
+        'newlines-between': 'never', // Add a newline between import groups
+      },
     ],
   },
 };

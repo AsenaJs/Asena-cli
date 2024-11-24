@@ -6,8 +6,13 @@ export interface ComponentsPath {
   [key: string]: Class[];
 }
 
-export interface Components {
-  [path: string]: Class[];
+export interface ImportsByFiles {
+  [key: string]: string[];
+}
+
+export enum ImportType {
+  IMPORT,
+  REQUIRE,
 }
 
 export interface BuildOptions {

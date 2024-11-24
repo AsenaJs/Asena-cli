@@ -18,6 +18,8 @@
     "url": "https://github.com/AsenaJs/Asena-cli"
   },
   "dependencies": {
+    "commander": "^12.1.0",
+    "inquirer": "^12.1.0",
     "reflect-metadata": "^0.2.2",
     "strip-json-comments": "^5.0.1"
   },
