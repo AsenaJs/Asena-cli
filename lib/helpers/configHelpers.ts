@@ -5,7 +5,7 @@ export const isAsenaConfigExists = () => {
 };
 
 export const readJson = (path: string) => {
-  const file = fs.readFileSync(path, { encoding: 'utf-8' });
+  const file = Bun.file(path, { type: 'application/json' });
 
-  return JSON.parse(file);
+  return file.json();
 };

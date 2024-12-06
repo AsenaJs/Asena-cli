@@ -1,25 +1,34 @@
 import fs from 'fs';
 import path from 'path';
 import { $, type BuildConfig, write } from 'bun';
-import { AsenaServerHandler, ConfigHandler, ImportHandler } from '../codeHandler';
-import { checkComponentExistence, getFileExtension, getImportType, RegexUtils } from '../helpers';
-import { InjectionHandler } from '../ioc/InjectionHandler';
-import type { ComponentsPath, ImportsByFiles } from '../types';
+import { Command } from 'commander';
+import { AsenaServerHandler, ConfigHandler, ImportHandler } from '../codeBuilder';
+import { checkControllerExistence, getControllers, getFileExtension, getImportType, RegexHelper } from '../helpers';
+import type { AsenaConfig, ControllerPath, ImportsByFiles } from '../types';
 
-export class BuildHandler {
-
+export class Build {
   private _buildFilePath = '';
 
-  private configFile: ConfigHandler;
+  private configFile: AsenaConfig = { rootFile: '', sourceFolder: '' };
 
-  public constructor() {
-    this.configFile = new ConfigHandler();
-
-    this._buildFilePath = this.createBuildFilePath();
+  public command() {
+    return new Command('build')
+      .description('For building the project and preparing it for production deployment')
+      .action(async () => {
+        try {
+          await this.build();
+        } catch (error) {
+          console.error('Build failed: ', error);
+        }
+      });
   }
 
   public async build() {
     try {
+      this.configFile = (await new ConfigHandler().exec()).configFile;
+
+      this._buildFilePath = this.createBuildFilePath();
+
       const { rootFileCode, injections } = await this.readAndPrepareCode();
 
       const buildCode = await this.buildCode(rootFileCode, injections);
@@ -38,15 +47,7 @@ export class BuildHandler {
     }
   }
 
-  public removeBuildFolder() {
-    try {
-      fs.rmdirSync(this.configFile.outdir);
-    } catch (err) {
-      console.log('Can not find out dir');
-    }
-  }
-
-  public removeAsenaEntryFile = () => {
+  private removeAsenaEntryFile = () => {
     try {
       fs.unlinkSync(this._buildFilePath);
     } catch {
@@ -54,7 +55,7 @@ export class BuildHandler {
     }
   };
 
-  private async buildCode(rootFileCode: string, components: ComponentsPath) {
+  private async buildCode(rootFileCode: string, components: ControllerPath) {
     const importType = await getImportType();
 
     const { cleanedCode, asenaServerCodeBlock } = this.cleanCodeAndExtractServer(rootFileCode);
@@ -71,9 +72,9 @@ export class BuildHandler {
   }
 
   private cleanCodeAndExtractServer(rootFileCode: string) {
-    const cleanedCode = RegexUtils.removeAsenaServerFromCode(rootFileCode);
+    const cleanedCode = RegexHelper.removeAsenaServerFromCode(rootFileCode);
 
-    const asenaServerCodeBlock = RegexUtils.getAsenaServerCodeBlock(rootFileCode);
+    const asenaServerCodeBlock = RegexHelper.getAsenaServerCodeBlock(rootFileCode);
 
     if (!asenaServerCodeBlock) {
       throw new Error('No AsenaServer has found');
@@ -83,7 +84,8 @@ export class BuildHandler {
   }
 
   private createExecutable = async () => {
-    const output = await $`bun build ${this._buildFilePath} --outfile ${this.configFile.outdir} --compile`;
+    const output =
+      await $`bun build ${this._buildFilePath} --outfile ${this.configFile?.buildOptions?.outdir} --compile`;
 
     return output.stdout.toString();
   };
@@ -91,11 +93,11 @@ export class BuildHandler {
   private async readAndPrepareCode() {
     const rootFileCode = await Bun.file(this.configFile.rootFile).text();
 
-    await Bun.write(this._buildFilePath, RegexUtils.removeAsenaServerFromCode(rootFileCode));
+    await Bun.write(this._buildFilePath, RegexHelper.removeAsenaServerFromCode(rootFileCode));
 
-    const injections = (await new InjectionHandler().init()).injections;
+    const controllers = await getControllers(this.configFile.rootFile, this.configFile.sourceFolder);
 
-    if (!checkComponentExistence(injections)) {
+    if (!checkControllerExistence(controllers)) {
       console.error('\x1b[31m%s\x1b[0m', 'No components has found');
 
       fs.unlinkSync(this._buildFilePath);
@@ -103,10 +105,10 @@ export class BuildHandler {
       process.exit(1);
     }
 
-    return { rootFileCode, injections };
+    return { rootFileCode, injections: controllers };
   }
 
-  private prepareImports(components: ComponentsPath) {
+  private prepareImports(components: ControllerPath) {
     const imports: ImportsByFiles = {};
 
     let allComponents: string[] = [];
@@ -153,9 +155,4 @@ export class BuildHandler {
   private createBuildFilePath(): string {
     return `${path.dirname(this.configFile.rootFile)}/index.asena${getFileExtension(this.configFile.rootFile)}`;
   }
-
-  public get buildFilePath() {
-    return this._buildFilePath;
-  }
-
 }

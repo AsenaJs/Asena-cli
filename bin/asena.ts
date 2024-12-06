@@ -1,17 +1,6 @@
 #! /usr/bin/env bun
-import { Command } from 'commander';
-import { buildCommand, createCommand, devCommand, initCommand } from '../lib/commands';
+import { Commands } from '../lib/commands/Commands';
 
-const program = new Command();
-
-program.name('asena').description('');
-
-program.addCommand(buildCommand);
-
-program.addCommand(createCommand);
-
-program.addCommand(initCommand);
-
-program.addCommand(devCommand);
+const program = new Commands();
 
 program.parse(process.argv);

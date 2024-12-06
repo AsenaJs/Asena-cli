@@ -1,7 +1,6 @@
-import { RegexUtils } from '../helpers';
+import { RegexHelper } from '../helpers';
 
 export class AsenaServerHandler {
-
   private _asenaServer: string;
 
   public constructor(asenaServer: string) {
@@ -15,7 +14,7 @@ export class AsenaServerHandler {
   }
 
   public addComponents(components: string[]) {
-    const endIndex = RegexUtils.getAsenaServerOffset(this._asenaServer);
+    const endIndex = RegexHelper.getAsenaServerOffset(this._asenaServer);
 
     if (!endIndex) throw Error('No AsenaServer has found');
 
@@ -29,5 +28,4 @@ export class AsenaServerHandler {
   public get asenaServer() {
     return this._asenaServer;
   }
-
 }

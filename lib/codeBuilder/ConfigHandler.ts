@@ -3,11 +3,12 @@ import { getAllFiles, readJson } from '../helpers';
 import type { AsenaConfig, BuildOptions } from '../types';
 
 export class ConfigHandler {
+  private _configFile: AsenaConfig = { rootFile: '', sourceFolder: '' };
 
-  private readonly _configFile: AsenaConfig;
+  public async exec() {
+    this._configFile = await this.readConfigFile();
 
-  public constructor() {
-    this._configFile = this.readConfigFile();
+    return this;
   }
 
   public get configFile(): AsenaConfig {
@@ -30,14 +31,14 @@ export class ConfigHandler {
     return this._configFile.buildOptions?.outdir ? this._configFile.buildOptions?.outdir : './out';
   }
 
-  private readConfigFile = () => {
+  private readConfigFile = async () => {
     const folderPath = path.join(process.cwd());
     const files: string[] = getAllFiles(folderPath);
     let config: AsenaConfig | null = null;
 
     for (const file of files) {
       if (file.endsWith('asenarc.json')) {
-        config = readJson(file) as AsenaConfig;
+        config = (await readJson(file)) as AsenaConfig;
 
         break;
       }
@@ -49,5 +50,4 @@ export class ConfigHandler {
 
     return config;
   };
-
 }

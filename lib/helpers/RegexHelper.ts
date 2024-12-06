@@ -1,4 +1,4 @@
-export class RegexUtils {
+export class RegexHelper {
 
   private static asenaServerRegex = /new\s+AsenaServer\s*\([\s\S]*?\)/gm;
 

@@ -1,8 +1,9 @@
 import fs from 'fs';
 import path from 'node:path';
 import { $ } from 'bun';
-import { CreateCliHandler } from '../cli/CreateCliHandler';
-import { AsenaServerHandler, ControllerHandler, ImportHandler } from '../codeHandler';
+import { Command } from 'commander';
+import inquirer from 'inquirer';
+import { AsenaServerHandler, ControllerHandler, ImportHandler } from '../codeBuilder';
 import {
   CONTROLLER_IMPORTS,
   ESLINT,
@@ -14,31 +15,38 @@ import {
   TSCONFIG,
 } from '../constants';
 import { ImportType } from '../types';
-import { InitHandler } from './InitHandler';
+import { Init } from './Init';
 import type { ProjectSetupOptions } from '../types/create';
 
-export class CreateHandler {
-
+export class Create {
   private preference: ProjectSetupOptions = {
     projectName: 'AsenaProject',
     eslint: true,
     prettier: true,
   };
 
-  public async init() {
-    this.preference = await new CreateCliHandler().askProjectName();
-
-    return this;
+  public command() {
+    return new Command('create')
+      .description('Creates an Asena project and installs the required dependencies.')
+      .action(async () => {
+        try {
+          await this.create();
+        } catch (error) {
+          console.error('Create failed: ', error);
+        }
+      });
   }
 
-  public async create() {
+  private async create() {
+    this.preference = await this.askProjectName();
+
     const projectPath = path.resolve(process.cwd(), this.preference.projectName);
 
     await this.createPackageJson(projectPath);
 
     await this.createDefaultController(projectPath);
 
-    this.createDefaultIndexFile(projectPath);
+    await this.createDefaultIndexFile(projectPath);
 
     process.chdir(projectPath);
 
@@ -50,10 +58,10 @@ export class CreateHandler {
 
     await this.createTsConfig();
 
-    await new InitHandler().init();
+    await new Init().exec();
   }
 
-  private createDefaultIndexFile(projectPath: string) {
+  private async createDefaultIndexFile(projectPath: string) {
     let rootFileCode = '';
 
     rootFileCode = new ImportHandler(rootFileCode, ImportType.IMPORT).importToCode(
@@ -63,7 +71,7 @@ export class CreateHandler {
 
     rootFileCode += new AsenaServerHandler('').createEmptyAsenaServer().addComponents(['AsenaController']);
 
-    fs.writeFileSync(projectPath + '/src/index.ts', rootFileCode);
+    await Bun.write(projectPath + '/src/index.ts', rootFileCode);
   }
 
   private async createDefaultController(projectPath: string) {
@@ -123,4 +131,27 @@ export class CreateHandler {
     await Bun.write(process.cwd() + '/tsconfig.json', TSCONFIG);
   }
 
+  private async askProjectName(): Promise<ProjectSetupOptions> {
+    return inquirer.prompt([
+      {
+        type: 'input',
+        name: 'projectName',
+        message: '📁 Enter your project name:',
+        validate: (input: string) => (input ? true : 'Project name cannot be empty!'),
+        default: 'asenaProject',
+      },
+      {
+        type: 'confirm',
+        name: 'eslint',
+        message: '🔧 Do you want to setup ESLint?',
+        default: true,
+      },
+      {
+        type: 'confirm',
+        name: 'prettier',
+        message: '✨ Do you want to setup Prettier?',
+        default: true,
+      },
+    ]);
+  }
 }
