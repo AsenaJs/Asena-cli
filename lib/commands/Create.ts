@@ -16,10 +16,13 @@ import {
 } from '../constants';
 import { ImportType } from '../types';
 import { Init } from './Init';
+import type { BaseCommand } from '../types/baseCommand';
 import type { ProjectSetupOptions } from '../types/create';
 
-export class Create {
+export class Create implements BaseCommand {
+
   private preference: ProjectSetupOptions = {
+    config: { configType: 'JSON' },
     projectName: 'AsenaProject',
     eslint: true,
     prettier: true,
@@ -38,7 +41,7 @@ export class Create {
   }
 
   private async create() {
-    this.preference = await this.askProjectName();
+    this.preference = await this.createQuestions();
 
     const projectPath = path.resolve(process.cwd(), this.preference.projectName);
 
@@ -58,7 +61,7 @@ export class Create {
 
     await this.createTsConfig();
 
-    await new Init().exec();
+    await new Init(this.preference.config).exec();
   }
 
   private async createDefaultIndexFile(projectPath: string) {
@@ -84,7 +87,7 @@ export class Create {
 
     controllerCode += new ControllerHandler('')
       .addController('AsenaController', null)
-      .addGetRouterToController('AsenaController', 'hello-asena', 'helloAsena');
+      .addGetRouterToController('AsenaController', '', 'helloAsena');
 
     fs.mkdirSync(projectPath + '/src/controllers', { recursive: true });
 
@@ -131,14 +134,14 @@ export class Create {
     await Bun.write(process.cwd() + '/tsconfig.json', TSCONFIG);
   }
 
-  private async askProjectName(): Promise<ProjectSetupOptions> {
-    return inquirer.prompt([
+  private async createQuestions(): Promise<ProjectSetupOptions> {
+    const answers = await inquirer.prompt([
       {
         type: 'input',
         name: 'projectName',
         message: '📁 Enter your project name:',
         validate: (input: string) => (input ? true : 'Project name cannot be empty!'),
-        default: 'asenaProject',
+        default: 'AsenaProject',
       },
       {
         type: 'confirm',
@@ -152,6 +155,21 @@ export class Create {
         message: '✨ Do you want to setup Prettier?',
         default: true,
       },
+      {
+        type: 'list',
+        name: 'config',
+        message: '📁 Choose the type of your config file:',
+        choices: ['JSON', 'TypeScript'],
+        default: 'JSON',
+      },
     ]);
+
+    return {
+      projectName: answers.projectName,
+      eslint: answers.eslint,
+      prettier: answers.prettier,
+      config: { configType: answers.config },
+    };
   }
+
 }

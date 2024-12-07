@@ -5,8 +5,10 @@ import { Command } from 'commander';
 import { AsenaServerHandler, ConfigHandler, ImportHandler } from '../codeBuilder';
 import { checkControllerExistence, getControllers, getFileExtension, getImportType, RegexHelper } from '../helpers';
 import type { AsenaConfig, ControllerPath, ImportsByFiles } from '../types';
+import type { BaseCommand } from '../types/baseCommand';
 
-export class Build {
+export class Build implements BaseCommand {
+
   private _buildFilePath = '';
 
   private configFile: AsenaConfig = { rootFile: '', sourceFolder: '' };
@@ -155,4 +157,5 @@ export class Build {
   private createBuildFilePath(): string {
     return `${path.dirname(this.configFile.rootFile)}/index.asena${getFileExtension(this.configFile.rootFile)}`;
   }
+
 }

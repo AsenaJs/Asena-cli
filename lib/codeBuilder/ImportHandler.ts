@@ -1,8 +1,9 @@
 import { RegexHelper } from '../helpers';
-import type { ImportsByFiles } from '../types';
 import { ImportType } from '../types';
+import type { ImportsByFiles } from '../types';
 
 export class ImportHandler {
+
   private importsByFile: ImportsByFiles = {};
 
   private allImports: string[] = [];
@@ -90,4 +91,5 @@ export class ImportHandler {
 
     this.allImports = _allImports;
   }
+
 }

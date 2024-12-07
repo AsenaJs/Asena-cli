@@ -1,6 +1,7 @@
 import { RegexHelper } from '../helpers';
 
 export class AsenaServerHandler {
+
   private _asenaServer: string;
 
   public constructor(asenaServer: string) {
@@ -28,4 +29,5 @@ export class AsenaServerHandler {
   public get asenaServer() {
     return this._asenaServer;
   }
+
 }

@@ -3,24 +3,25 @@ import { Command } from 'commander';
 import { ConfigHandler } from '../codeBuilder';
 import { changeFileExtensionToAsenaJs, simplifyPath } from '../helpers';
 import { Build } from './Build';
+import type { BaseCommand } from '../types/baseCommand';
 
-export class Dev {
+export class Dev implements BaseCommand {
+
   public command() {
-    return new Command('dev')
-      .description('Builds the project and starts the output file in development mode.')
-      .option('--start', 'starts app in dev mode')
-      .description('developer options')
-      .action(async (option) => {
+    const devCommand = new Command('dev').description('Developer options');
+
+    devCommand
+      .command('start')
+      .description('Builds the project and starts the output file.')
+      .action(async () => {
         try {
-          if (option.start) {
-            await this.exec();
-          } else {
-            console.log('We only support start command for now');
-          }
+          await this.exec();
         } catch (error) {
           console.error('Build failed: ', error);
         }
       });
+
+    return devCommand;
   }
 
   private async exec() {
@@ -34,4 +35,5 @@ export class Dev {
 
     await $`bun run ${buildFile}`;
   }
+
 }

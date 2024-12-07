@@ -1,6 +1,7 @@
 import { RegexHelper } from '../helpers';
 
 export class ControllerHandler {
+
   private _code: string;
 
   public constructor(code: string) {
@@ -31,4 +32,5 @@ export class ControllerHandler {
   public get code() {
     return this._code;
   }
+
 }

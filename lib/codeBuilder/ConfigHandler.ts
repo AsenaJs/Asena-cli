@@ -3,6 +3,7 @@ import { getAllFiles, readJson } from '../helpers';
 import type { AsenaConfig, BuildOptions } from '../types';
 
 export class ConfigHandler {
+
   private _configFile: AsenaConfig = { rootFile: '', sourceFolder: '' };
 
   public async exec() {
@@ -37,8 +38,12 @@ export class ConfigHandler {
     let config: AsenaConfig | null = null;
 
     for (const file of files) {
-      if (file.endsWith('asenarc.json')) {
-        config = (await readJson(file)) as AsenaConfig;
+      if (file.endsWith('asenarc.json') || file.endsWith('asenarc.ts')) {
+        if (file.endsWith('.ts')) {
+          config = (await import(file)).default as AsenaConfig;
+        } else {
+          config = (await readJson(file)) as AsenaConfig;
+        }
 
         break;
       }
@@ -50,4 +55,5 @@ export class ConfigHandler {
 
     return config;
   };
+
 }
