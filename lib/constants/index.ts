@@ -1,5 +1,5 @@
 export * from './ioc';
-export * from './tsConfigUtils';
+export * from './tsConfig';
 export * from './create';
-export * from './fileUtils';
+export * from './file';
 export * from './init';
