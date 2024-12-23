@@ -1,8 +1,8 @@
 export class RegexHelper {
 
-  private static asenaServerRegex = /new\s+AsenaServer\s*\([\s\S]*?\)/gm;
+  private static asenaServerRegex = /new\s+AsenaServer\s*\((?:[^()]*|\((?:[^()]*|\([^()]*\))*\))*\)/g;
 
-  private static asenaServerCodeBlockRegex = /new\s+AsenaServer\((?:.|\n)*?\)\s*\.start\(\);/;
+  private static asenaServerCodeBlockRegex = /await\s+new\s+AsenaServer\((?:.|\n)*?\)\s*\.start\(\);/;
 
   private static getImportLinesRegex = /import\s+.*?from\s+['"].*?['"];?|import\s+['"].*?['"];?/g;
 

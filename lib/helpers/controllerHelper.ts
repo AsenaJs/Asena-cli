@@ -9,6 +9,7 @@ export const checkControllerExistence = (injections: ControllerPath) => {
 };
 export const getControllers = async (rootFile: string, sourceFolder: string) => {
   const files = getAllFiles(sourceFolder);
+
   const components: ControllerPath = {};
 
   await Promise.all(

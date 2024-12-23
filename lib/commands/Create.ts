@@ -16,13 +16,13 @@ import {
 } from '../constants';
 import { ImportType } from '../types';
 import { Init } from './Init';
+import { LoggerHandler } from '../codeBuilder/LoggerHandler';
 import type { BaseCommand } from '../types/baseCommand';
 import type { ProjectSetupOptions } from '../types/create';
 
 export class Create implements BaseCommand {
 
   private preference: ProjectSetupOptions = {
-    config: { configType: 'JSON' },
     projectName: 'AsenaProject',
     eslint: true,
     prettier: true,
@@ -41,13 +41,15 @@ export class Create implements BaseCommand {
   }
 
   private async create() {
-    this.preference = await this.createQuestions();
+    this.preference = await this.askQuestions();
 
     const projectPath = path.resolve(process.cwd(), this.preference.projectName);
 
     await this.createPackageJson(projectPath);
 
     await this.createDefaultController(projectPath);
+
+    await this.createDefaultLogger(projectPath);
 
     await this.createDefaultIndexFile(projectPath);
 
@@ -61,7 +63,7 @@ export class Create implements BaseCommand {
 
     await this.createTsConfig();
 
-    await new Init(this.preference.config).exec();
+    await new Init().exec();
   }
 
   private async createDefaultIndexFile(projectPath: string) {
@@ -72,9 +74,21 @@ export class Create implements BaseCommand {
       ImportType.IMPORT,
     );
 
-    rootFileCode += new AsenaServerHandler('').createEmptyAsenaServer().addComponents(['AsenaController']);
+    rootFileCode += '\nconst [honoAdapter,asenaLogger] = createHonoAdapter(logger);\n';
+
+    rootFileCode += new AsenaServerHandler('').createEmptyAsenaServer('honoAdapter, asenaLogger').asenaServer;
 
     await Bun.write(projectPath + '/src/index.ts', rootFileCode);
+  }
+
+  private async createDefaultLogger(projectPath: string) {
+    let loggerCode = '';
+
+    loggerCode = new LoggerHandler().createDefaultLogger().logger;
+
+    fs.mkdirSync(projectPath + '/src/logger', { recursive: true });
+
+    await Bun.write(projectPath + '/src/logger/logger.ts', loggerCode);
   }
 
   private async createDefaultController(projectPath: string) {
@@ -105,7 +119,7 @@ export class Create implements BaseCommand {
   }
 
   private async installPreRequests() {
-    await $`bun add @asenajs/asena hono winston`.quiet();
+    await $`bun add @asenajs/asena hono winston @hono/zod-validator zod`.quiet();
 
     await $`bun add -D @types/bun typescript`.quiet();
   }
@@ -134,33 +148,26 @@ export class Create implements BaseCommand {
     await Bun.write(process.cwd() + '/tsconfig.json', TSCONFIG);
   }
 
-  private async createQuestions(): Promise<ProjectSetupOptions> {
+  private async askQuestions(): Promise<ProjectSetupOptions> {
     const answers = await inquirer.prompt([
       {
         type: 'input',
         name: 'projectName',
-        message: '📁 Enter your project name:',
+        message: 'Enter your project name:',
         validate: (input: string) => (input ? true : 'Project name cannot be empty!'),
         default: 'AsenaProject',
       },
       {
         type: 'confirm',
         name: 'eslint',
-        message: '🔧 Do you want to setup ESLint?',
+        message: 'Do you want to setup ESLint?',
         default: true,
       },
       {
         type: 'confirm',
         name: 'prettier',
-        message: '✨ Do you want to setup Prettier?',
+        message: 'Do you want to setup Prettier?',
         default: true,
-      },
-      {
-        type: 'list',
-        name: 'config',
-        message: '📁 Choose the type of your config file:',
-        choices: ['JSON', 'TypeScript'],
-        default: 'JSON',
       },
     ]);
 
@@ -168,7 +175,6 @@ export class Create implements BaseCommand {
       projectName: answers.projectName,
       eslint: answers.eslint,
       prettier: answers.prettier,
-      config: { configType: answers.config },
     };
   }
 

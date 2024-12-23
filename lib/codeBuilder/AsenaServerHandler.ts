@@ -8,8 +8,8 @@ export class AsenaServerHandler {
     this._asenaServer = asenaServer;
   }
 
-  public createEmptyAsenaServer() {
-    this._asenaServer = `\n\nnew AsenaServer().logger(new DefaultLogger()).port(3000).start();`;
+  public createEmptyAsenaServer(params:string) {
+    this._asenaServer = `\n\nawait new AsenaServer(${params}).port(3000).start();`;
 
     return this;
   }

@@ -17,7 +17,7 @@ Commands:
   create          Creates an Asena project and installs the required dependencies.
   build           For building the project and preparing it for production deployment
   dev             Developer options
-  init [options]  Creates a .asenarc.json file with default values (requires manual updates).
+  init [options]  Creates a asena-config.ts file with default values (requires manual updates).
   help [command]  display help for command
 ```
 
@@ -65,18 +65,13 @@ The Init command helps set up project configuration with default settings.
 
 ### Features
 
-- **Configuration Generation**: Creates `.asenarc` configuration file
-- **Format Options**: Supports both JSON and TypeScript configuration formats
+- **Configuration Generation**: Creates `asena-config` configuration file
 - **Default Values**: Provides sensible defaults for quick start
 
 ### Usage
 
 ``` bash
-# For JSON configuration (.asenarc.json)
 asena init
-
-# For TypeScript configuration (.asenarc.ts)
-asena init --typescript
 ```
 
 #### Note
@@ -101,11 +96,10 @@ asena build
 ```
 
 ### Configuration
-Configuration can be managed inside the .asenarc config file. For a complete list of available options, refer to the [Bun build documentation](https://bun.sh/docs/bundler#reference)
+Configuration can be managed inside the asena-config config file. For a complete list of available options, refer to the [Bun build documentation](https://bun.sh/docs/bundler#reference)
 ``` json
 {
     "buildOptions": {
-    "entrypoints": ["src/index.ts"],
     "outdir": "out",
     "target": "bun",
     "minify": true

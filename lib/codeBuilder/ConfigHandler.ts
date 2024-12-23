@@ -38,7 +38,7 @@ export class ConfigHandler {
     let config: AsenaConfig | null = null;
 
     for (const file of files) {
-      if (file.endsWith('asenarc.json') || file.endsWith('asenarc.ts')) {
+      if (file.endsWith('asena-config.ts')) {
         if (file.endsWith('.ts')) {
           config = (await import(file)).default as AsenaConfig;
         } else {
