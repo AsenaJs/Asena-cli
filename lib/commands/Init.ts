@@ -12,6 +12,11 @@ export class Init implements BaseCommand {
       .action(async () => {
         try {
           await this.exec();
+
+          console.log(
+            '\x1b[32m%s\x1b[0m',
+            '\nConfig file created. Please check and update the values according to your project.',
+          );
         } catch (error) {
           console.error('Build failed: ', error);
         }
@@ -31,11 +36,6 @@ export class Init implements BaseCommand {
       if (numberOfBytes === 0) {
         throw new Error('Failed to create asena config');
       }
-
-      console.log(
-        '\x1b[32m%s\x1b[0m',
-        'Config file created. Please check and update the values according to your project.',
-      );
     } else {
       console.log('\x1b[31m%s\x1b[0m', 'Config file already exists');
     }

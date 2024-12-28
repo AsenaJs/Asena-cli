@@ -19,7 +19,7 @@ export class ControllerHandler {
   public addGetRouterToController(controllerName: string, path: string, name: string) {
     const controller = `\n\n\t@Get('/${path}')\n\tpublic async ${name}(context:Context){\n\t\treturn context.send("Hello asena");\n\t}`;
 
-    const controllerEndIndex = RegexHelper.getControllerIndexByName(this._code, controllerName);
+    const controllerEndIndex = RegexHelper.getElementIndexByName(this._code,"Controller", controllerName);
 
     if (!controllerEndIndex) throw new Error('Controller is not exists');
 

@@ -87,7 +87,7 @@ export class Build implements BaseCommand {
 
   private createExecutable = async () => {
     const output =
-      await $`bun build ${this._buildFilePath} --outfile ${this.configFile?.buildOptions?.outdir} --compile`;
+      await $`bun build ${this._buildFilePath} --outfile ${this.configFile?.buildOptions?.outdir}/executable --compile`.quiet();
 
     return output.stdout.toString();
   };

@@ -3,7 +3,8 @@ import path from 'node:path';
 import { $ } from 'bun';
 import { Command } from 'commander';
 import inquirer from 'inquirer';
-import { AsenaServerHandler, ControllerHandler, ImportHandler } from '../codeBuilder';
+import ora, { type Ora } from 'ora';
+import { AsenaServerHandler, ControllerHandler, ImportHandler, LoggerHandler } from '../codeBuilder';
 import {
   CONTROLLER_IMPORTS,
   ESLINT,
@@ -16,7 +17,6 @@ import {
 } from '../constants';
 import { ImportType } from '../types';
 import { Init } from './Init';
-import { LoggerHandler } from '../codeBuilder/LoggerHandler';
 import type { BaseCommand } from '../types/baseCommand';
 import type { ProjectSetupOptions } from '../types/create';
 
@@ -32,18 +32,34 @@ export class Create implements BaseCommand {
     return new Command('create')
       .description('Creates an Asena project and installs the required dependencies.')
       .action(async () => {
+        const spinner = ora('Creating asena project...');
+
         try {
-          await this.create();
+          const arg = process.argv.slice(3)[0];
+
+          if (arg === '.') {
+            await this.create(true, spinner);
+          } else {
+            await this.create(false, spinner);
+          }
+
+          console.log('\x1b[32m%s\x1b[0m', '\nAsena project created.');
+
+          spinner.stop();
         } catch (error) {
+          spinner.stop();
+
           console.error('Create failed: ', error);
         }
       });
   }
 
-  private async create() {
+  private async create(currentFolder: boolean, spinner: Ora) {
     this.preference = await this.askQuestions();
 
-    const projectPath = path.resolve(process.cwd(), this.preference.projectName);
+    spinner.start();
+
+    const projectPath = currentFolder ? process.cwd() : path.resolve(process.cwd(), this.preference.projectName);
 
     await this.createPackageJson(projectPath);
 
@@ -53,7 +69,7 @@ export class Create implements BaseCommand {
 
     await this.createDefaultIndexFile(projectPath);
 
-    process.chdir(projectPath);
+    if (!currentFolder) process.chdir(projectPath);
 
     await this.installPreRequests();
 
@@ -82,9 +98,7 @@ export class Create implements BaseCommand {
   }
 
   private async createDefaultLogger(projectPath: string) {
-    let loggerCode = '';
-
-    loggerCode = new LoggerHandler().createDefaultLogger().logger;
+    let loggerCode =  new LoggerHandler().createDefaultLogger().logger;
 
     fs.mkdirSync(projectPath + '/src/logger', { recursive: true });
 

@@ -85,10 +85,12 @@ export class RegexHelper {
     return matches.map((match) => match[1]?.trim());
   }
 
-  public static getControllerIndexByName = (code: string, className: string): number | null => {
+  public static getElementIndexByName = (code: string, elementType: string, className: string): number | null => {
     const escapedClassName = className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    const regex = new RegExp(`@Controller\\(\\)\\s*export\\s+class\\s+${escapedClassName}\\s*{`);
+    const regex = new RegExp(
+      `@${elementType}\\(\\)\\s*export\\s+class\\s+${escapedClassName}(?:\\s+extends\\s+(\\w+)(?:,\\s*(\\w+))*)?\\s*{`,
+    );
 
     const match = regex.exec(code);
 

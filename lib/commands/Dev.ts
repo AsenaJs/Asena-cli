@@ -29,9 +29,13 @@ export class Dev implements BaseCommand {
 
     const configHandler = await new ConfigHandler().exec();
 
-    let buildFile = `.${changeFileExtensionToAsenaJs(simplifyPath(configHandler.rootFile))}`;
+    let buildFile:string;
 
-    process.chdir(configHandler.outdir);
+    if (configHandler.buildOptions?.executable) {
+      buildFile = `${configHandler.outdir}/executable`;
+    } else {
+      buildFile = `${configHandler.outdir}/${changeFileExtensionToAsenaJs(simplifyPath(configHandler.rootFile))}`;
+    }
 
     await $`bun run ${buildFile}`;
   }
