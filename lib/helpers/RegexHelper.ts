@@ -1,8 +1,8 @@
-export class RegexUtils {
+export class RegexHelper {
 
-  private static asenaServerRegex = /new\s+AsenaServer\s*\([\s\S]*?\)/gm;
+  private static asenaServerRegex = /new\s+AsenaServer\s*\((?:[^()]*|\((?:[^()]*|\([^()]*\))*\))*\)/g;
 
-  private static asenaServerCodeBlockRegex = /new\s+AsenaServer\((?:.|\n)*?\)\s*\.start\(\);/;
+  private static asenaServerCodeBlockRegex = /await\s+new\s+AsenaServer\((?:.|\n)*?\)\s*\.start\(\);/;
 
   private static getImportLinesRegex = /import\s+.*?from\s+['"].*?['"];?|import\s+['"].*?['"];?/g;
 
@@ -85,10 +85,12 @@ export class RegexUtils {
     return matches.map((match) => match[1]?.trim());
   }
 
-  public static getControllerIndexByName = (code: string, className: string): number | null => {
+  public static getElementIndexByName = (code: string, elementType: string, className: string): number | null => {
     const escapedClassName = className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    const regex = new RegExp(`@Controller\\(\\)\\s*export\\s+class\\s+${escapedClassName}\\s*{`);
+    const regex = new RegExp(
+      `@${elementType}\\(\\)\\s*export\\s+class\\s+${escapedClassName}(?:\\s+extends\\s+(\\w+)(?:,\\s*(\\w+))*)?\\s*{`,
+    );
 
     const match = regex.exec(code);
 

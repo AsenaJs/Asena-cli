@@ -2,6 +2,7 @@ import type { ImportsByFiles } from '../types';
 
 export const TSCONFIG = `{
   "compilerOptions": {
+    // Enable latest features
     "lib": ["ESNext", "DOM"],
     "target": "ESNext",
     "module": "ESNext",
@@ -11,18 +12,19 @@ export const TSCONFIG = `{
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
 
+    // Bundler mode
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": false,
+    "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
-    "declaration": true,
-    "sourceMap": true,
-    "noEmit": false,
-    "outDir": "dist",
-    "rootDir": "./",
+    "noEmit": true,
 
-    "strict": true,
+    // Best practices
+    "strict": false,
+    "strictNullChecks": true,
     "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
+
+    // Some stricter flags
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noPropertyAccessFromIndexSignature": true
@@ -145,10 +147,12 @@ export const ESLINT_INSTALLATIONS = [
 export const PRETTIER_INSTALLATIONS = `prettier`;
 
 export const ROOT_FILE_IMPORTS: ImportsByFiles = {
-  '@asenajs/asena': ['DefaultLogger', 'AsenaServer'],
-  'controllers/AsenaController': ['AsenaController'],
+  '@asenajs/asena': ['AsenaServer', 'createHonoAdapter'],
+  'logger/logger': ['logger'],
 };
 
 export const CONTROLLER_IMPORTS: ImportsByFiles = {
-  '@asenajs/asena': ['type Context', 'Controller', 'Get'],
+  '@asenajs/asena/server': ['Controller'],
+  '@asenajs/asena/web': ['Get'],
+  '@asenajs/asena/adapter/hono': ['type Context'],
 };

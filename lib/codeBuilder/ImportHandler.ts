@@ -1,4 +1,4 @@
-import { RegexUtils } from '../helpers';
+import { RegexHelper } from '../helpers';
 import { ImportType } from '../types';
 import type { ImportsByFiles } from '../types';
 
@@ -70,13 +70,13 @@ export class ImportHandler {
 
     const importLines =
       this.importType === ImportType.IMPORT
-        ? RegexUtils.getImportLines(this.code)
-        : RegexUtils.getRequireLines(this.code);
+        ? RegexHelper.getImportLines(this.code)
+        : RegexHelper.getRequireLines(this.code);
 
     const importAndFiles = importLines.map((line) => {
       return this.importType === ImportType.IMPORT
-        ? [RegexUtils.getImportFromLine(line), RegexUtils.getImportFilePath(line)]
-        : [RegexUtils.getRequireFromLine(line), RegexUtils.getRequireFilePath(line)];
+        ? [RegexHelper.getImportFromLine(line), RegexHelper.getImportFilePath(line)]
+        : [RegexHelper.getRequireFromLine(line), RegexHelper.getRequireFilePath(line)];
     });
 
     for (const [imports, filePaths] of importAndFiles) {

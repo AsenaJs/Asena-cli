@@ -13,6 +13,12 @@
     "build": "tsc",
     "test": "bun test"
   },
+  "exports": {
+    ".": {
+      "import": "./dist/lib/index.js",
+      "types": "./dist/lib/index.d.ts"
+    }
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/AsenaJs/Asena-cli"
@@ -20,6 +26,7 @@
   "dependencies": {
     "commander": "^12.1.0",
     "inquirer": "^12.1.0",
+    "ora": "^8.1.1",
     "reflect-metadata": "^0.2.2",
     "strip-json-comments": "^5.0.1"
   },

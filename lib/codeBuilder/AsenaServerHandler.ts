@@ -1,4 +1,4 @@
-import { RegexUtils } from '../helpers';
+import { RegexHelper } from '../helpers';
 
 export class AsenaServerHandler {
 
@@ -8,14 +8,14 @@ export class AsenaServerHandler {
     this._asenaServer = asenaServer;
   }
 
-  public createEmptyAsenaServer() {
-    this._asenaServer = `\n\nnew AsenaServer().logger(new DefaultLogger()).port(3000).start();`;
+  public createEmptyAsenaServer(params:string) {
+    this._asenaServer = `\n\nawait new AsenaServer(${params}).port(3000).start();`;
 
     return this;
   }
 
   public addComponents(components: string[]) {
-    const endIndex = RegexUtils.getAsenaServerOffset(this._asenaServer);
+    const endIndex = RegexHelper.getAsenaServerOffset(this._asenaServer);
 
     if (!endIndex) throw Error('No AsenaServer has found');
 

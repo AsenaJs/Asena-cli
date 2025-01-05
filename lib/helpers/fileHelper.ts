@@ -18,7 +18,7 @@ export const getAllFiles = (dirPath: string, arrayOfFiles: string[] = []): strin
 
     return arrayOfFiles;
   } catch {
-    throw new Error('Invalid sourceFolder, please check the .asenarc.json');
+    throw new Error('Invalid sourceFolder, please check the asena-config.ts');
   }
 };
 
@@ -33,6 +33,16 @@ export const getFileExtension = (filename: string) => {
   } else {
     throw new Error('Invalid file extension');
   }
+};
+
+export const removeExtension = (fileName: string): string => {
+  const lastDotIndex = fileName.lastIndexOf('.');
+
+  if (lastDotIndex === -1) {
+    return fileName;
+  }
+
+  return fileName.substring(0, lastDotIndex);
 };
 
 export const simplifyPath = (path: string): string => {
