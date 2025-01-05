@@ -2,12 +2,17 @@ import type { BunPlugin, Loader, Target } from 'bun';
 
 export type Class<T = any> = new (...args: any[]) => T;
 
-export interface ComponentsPath {
+export interface ControllerPath {
   [key: string]: Class[];
 }
 
-export interface Components {
-  [path: string]: Class[];
+export interface ImportsByFiles {
+  [key: string]: string[];
+}
+
+export enum ImportType {
+  IMPORT,
+  REQUIRE,
 }
 
 export interface BuildOptions {
@@ -30,7 +35,7 @@ export interface BuildOptions {
   publicPath?: string;
   define?: Record<string, string>;
   loader?: { [k in string]: Loader };
-  sourcemap?: 'none' | 'linked' | 'inline' | 'external' | 'linked';
+  sourcemap?: 'none' | 'linked' | 'inline' | 'external';
   conditions?: Array<string> | string;
   minify?:
     | boolean

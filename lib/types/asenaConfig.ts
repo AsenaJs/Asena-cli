@@ -1,6 +1,6 @@
-import type { BuildOptions } from './Build';
+import type { BuildOptions } from './build';
 
-export interface IocConfig {
+export interface AsenaConfig {
   sourceFolder: string;
   rootFile: string;
   buildOptions?: BuildOptions;

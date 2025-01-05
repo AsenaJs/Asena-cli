@@ -13,16 +13,25 @@
     "build": "tsc",
     "test": "bun test"
   },
+  "exports": {
+    ".": {
+      "import": "./dist/lib/index.js",
+      "types": "./dist/lib/index.d.ts"
+    }
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/AsenaJs/Asena-cli"
   },
   "dependencies": {
+    "commander": "^12.1.0",
+    "inquirer": "^12.3.0",
+    "ora": "^8.1.1",
     "reflect-metadata": "^0.2.2",
     "strip-json-comments": "^5.0.1"
   },
   "devDependencies": {
-    "@asenajs/asena": "^0.1.17",
+    "@asenajs/asena": "^0.1.19",
     "@types/bun": "latest",
     "@types/yargs": "^17.0.33",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
@@ -34,8 +43,8 @@
     "eslint-plugin-n": "^16.6.2",
     "eslint-plugin-prettier": "^5.2.1",
     "eslint-plugin-promise": "^6.6.0",
-    "prettier": "^3.3.3",
-    "typescript": "^5.6.3"
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
