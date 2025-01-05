@@ -2,7 +2,7 @@ export class RegexHelper {
 
   private static asenaServerRegex = /new\s+AsenaServer\s*\((?:[^()]*|\((?:[^()]*|\([^()]*\))*\))*\)/g;
 
-  private static asenaServerCodeBlockRegex = /await\s+new\s+AsenaServer\((?:.|\n)*?\)\s*\.start\(\);/;
+  private static asenaServerCodeBlockRegex = /await\s+new\s+AsenaServer\([^)]*\)(?:\s*\.\w+\([^)]*\))*(?:\s*\.start\((true|false)?\))?;/;
 
   private static getImportLinesRegex = /import\s+.*?from\s+['"].*?['"];?|import\s+['"].*?['"];?/g;
 

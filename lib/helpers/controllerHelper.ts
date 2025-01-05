@@ -7,38 +7,41 @@ import type { Class, ControllerPath } from '../types';
 export const checkControllerExistence = (injections: ControllerPath) => {
   return Object.values(injections).some((paths) => paths.length > 0);
 };
+
 export const getControllers = async (rootFile: string, sourceFolder: string) => {
   const files = getAllFiles(sourceFolder);
 
   const components: ControllerPath = {};
 
-  await Promise.all(
-    files.map(async (file) => {
-      if ((file.endsWith('.ts') || file.endsWith('.js')) && !path.join(process.cwd(), file).endsWith(rootFile)) {
-        let fileContent: any;
+  for (const file of files) {
+    const relative = path.relative(file, rootFile);
 
-        try {
-          fileContent = await import(path.join(process.cwd(), file));
-        } catch (e) {
-          console.log(e);
+    if (relative === '' && file === rootFile) {
+      continue;
+    }
 
-          return [];
-        }
+    if (file.endsWith('.ts') || file.endsWith('.js')) {
+      let fileContent: any;
 
-        let filePath = path.normalize(file);
-
-        if (filePath.startsWith(sourceFolder)) {
-          filePath = filePath.slice(sourceFolder.length + 1);
-        }
-
-        components[filePath] = Object.values(fileContent);
-
-        return;
+      try {
+        fileContent = await import(path.join(process.cwd(), file));
+      } catch (e) {
+        continue;
       }
 
-      return {};
-    }),
-  );
+      let filePath = path.normalize(file);
+
+      if (filePath.startsWith(sourceFolder)) {
+        filePath = filePath.slice(sourceFolder.length + 1);
+      }
+
+      components[filePath] = Object.values(fileContent);
+
+      continue;
+    }
+
+    continue;
+  }
 
   const injectionsByFile: ControllerPath = {};
 

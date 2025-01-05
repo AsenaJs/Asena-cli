@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { getAllFiles, readJson } from '../helpers';
+import { getAllFiles } from '../helpers';
 import type { AsenaConfig, BuildOptions } from '../types';
 
 export class ConfigHandler {
@@ -39,10 +39,12 @@ export class ConfigHandler {
 
     for (const file of files) {
       if (file.endsWith('asena-config.ts')) {
-        if (file.endsWith('.ts')) {
+        try {
           config = (await import(file)).default as AsenaConfig;
-        } else {
-          config = (await readJson(file)) as AsenaConfig;
+        } catch (e) {
+          console.error('Cannot read config file', e);
+
+          throw new Error('AsenaConfig file cannot read.');
         }
 
         break;
