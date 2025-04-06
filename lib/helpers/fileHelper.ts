@@ -4,7 +4,7 @@ import { EXCLUDE_DIR_LIST } from '../constants';
 
 export const getAllFiles = (dirPath: string, arrayOfFiles: string[] = []): string[] => {
   try {
-    const files = fs.readdirSync(dirPath);
+    const files = fs.readdirSync(path.normalize(dirPath));
 
     files.forEach((file) => {
       const filePath = path.join(dirPath, file);

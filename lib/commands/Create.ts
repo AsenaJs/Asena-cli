@@ -21,7 +21,6 @@ import type { BaseCommand } from '../types/baseCommand';
 import type { ProjectSetupOptions } from '../types/create';
 
 export class Create implements BaseCommand {
-
   private preference: ProjectSetupOptions = {
     projectName: 'AsenaProject',
     eslint: true,
@@ -37,11 +36,7 @@ export class Create implements BaseCommand {
         try {
           const arg = process.argv.slice(3)[0];
 
-          if (arg === '.') {
-            await this.create(true, spinner);
-          } else {
-            await this.create(false, spinner);
-          }
+          await this.create(arg === '.', spinner);
 
           console.log('\x1b[32m%s\x1b[0m', '\nAsena project created.');
 
@@ -98,9 +93,9 @@ export class Create implements BaseCommand {
   }
 
   private async createDefaultLogger(projectPath: string) {
-    let loggerCode =  new LoggerHandler().createDefaultLogger().logger;
+    let loggerCode = new LoggerHandler().createDefaultLogger().logger;
 
-    fs.mkdirSync(projectPath + '/src/logger', { recursive: true });
+    fs.mkdirSync(path.normalize(projectPath + '/src/logger'), { recursive: true });
 
     await Bun.write(projectPath + '/src/logger/logger.ts', loggerCode);
   }
@@ -117,7 +112,7 @@ export class Create implements BaseCommand {
       .addController('AsenaController', null)
       .addGetRouterToController('AsenaController', '', 'helloAsena');
 
-    fs.mkdirSync(projectPath + '/src/controllers', { recursive: true });
+    fs.mkdirSync(path.normalize(projectPath + '/src/controllers'), { recursive: true });
 
     await Bun.write(projectPath + '/src/controllers/AsenaController.ts', controllerCode);
   }
@@ -191,5 +186,4 @@ export class Create implements BaseCommand {
       prettier: answers.prettier,
     };
   }
-
 }

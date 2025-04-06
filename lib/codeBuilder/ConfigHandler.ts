@@ -3,7 +3,6 @@ import { getAllFiles } from '../helpers';
 import type { AsenaConfig, BuildOptions } from '../types';
 
 export class ConfigHandler {
-
   private _configFile: AsenaConfig = { rootFile: '', sourceFolder: '' };
 
   public async exec() {
@@ -33,7 +32,7 @@ export class ConfigHandler {
   }
 
   private readConfigFile = async () => {
-    const folderPath = path.join(process.cwd());
+    const folderPath = path.normalize(path.join(process.cwd()));
     const files: string[] = getAllFiles(folderPath);
     let config: AsenaConfig | null = null;
 
@@ -57,5 +56,4 @@ export class ConfigHandler {
 
     return config;
   };
-
 }

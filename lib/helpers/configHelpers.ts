@@ -1,8 +1,9 @@
 import fs from 'node:fs';
-import type {AsenaConfig} from "../types";
+import path from 'node:path';
+import type { AsenaConfig } from '../types';
 
 export const isAsenaConfigExists = () => {
-  return fs.existsSync(`${process.cwd()}/asena-config.ts`);
+  return fs.existsSync(path.normalize(`${process.cwd()}/asena-config.ts`));
 };
 
 export const readJson = (path: string) => {
@@ -21,6 +22,6 @@ export const getAsenaCliVersion = async (): Promise<string | null> => {
   return packageJson['devDependencies']['@asenajs/asena-cli'];
 };
 
-export const defineConfig = (config:AsenaConfig) => {
+export const defineConfig = (config: AsenaConfig) => {
   return config;
-}
+};
