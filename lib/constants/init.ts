@@ -9,7 +9,7 @@ export default defineConfig({
     minify: {
       whitespace: true,
       syntax: true,
-      identifiers: false, //It's better for you not to turn it off for better debugging during the running phase of the application.
+      identifiers: false, //It's better for you to make this false for better debugging during the running phase of the application.
     },
   },
 });
