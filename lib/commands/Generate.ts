@@ -1,14 +1,13 @@
 import fs from 'fs';
+import path from 'node:path';
 import { Command } from 'commander';
 import inquirer from 'inquirer';
 import { ConfigHandler, ControllerHandler, ImportHandler, MiddlewareHandler, ServiceHandler } from '../codeBuilder';
-import { getImportType, removeExtension } from '../helpers';
-import { convertToPascalCase } from '../helpers';
+import { convertToPascalCase, getImportType, removeExtension } from '../helpers';
 import type { BaseCommand } from '../types/baseCommand';
 import type { GenerateOptions } from '../types/generate';
 
 export class Generate implements BaseCommand {
-
   public command() {
     const generate = new Command('generate')
       .alias('g')
@@ -100,9 +99,17 @@ export class Generate implements BaseCommand {
     const basePath = `${process.cwd()}/${sourceFolder}/${elementType}`;
     const elementFilePath = `${basePath}/${elementName}.ts`;
 
-    fs.mkdirSync(`${process.cwd()}/${sourceFolder}/controllers`, { recursive: true });
+    fs.mkdirSync(path.normalize(basePath), { recursive: true });
 
-    await Bun.write(elementFilePath, code);
+    if (!fs.existsSync(path.normalize(elementFilePath))) {
+      await Bun.write(elementFilePath, code);
+    } else {
+      console.error('\x1b[31m%s\x1b[0m', `${elementName} already exists`);
+
+      fs.unlinkSync(path.normalize(basePath));
+
+      process.exit(1);
+    }
   }
 
   private async askQuestions(element: string): Promise<GenerateOptions> {
@@ -115,5 +122,4 @@ export class Generate implements BaseCommand {
       },
     ]);
   }
-
 }

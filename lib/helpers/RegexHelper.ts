@@ -2,20 +2,23 @@ export class RegexHelper {
 
   private static asenaServerRegex = /new\s+AsenaServer\s*\((?:[^()]*|\((?:[^()]*|\([^()]*\))*\))*\)/g;
 
-  private static asenaServerCodeBlockRegex = /await\s+new\s+AsenaServer\([^)]*\)(?:\s*\.\w+\([^)]*\))*(?:\s*\.start\((true|false)?\))?;/;
+  private static asenaServerCodeBlockRegex =
+    /await\s+new\s+AsenaServer\([^)]*\)(?:\s*\.\w+\([^)]*\))*(?:\s*\.start\((true|false)?\))?;/;
 
-  private static getImportLinesRegex = /import\s+.*?from\s+['"].*?['"];?|import\s+['"].*?['"];?/g;
+  private static getImportLinesRegex =
+    /import\s*(?:(?:type\s+)?[^'"{}\n]*(?:\{[^}]*\})?[^'";\n]*)(?:\s+from)?\s*['"][^'"]+['"];?/gms;
 
-  private static getRequireLinesRegex = /const\s+.*?=\s+require\(['"].*?['"]\);?|require\(['"].*?['"]\)/g;
+  private static getRequireLinesRegex =
+    /(?:(?:const|let|var)\s+[\s\S]*?\s*=\s*)?require\(\s*['"](?:[^'"]|\\['"])+['"]\s*\)\s*;?/gms;
 
-  private static getImportFileRegex = /from\s+['"]([^'"]+)['"];?|require\(['"]([^'"]+)['"]\)/g;
+  private static getImportFileRegex = /from\s*['"]([^'"]+)['"]/g;
 
   private static getRequireFileRegex = /require\(['"]([^'"]+)['"]\)/g;
 
   private static getImportsRegex =
-    /import\s+(?:type\s+)?(?:(\w+)|(?:\{\s*(type\s+)?([\w\s,{}as]*)\s*\}))?\s*from\s*['"].*?['"];?/g;
+    /import\s*(?:(?:type\s+)?(\w+)\s*(?:,\s*{\s*((?:type\s+)?[^}]+)\s*})?\s*from\s*['"]([^'"]+)['"]|(?:type\s+)?{\s*((?:type\s+)?[^}]+)\s*}\s*from\s*['"]([^'"]+)['"]|(?:type\s+)?\*\s*as\s*(\w+)\s*from\s*['"]([^'"]+)['"]|['"]([^'"]+)['"])/gms;
 
-  private static getRequiresRegex = /const\s+(?:\w+|\{\s*[\w\s,]*\s*\})\s*=\s*require\(['"]([^'"]+)['"]\)/g;
+  private static getRequiresRegex = /const\s+([\w]+|\{\s*[\w\s,]+\s*\})\s*=\s*require\(['"]([^'"]+)['"]\)/g;
 
   public static getAsenaServerOffset = (code: string) => {
     const regex = this.asenaServerRegex;

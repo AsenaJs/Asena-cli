@@ -16,7 +16,7 @@ export const getControllers = async (rootFile: string, sourceFolder: string) => 
   for (const file of files) {
     const relative = path.relative(file, rootFile);
 
-    if (relative === '' && file === rootFile) {
+    if (relative === '' && file === path.normalize(rootFile)) {
       continue;
     }
 
@@ -29,18 +29,14 @@ export const getControllers = async (rootFile: string, sourceFolder: string) => 
         continue;
       }
 
-      let filePath = path.normalize(file);
+      let filePath = file.replace(/\\+/g, '/');
 
       if (filePath.startsWith(sourceFolder)) {
         filePath = filePath.slice(sourceFolder.length + 1);
       }
 
       components[filePath] = Object.values(fileContent);
-
-      continue;
     }
-
-    continue;
   }
 
   const injectionsByFile: ControllerPath = {};

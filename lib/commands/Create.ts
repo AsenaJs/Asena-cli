@@ -21,9 +21,9 @@ import type { BaseCommand } from '../types/baseCommand';
 import type { ProjectSetupOptions } from '../types/create';
 
 export class Create implements BaseCommand {
-
   private preference: ProjectSetupOptions = {
     projectName: 'AsenaProject',
+    logger: true,
     eslint: true,
     prettier: true,
   };
@@ -37,11 +37,7 @@ export class Create implements BaseCommand {
         try {
           const arg = process.argv.slice(3)[0];
 
-          if (arg === '.') {
-            await this.create(true, spinner);
-          } else {
-            await this.create(false, spinner);
-          }
+          await this.create(arg === '.', spinner);
 
           console.log('\x1b[32m%s\x1b[0m', '\nAsena project created.');
 
@@ -65,7 +61,7 @@ export class Create implements BaseCommand {
 
     await this.createDefaultController(projectPath);
 
-    await this.createDefaultLogger(projectPath);
+    if (this.preference.logger) await this.createDefaultLogger(projectPath);
 
     await this.createDefaultIndexFile(projectPath);
 
@@ -84,13 +80,15 @@ export class Create implements BaseCommand {
 
   private async createDefaultIndexFile(projectPath: string) {
     let rootFileCode = '';
+    const rootFileImports = ROOT_FILE_IMPORTS;
 
-    rootFileCode = new ImportHandler(rootFileCode, ImportType.IMPORT).importToCode(
-      ROOT_FILE_IMPORTS,
-      ImportType.IMPORT,
-    );
+    if (this.preference.logger) {
+      rootFileImports['logger/logger'] = ['logger'];
+    }
 
-    rootFileCode += '\nconst [honoAdapter,asenaLogger] = createHonoAdapter(logger);\n';
+    rootFileCode = new ImportHandler(rootFileCode, ImportType.IMPORT).importToCode(rootFileImports, ImportType.IMPORT);
+
+    rootFileCode += `\nconst [honoAdapter,asenaLogger] = createHonoAdapter(${this.preference.logger ? 'logger' : 'console'});\n`;
 
     rootFileCode += new AsenaServerHandler('').createEmptyAsenaServer('honoAdapter, asenaLogger').asenaServer;
 
@@ -98,9 +96,9 @@ export class Create implements BaseCommand {
   }
 
   private async createDefaultLogger(projectPath: string) {
-    let loggerCode =  new LoggerHandler().createDefaultLogger().logger;
+    let loggerCode = new LoggerHandler().createDefaultLogger().logger;
 
-    fs.mkdirSync(projectPath + '/src/logger', { recursive: true });
+    fs.mkdirSync(path.normalize(projectPath + '/src/logger'), { recursive: true });
 
     await Bun.write(projectPath + '/src/logger/logger.ts', loggerCode);
   }
@@ -117,7 +115,7 @@ export class Create implements BaseCommand {
       .addController('AsenaController', null)
       .addGetRouterToController('AsenaController', '', 'helloAsena');
 
-    fs.mkdirSync(projectPath + '/src/controllers', { recursive: true });
+    fs.mkdirSync(path.normalize(projectPath + '/src/controllers'), { recursive: true });
 
     await Bun.write(projectPath + '/src/controllers/AsenaController.ts', controllerCode);
   }
@@ -173,23 +171,29 @@ export class Create implements BaseCommand {
       },
       {
         type: 'confirm',
+        name: 'logger',
+        message: 'Do you want to setup default asena logger?[Yes by default]',
+        default: true,
+      },
+      {
+        type: 'confirm',
         name: 'eslint',
-        message: 'Do you want to setup ESLint?',
+        message: 'Do you want to setup ESLint?[Yes by default]',
         default: true,
       },
       {
         type: 'confirm',
         name: 'prettier',
-        message: 'Do you want to setup Prettier?',
+        message: 'Do you want to setup Prettier?[Yes by default]',
         default: true,
       },
     ]);
 
     return {
       projectName: answers.projectName,
+      logger: answers.logger,
       eslint: answers.eslint,
       prettier: answers.prettier,
     };
   }
-
 }
