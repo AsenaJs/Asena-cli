@@ -86,7 +86,7 @@ export class Generate implements BaseCommand {
       new ImportHandler('', importType).importToCode(
         {
           '@asenajs/asena/server': ['Middleware'],
-          '@asenajs/asena/adapter/hono': ['type Context', 'MiddlewareService'],
+          '@asenajs/hono-adapter': ['type Context', 'MiddlewareService'],
         },
         importType,
       ) + new MiddlewareHandler('').addMiddleware(controllerName).addDefaultHandle(controllerName).code;

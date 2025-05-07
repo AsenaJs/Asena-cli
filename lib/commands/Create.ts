@@ -133,7 +133,7 @@ export class Create implements BaseCommand {
   }
 
   private async installPreRequests() {
-    await $`bun add @asenajs/asena hono winston @hono/zod-validator zod`.quiet();
+    await $`bun add @asenajs/asena @asenajs/hono-adapter`.quiet();
 
     await $`bun add -D @types/bun typescript`.quiet();
   }
