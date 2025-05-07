@@ -149,7 +149,6 @@ export const PRETTIER_INSTALLATIONS = `prettier`;
 export const ROOT_FILE_IMPORTS: ImportsByFiles = {
   '@asenajs/asena': ['AsenaServer'],
   '@asenajs/hono-adapter': ['createHonoAdapter'],
-  'logger/logger': ['logger'],
 };
 
 export const CONTROLLER_IMPORTS: ImportsByFiles = {

@@ -3,7 +3,14 @@ import path from 'path';
 import { $, type BuildConfig, write } from 'bun';
 import { Command } from 'commander';
 import { AsenaServerHandler, ConfigHandler, ImportHandler } from '../codeBuilder';
-import { checkControllerExistence, getControllers, getFileExtension, getImportType, RegexHelper } from '../helpers';
+import {
+  changeFileExtensionToAsenaJs,
+  checkControllerExistence,
+  getControllers,
+  getImportType,
+  RegexHelper,
+  simplifyPath,
+} from '../helpers';
 import type { AsenaConfig, ControllerPath, ImportsByFiles } from '../types';
 import type { BaseCommand } from '../types/baseCommand';
 
@@ -154,6 +161,6 @@ export class Build implements BaseCommand {
   };
 
   private createBuildFilePath(): string {
-    return `${path.dirname(this.configFile.rootFile)}/index.asena${getFileExtension(this.configFile.rootFile)}`;
+    return `${path.dirname(this.configFile.rootFile)}/${changeFileExtensionToAsenaJs(simplifyPath(this.configFile.rootFile))}`;
   }
 }

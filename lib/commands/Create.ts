@@ -23,6 +23,7 @@ import type { ProjectSetupOptions } from '../types/create';
 export class Create implements BaseCommand {
   private preference: ProjectSetupOptions = {
     projectName: 'AsenaProject',
+    logger: true,
     eslint: true,
     prettier: true,
   };
@@ -60,7 +61,7 @@ export class Create implements BaseCommand {
 
     await this.createDefaultController(projectPath);
 
-    await this.createDefaultLogger(projectPath);
+    if (this.preference.logger) await this.createDefaultLogger(projectPath);
 
     await this.createDefaultIndexFile(projectPath);
 
@@ -79,13 +80,15 @@ export class Create implements BaseCommand {
 
   private async createDefaultIndexFile(projectPath: string) {
     let rootFileCode = '';
+    const rootFileImports = ROOT_FILE_IMPORTS;
 
-    rootFileCode = new ImportHandler(rootFileCode, ImportType.IMPORT).importToCode(
-      ROOT_FILE_IMPORTS,
-      ImportType.IMPORT,
-    );
+    if (this.preference.logger) {
+      rootFileImports['logger/logger'] = ['logger'];
+    }
 
-    rootFileCode += '\nconst [honoAdapter,asenaLogger] = createHonoAdapter(logger);\n';
+    rootFileCode = new ImportHandler(rootFileCode, ImportType.IMPORT).importToCode(rootFileImports, ImportType.IMPORT);
+
+    rootFileCode += `\nconst [honoAdapter,asenaLogger] = createHonoAdapter(${this.preference.logger ? 'logger' : 'console'});\n`;
 
     rootFileCode += new AsenaServerHandler('').createEmptyAsenaServer('honoAdapter, asenaLogger').asenaServer;
 
@@ -168,20 +171,27 @@ export class Create implements BaseCommand {
       },
       {
         type: 'confirm',
+        name: 'logger',
+        message: 'Do you want to setup default asena logger?[Yes by default]',
+        default: true,
+      },
+      {
+        type: 'confirm',
         name: 'eslint',
-        message: 'Do you want to setup ESLint?',
+        message: 'Do you want to setup ESLint?[Yes by default]',
         default: true,
       },
       {
         type: 'confirm',
         name: 'prettier',
-        message: 'Do you want to setup Prettier?',
+        message: 'Do you want to setup Prettier?[Yes by default]',
         default: true,
       },
     ]);
 
     return {
       projectName: answers.projectName,
+      logger: answers.logger,
       eslint: answers.eslint,
       prettier: answers.prettier,
     };

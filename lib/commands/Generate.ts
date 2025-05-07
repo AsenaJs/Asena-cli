@@ -99,9 +99,17 @@ export class Generate implements BaseCommand {
     const basePath = `${process.cwd()}/${sourceFolder}/${elementType}`;
     const elementFilePath = `${basePath}/${elementName}.ts`;
 
-    fs.mkdirSync(path.normalize(`${process.cwd()}/${sourceFolder}/controllers`), { recursive: true });
+    fs.mkdirSync(path.normalize(basePath), { recursive: true });
 
-    await Bun.write(elementFilePath, code);
+    if (!fs.existsSync(path.normalize(elementFilePath))) {
+      await Bun.write(elementFilePath, code);
+    } else {
+      console.error('\x1b[31m%s\x1b[0m', `${elementName} already exists`);
+
+      fs.unlinkSync(path.normalize(basePath));
+
+      process.exit(1);
+    }
   }
 
   private async askQuestions(element: string): Promise<GenerateOptions> {
