@@ -12,7 +12,8 @@
   "scripts": {
     "build": "bun run clean && tsc",
     "clean": "rm -rf dist",
-    "test": "bun test"
+    "test": "bun test",
+    "pre-release": "bun update && bun run build"
   },
   "exports": {
     ".": {
