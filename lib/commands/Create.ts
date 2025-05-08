@@ -4,7 +4,7 @@ import { $ } from 'bun';
 import { Command } from 'commander';
 import inquirer from 'inquirer';
 import ora, { type Ora } from 'ora';
-import { AsenaServerHandler, ControllerHandler, ImportHandler, LoggerHandler } from '../codeBuilder';
+import { AsenaServerHandler, ControllerHandler, ImportHandler, AsenaLoggerCreator } from '../codeBuilder';
 import {
   CONTROLLER_IMPORTS,
   ESLINT,
@@ -21,6 +21,7 @@ import type { BaseCommand } from '../types/baseCommand';
 import type { ProjectSetupOptions } from '../types/create';
 
 export class Create implements BaseCommand {
+
   private preference: ProjectSetupOptions = {
     projectName: 'AsenaProject',
     logger: true,
@@ -61,7 +62,7 @@ export class Create implements BaseCommand {
 
     await this.createDefaultController(projectPath);
 
-    if (this.preference.logger) await this.createDefaultLogger(projectPath);
+    if (this.preference.logger) await this.createAsenaLogger(projectPath);
 
     await this.createDefaultIndexFile(projectPath);
 
@@ -95,8 +96,8 @@ export class Create implements BaseCommand {
     await Bun.write(projectPath + '/src/index.ts', rootFileCode);
   }
 
-  private async createDefaultLogger(projectPath: string) {
-    let loggerCode = new LoggerHandler().createDefaultLogger().logger;
+  private async createAsenaLogger(projectPath: string) {
+    let loggerCode = AsenaLoggerCreator.createLogger();
 
     fs.mkdirSync(path.normalize(projectPath + '/src/logger'), { recursive: true });
 
@@ -132,6 +133,10 @@ export class Create implements BaseCommand {
 
   private async installPreRequests() {
     await $`bun add @asenajs/asena @asenajs/hono-adapter`.quiet();
+
+    if (this.preference.logger) {
+      await $`bun add @asenajs/asena-logger`.quiet();
+    }
 
     await $`bun add -D @types/bun typescript`.quiet();
   }
@@ -196,4 +201,5 @@ export class Create implements BaseCommand {
       prettier: answers.prettier,
     };
   }
+
 }
