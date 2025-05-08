@@ -1,6 +1,6 @@
 {
   "name": "@asenajs/asena-cli",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "author": "LibirSoft",
   "license": "MIT",
   "bin": {

@@ -1,5 +1,11 @@
 # @asenajs/asena-cli
 
+## 0.3.4
+
+### Patch Changes
+
+- missing package added
+
 ## 0.3.3
 
 ### Patch Changes
