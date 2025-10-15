@@ -1,4 +1,3 @@
-import fs from 'fs';
 import path from 'node:path';
 import { $ } from 'bun';
 import { Command } from 'commander';
@@ -6,15 +5,19 @@ import inquirer from 'inquirer';
 import ora, { type Ora } from 'ora';
 import { AsenaServerHandler, ControllerHandler, ImportHandler, AsenaLoggerCreator } from '../codeBuilder';
 import {
-  CONTROLLER_IMPORTS,
   ESLINT,
   ESLINT_IGNORE,
   ESLINT_INSTALLATIONS,
   PRETTIER,
   PRETTIER_INSTALLATIONS,
-  ROOT_FILE_IMPORTS,
   TSCONFIG,
 } from '../constants';
+import {
+  getRootImports,
+  getAdapterPackage,
+  getAdapterFunctionName,
+  getControllerImports,
+} from '../helpers';
 import { ImportType } from '../types';
 import { Init } from './Init';
 import type { BaseCommand } from '../types/baseCommand';
@@ -24,6 +27,7 @@ export class Create implements BaseCommand {
 
   private preference: ProjectSetupOptions = {
     projectName: 'AsenaProject',
+    adapter: 'hono',
     logger: true,
     eslint: true,
     prettier: true,
@@ -38,7 +42,10 @@ export class Create implements BaseCommand {
         try {
           const arg = process.argv.slice(3)[0];
 
-          await this.create(arg === '.', spinner);
+          // If no argument provided or '.' provided, create in current folder
+          const currentFolder = !arg || arg === '.';
+
+          await this.create(currentFolder, spinner);
 
           console.log('\x1b[32m%s\x1b[0m', '\nAsena project created.');
 
@@ -52,7 +59,12 @@ export class Create implements BaseCommand {
   }
 
   private async create(currentFolder: boolean, spinner: Ora) {
-    this.preference = await this.askQuestions();
+    this.preference = await this.askQuestions(currentFolder);
+
+    // If creating in current folder, set project name to "myApp"
+    if (currentFolder) {
+      this.preference.projectName = 'myApp';
+    }
 
     spinner.start();
 
@@ -76,12 +88,12 @@ export class Create implements BaseCommand {
 
     await this.createTsConfig();
 
-    await new Init().exec();
+    await new Init().exec(this.preference.adapter);
   }
 
   private async createDefaultIndexFile(projectPath: string) {
     let rootFileCode = '';
-    const rootFileImports = ROOT_FILE_IMPORTS;
+    const rootFileImports = getRootImports(this.preference.adapter);
 
     if (this.preference.logger) {
       rootFileImports['logger/logger'] = ['logger'];
@@ -89,9 +101,18 @@ export class Create implements BaseCommand {
 
     rootFileCode = new ImportHandler(rootFileCode, ImportType.IMPORT).importToCode(rootFileImports, ImportType.IMPORT);
 
-    rootFileCode += `\nconst [honoAdapter,asenaLogger] = createHonoAdapter(${this.preference.logger ? 'logger' : 'console'});\n`;
+    const adapterFunctionName = getAdapterFunctionName(this.preference.adapter);
+    const loggerArg = this.preference.logger ? 'logger' : 'console';
 
-    rootFileCode += new AsenaServerHandler('').createEmptyAsenaServer('honoAdapter, asenaLogger').asenaServer;
+    if (this.preference.adapter === 'hono') {
+      // Hono: createHonoAdapter(logger) returns [adapter, logger]
+      rootFileCode += `\nconst [honoAdapter, asenaLogger] = ${adapterFunctionName}(${loggerArg});\n`;
+      rootFileCode += new AsenaServerHandler('').createEmptyAsenaServer('honoAdapter', 'asenaLogger').asenaServer;
+    } else {
+      // Ergenecore: createErgenecoreAdapter({ logger }) returns adapter instance
+      rootFileCode += `\nconst ergenecoreAdapter = ${adapterFunctionName}({ logger: ${loggerArg} });\n`;
+      rootFileCode += new AsenaServerHandler('').createEmptyAsenaServer('ergenecoreAdapter', loggerArg).asenaServer;
+    }
 
     await Bun.write(projectPath + '/src/index.ts', rootFileCode);
   }
@@ -99,7 +120,7 @@ export class Create implements BaseCommand {
   private async createAsenaLogger(projectPath: string) {
     let loggerCode = AsenaLoggerCreator.createLogger();
 
-    fs.mkdirSync(path.normalize(projectPath + '/src/logger'), { recursive: true });
+    await $`mkdir -p ${path.normalize(projectPath + '/src/logger')}`.quiet();
 
     await Bun.write(projectPath + '/src/logger/logger.ts', loggerCode);
   }
@@ -107,8 +128,10 @@ export class Create implements BaseCommand {
   private async createDefaultController(projectPath: string) {
     let controllerCode = '';
 
+    const controllerImports = getControllerImports(this.preference.adapter);
+
     controllerCode = new ImportHandler(controllerCode, ImportType.IMPORT).importToCode(
-      CONTROLLER_IMPORTS,
+      controllerImports,
       ImportType.IMPORT,
     );
 
@@ -116,7 +139,7 @@ export class Create implements BaseCommand {
       .addController('AsenaController', null)
       .addGetRouterToController('AsenaController', '', 'helloAsena');
 
-    fs.mkdirSync(path.normalize(projectPath + '/src/controllers'), { recursive: true });
+    await $`mkdir -p ${path.normalize(projectPath + '/src/controllers')}`.quiet();
 
     await Bun.write(projectPath + '/src/controllers/AsenaController.ts', controllerCode);
   }
@@ -132,7 +155,8 @@ export class Create implements BaseCommand {
   }
 
   private async installPreRequests() {
-    await $`bun add @asenajs/asena @asenajs/hono-adapter`.quiet();
+    const adapterPackage = getAdapterPackage(this.preference.adapter);
+    await $`bun add @asenajs/asena ${adapterPackage}`.quiet();
 
     if (this.preference.logger) {
       await $`bun add @asenajs/asena-logger`.quiet();
@@ -165,14 +189,31 @@ export class Create implements BaseCommand {
     await Bun.write(process.cwd() + '/tsconfig.json', TSCONFIG);
   }
 
-  private async askQuestions(): Promise<ProjectSetupOptions> {
-    const answers = await inquirer.prompt([
-      {
+  private async askQuestions(currentFolder: boolean): Promise<ProjectSetupOptions> {
+    const questions: any[] = [];
+
+    // Only ask for project name if NOT creating in current folder
+    if (!currentFolder) {
+      questions.push({
         type: 'input',
         name: 'projectName',
         message: 'Enter your project name:',
         validate: (input: string) => (input ? true : 'Project name cannot be empty!'),
         default: 'AsenaProject',
+      });
+    }
+
+    // Always ask these questions
+    questions.push(
+      {
+        type: 'list',
+        name: 'adapter',
+        message: 'Which adapter do you want to use?',
+        choices: [
+          { name: 'Hono Adapter (Recommended)', value: 'hono' },
+          { name: 'Ergenecore Adapter', value: 'ergenecore' },
+        ],
+        default: 'hono',
       },
       {
         type: 'confirm',
@@ -192,10 +233,13 @@ export class Create implements BaseCommand {
         message: 'Do you want to setup Prettier?[Yes by default]',
         default: true,
       },
-    ]);
+    );
+
+    const answers: any = await inquirer.prompt(questions);
 
     return {
-      projectName: answers.projectName,
+      projectName: answers.projectName || 'myApp', // Default to 'myApp' if not asked
+      adapter: answers.adapter,
       logger: answers.logger,
       eslint: answers.eslint,
       prettier: answers.prettier,

@@ -15,6 +15,7 @@ import type { AsenaConfig, ControllerPath, ImportsByFiles } from '../types';
 import type { BaseCommand } from '../types/baseCommand';
 
 export class Build implements BaseCommand {
+
   private _buildFilePath = '';
 
   private configFile: AsenaConfig = { rootFile: '', sourceFolder: '' };
@@ -105,6 +106,8 @@ export class Build implements BaseCommand {
 
     const controllers = await getControllers(this.configFile.rootFile, this.configFile.sourceFolder);
 
+    console.log('here');
+
     if (!checkControllerExistence(controllers)) {
       console.error('\x1b[31m%s\x1b[0m', 'No components has found');
 
@@ -163,4 +166,5 @@ export class Build implements BaseCommand {
   private createBuildFilePath(): string {
     return `${path.dirname(this.configFile.rootFile)}/${changeFileExtensionToAsenaJs(simplifyPath(this.configFile.rootFile))}`;
   }
+
 }

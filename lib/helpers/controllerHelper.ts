@@ -1,7 +1,7 @@
 import path from 'path';
 import { getMetadata } from 'reflect-metadata/no-conflict';
 import { getAllFiles } from './fileHelper';
-import { IOC_OBJECT_KEY } from '../constants';
+import { ComponentConstants } from '../constants';
 import type { Class, ControllerPath } from '../types';
 
 export const checkControllerExistence = (injections: ControllerPath) => {
@@ -46,7 +46,7 @@ export const getControllers = async (rootFile: string, sourceFolder: string) => 
       .flat()
       .filter((c) => {
         try {
-          return !!getMetadata(IOC_OBJECT_KEY, c as any);
+          return !!getMetadata(ComponentConstants.IOCObjectKey, c as any);
         } catch (e) {
           return false;
         }

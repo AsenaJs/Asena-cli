@@ -62,15 +62,16 @@ Your application will be available at http://localhost:3000.
 
 The Create command bootstraps new Asena projects with a complete development environment setup.
 
-#### Features
+##### Features
 
 - **Interactive Setup**: Uses inquirer for a user-friendly setup experience
+- **Multi-Adapter Support**: Choose between Hono or Ergenecore adapters during project setup
 - **Project Structure**: Creates the basic project structure with necessary files and directories
 - **Default Components**: Generates default controller and server setup
 - **Development Tools**: Optional integration of:
   - ESLint configuration
   - Prettier setup
-- **Dependency Management**: Automatically installs required dependencies
+- **Dependency Management**: Automatically installs required dependencies based on selected adapter
 
 ### ```asena generate```
 
@@ -80,17 +81,20 @@ The generate command allows you to quickly and consistently create project compo
 
 ### Features
 
-- **Multi-Component Support**: Ability to generate controllers, services, and middlewares
+- **Multi-Component Support**: Ability to generate controllers, services, middlewares, configs, and websockets
 - **Automatic Code Generation**: Creates template code with base structure and necessary imports
+- **Adapter-Aware Generation**: Generates adapter-specific code based on project configuration
 - **Project Structure Integration**: Places generated files in the correct directories
-- **Shortcuts**: Command aliases for faster usage (g, c, s, m)
+- **Shortcuts**: Command aliases for faster usage (g, c, s, m, ws)
 
 
-| **Component** | **Full Command**              | **Shortcut Command** | **Description**              |
-|---------------|-------------------------------|-----------------------|--------------------------|
-| Controller    | `asena generate controller`   | `asena g c`           | Generates a controller   |
-| Service       | `asena generate service`      | `asena g s`           | Generates a service      |
-| Middleware    | `asena generate middleware`   | `asena g m`           | Generates a middleware   |
+| **Component** | **Full Command**              | **Shortcut Command** | **Description**                    |
+|---------------|-------------------------------|----------------------|------------------------------------|
+| Controller    | `asena generate controller`   | `asena g c`          | Generates a controller             |
+| Service       | `asena generate service`      | `asena g s`          | Generates a service                |
+| Middleware    | `asena generate middleware`   | `asena g m`          | Generates a middleware             |
+| Config        | `asena generate config`       | `asena g config`     | Generates a server config class    |
+| WebSocket     | `asena generate websocket`    | `asena g ws`         | Generates a WebSocket namespace    |
 
 
 ### ```asena dev start```
@@ -154,6 +158,8 @@ my-app/
 │   ├── controllers/    # Route controllers
 │   ├── services/       # Business logic
 │   ├── middlewares/    # Middleware files
+│   ├── config/         # Server configuration classes
+│   ├── namespaces/     # WebSocket namespaces
 │   └── index.ts        # Application entry point
 ├── tests/              # Test files
 ├── public/             # Static assets

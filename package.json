@@ -1,6 +1,6 @@
 {
   "name": "@asenajs/asena-cli",
-  "version": "0.3.4",
+  "version": "0.4.0",
   "author": "LibirSoft",
   "license": "MIT",
   "bin": {
@@ -26,28 +26,28 @@
     "url": "https://github.com/AsenaJs/Asena-cli"
   },
   "dependencies": {
-    "@changesets/cli": "^2.29.3",
+    "@changesets/cli": "^2.29.7",
     "commander": "^12.1.0",
-    "inquirer": "^12.6.0",
+    "inquirer": "^12.10.0",
     "ora": "^8.2.0",
     "reflect-metadata": "^0.2.2",
-    "strip-json-comments": "^5.0.1"
+    "strip-json-comments": "^5.0.3"
   },
   "devDependencies": {
-    "@asenajs/asena": "0.3.1",
+    "@asenajs/asena": "^0.4.0",
     "@types/bun": "latest",
     "@types/yargs": "^17.0.33",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "eslint": "^8.57.1",
     "eslint-config-alloy": "^5.1.2",
-    "eslint-config-prettier": "^9.1.0",
+    "eslint-config-prettier": "^9.1.2",
     "eslint-plugin-alloy": "^1.2.1",
-    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-n": "^16.6.2",
-    "eslint-plugin-prettier": "^5.4.0",
+    "eslint-plugin-prettier": "^5.5.4",
     "eslint-plugin-promise": "^6.6.0",
-    "prettier": "^3.5.3",
-    "typescript": "^5.8.3"
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
