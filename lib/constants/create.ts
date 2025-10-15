@@ -1,5 +1,3 @@
-import type { ImportsByFiles } from '../types';
-
 export const TSCONFIG = `{
   "compilerOptions": {
     // Enable latest features
@@ -145,14 +143,3 @@ export const ESLINT_INSTALLATIONS = [
   'eslint-plugin-promise',
 ];
 export const PRETTIER_INSTALLATIONS = `prettier`;
-
-export const ROOT_FILE_IMPORTS: ImportsByFiles = {
-  '@asenajs/asena': ['AsenaServer'],
-  '@asenajs/hono-adapter': ['createHonoAdapter'],
-};
-
-export const CONTROLLER_IMPORTS: ImportsByFiles = {
-  '@asenajs/asena/server': ['Controller'],
-  '@asenajs/asena/web': ['Get'],
-  '@asenajs/hono-adapter': ['type Context'],
-};

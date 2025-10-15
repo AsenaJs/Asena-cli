@@ -1,6 +1,9 @@
+import type { AdapterType } from './adapterConfig';
+
 export interface ProjectSetupOptions {
   projectName: string;
-  logger:boolean;
+  adapter: AdapterType;
+  logger: boolean;
   eslint: boolean;
   prettier: boolean;
 }

@@ -15,6 +15,7 @@ import type { AsenaConfig, ControllerPath, ImportsByFiles } from '../types';
 import type { BaseCommand } from '../types/baseCommand';
 
 export class Build implements BaseCommand {
+
   private _buildFilePath = '';
 
   private configFile: AsenaConfig = { rootFile: '', sourceFolder: '' };
@@ -163,4 +164,5 @@ export class Build implements BaseCommand {
   private createBuildFilePath(): string {
     return `${path.dirname(this.configFile.rootFile)}/${changeFileExtensionToAsenaJs(simplifyPath(this.configFile.rootFile))}`;
   }
+
 }
