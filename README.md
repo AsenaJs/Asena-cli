@@ -4,7 +4,7 @@
 
 # Asena CLI
 
-[![Version](https://img.shields.io/badge/version-0.4.3-blue.svg)](https://asena.dev)
+[![Version](https://img.shields.io/badge/version-0.4.4-blue.svg)](https://asena.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Bun Version](https://img.shields.io/badge/Bun-1.2.8%2B-blueviolet)](https://bun.sh)
 
@@ -65,6 +65,7 @@ The Create command bootstraps new Asena projects with a complete development env
 ##### Features
 
 - **Interactive Setup**: Uses inquirer for a user-friendly setup experience
+- **Non-Interactive Mode**: Support for CLI arguments to run in non-TTY environments (SSH, CI/CD)
 - **Multi-Adapter Support**: Choose between Hono or Ergenecore adapters during project setup
 - **Project Structure**: Creates the basic project structure with necessary files and directories
 - **Default Components**: Generates default controller and server setup
@@ -72,6 +73,37 @@ The Create command bootstraps new Asena projects with a complete development env
   - ESLint configuration
   - Prettier setup
 - **Dependency Management**: Automatically installs required dependencies based on selected adapter
+
+##### Usage
+
+**Interactive Mode** (prompts for all options):
+```bash
+asena create
+# or create in current directory
+asena create .
+```
+
+**Non-Interactive Mode** (specify all options via CLI):
+```bash
+# Create with all features enabled
+asena create my-project --adapter=hono --logger --eslint --prettier
+
+# Create in current directory without optional features
+asena create . --adapter=ergenecore --no-logger --no-eslint --no-prettier
+
+# Mix of CLI arguments and interactive prompts
+asena create my-app --adapter=hono  # Will prompt for other options
+```
+
+##### CLI Options
+
+| Option | Description | Values |
+|--------|-------------|--------|
+| `[project-name]` | Project name (use `.` for current directory) | Any string |
+| `--adapter <adapter>` | Adapter to use | `hono`, `ergenecore` |
+| `--logger` / `--no-logger` | Setup Asena logger | boolean (default: true) |
+| `--eslint` / `--no-eslint` | Setup ESLint | boolean (default: true) |
+| `--prettier` / `--no-prettier` | Setup Prettier | boolean (default: true) |
 
 ### ```asena generate```
 
