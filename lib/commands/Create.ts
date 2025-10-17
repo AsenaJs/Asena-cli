@@ -4,20 +4,8 @@ import { Command } from 'commander';
 import inquirer from 'inquirer';
 import ora, { type Ora } from 'ora';
 import { AsenaServerHandler, ControllerHandler, ImportHandler, AsenaLoggerCreator } from '../codeBuilder';
-import {
-  ESLINT,
-  ESLINT_IGNORE,
-  ESLINT_INSTALLATIONS,
-  PRETTIER,
-  PRETTIER_INSTALLATIONS,
-  TSCONFIG,
-} from '../constants';
-import {
-  getRootImports,
-  getAdapterPackage,
-  getAdapterFunctionName,
-  getControllerImports,
-} from '../helpers';
+import { ESLINT, ESLINT_IGNORE, ESLINT_INSTALLATIONS, PRETTIER, PRETTIER_INSTALLATIONS, TSCONFIG } from '../constants';
+import { getRootImports, getAdapterPackage, getAdapterFunctionName, getControllerImports } from '../helpers';
 import { ImportType } from '../types';
 import { Init } from './Init';
 import type { BaseCommand } from '../types/baseCommand';
@@ -36,16 +24,22 @@ export class Create implements BaseCommand {
   public command() {
     return new Command('create')
       .description('Creates an Asena project and installs the required dependencies.')
-      .action(async () => {
+      .argument('[project-name]', 'Project name (use "." for current directory)')
+      .option('--adapter <adapter>', 'Adapter to use (hono or ergenecore)')
+      .option('--logger', 'Setup default asena logger')
+      .option('--no-logger', 'Skip asena logger setup')
+      .option('--eslint', 'Setup ESLint')
+      .option('--no-eslint', 'Skip ESLint setup')
+      .option('--prettier', 'Setup Prettier')
+      .option('--no-prettier', 'Skip Prettier setup')
+      .action(async (projectName, options) => {
         const spinner = ora('Creating asena project...');
 
         try {
-          const arg = process.argv.slice(3)[0];
-
           // If no argument provided or '.' provided, create in current folder
-          const currentFolder = !arg || arg === '.';
+          const currentFolder = !projectName || projectName === '.';
 
-          await this.create(currentFolder, spinner);
+          await this.create(currentFolder, spinner, options, projectName);
 
           console.log('\x1b[32m%s\x1b[0m', '\nAsena project created.');
 
@@ -58,8 +52,9 @@ export class Create implements BaseCommand {
       });
   }
 
-  private async create(currentFolder: boolean, spinner: Ora) {
-    this.preference = await this.askQuestions(currentFolder);
+  // eslint-disable-next-line max-params
+  private async create(currentFolder: boolean, spinner: Ora, options?: any, projectName?: string) {
+    this.preference = await this.askQuestions(currentFolder, options, projectName);
 
     // If creating in current folder, set project name to "myApp"
     if (currentFolder) {
@@ -107,10 +102,12 @@ export class Create implements BaseCommand {
     if (this.preference.adapter === 'hono') {
       // Hono: createHonoAdapter(logger) returns [adapter, logger]
       rootFileCode += `\nconst [honoAdapter, asenaLogger] = ${adapterFunctionName}(${loggerArg});\n`;
+
       rootFileCode += new AsenaServerHandler('').createEmptyAsenaServer('honoAdapter', 'asenaLogger').asenaServer;
     } else {
       // Ergenecore: createErgenecoreAdapter({ logger }) returns adapter instance
       rootFileCode += `\nconst ergenecoreAdapter = ${adapterFunctionName}({ logger: ${loggerArg} });\n`;
+
       rootFileCode += new AsenaServerHandler('').createEmptyAsenaServer('ergenecoreAdapter', loggerArg).asenaServer;
     }
 
@@ -156,6 +153,7 @@ export class Create implements BaseCommand {
 
   private async installPreRequests() {
     const adapterPackage = getAdapterPackage(this.preference.adapter);
+
     await $`bun add @asenajs/asena ${adapterPackage}`.quiet();
 
     if (this.preference.logger) {
@@ -189,11 +187,40 @@ export class Create implements BaseCommand {
     await Bun.write(process.cwd() + '/tsconfig.json', TSCONFIG);
   }
 
-  private async askQuestions(currentFolder: boolean): Promise<ProjectSetupOptions> {
+  private async askQuestions(
+    currentFolder: boolean,
+    options?: any,
+    projectName?: string,
+  ): Promise<ProjectSetupOptions> {
+    // Check if we have any CLI options (non-interactive mode)
+    const hasCliOptions =
+      options &&
+      (options.adapter !== undefined ||
+        options.logger !== undefined ||
+        options.eslint !== undefined ||
+        options.prettier !== undefined);
+
+    // If CLI options provided, use them for non-interactive mode
+    if (hasCliOptions) {
+      // Validate adapter if provided
+      if (options.adapter && !['hono', 'ergenecore'].includes(options.adapter)) {
+        throw new Error(`Invalid adapter: ${options.adapter}. Use 'hono' or 'ergenecore'.`);
+      }
+
+      return {
+        projectName: projectName || 'AsenaProject',
+        adapter: options.adapter || 'hono',
+        logger: options.logger !== undefined ? options.logger : true,
+        eslint: options.eslint !== undefined ? options.eslint : true,
+        prettier: options.prettier !== undefined ? options.prettier : true,
+      };
+    }
+
+    // Interactive mode - use inquirer prompts
     const questions: any[] = [];
 
-    // Only ask for project name if NOT creating in current folder
-    if (!currentFolder) {
+    // Only ask for project name if NOT creating in current folder AND no projectName provided
+    if (!currentFolder && !projectName) {
       questions.push({
         type: 'input',
         name: 'projectName',
@@ -238,7 +265,7 @@ export class Create implements BaseCommand {
     const answers: any = await inquirer.prompt(questions);
 
     return {
-      projectName: answers.projectName || 'myApp', // Default to 'myApp' if not asked
+      projectName: projectName || answers.projectName || 'myApp',
       adapter: answers.adapter,
       logger: answers.logger,
       eslint: answers.eslint,
