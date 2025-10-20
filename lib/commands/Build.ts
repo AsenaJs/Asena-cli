@@ -3,7 +3,14 @@ import path from 'path';
 import { $, type BuildConfig, write } from 'bun';
 import { Command } from 'commander';
 import { AsenaServerHandler, ConfigHandler, ImportHandler } from '../codeBuilder';
-import { checkControllerExistence, getControllers, getFileExtension, getImportType, RegexHelper } from '../helpers';
+import {
+  changeFileExtensionToAsenaJs,
+  checkControllerExistence,
+  getControllers,
+  getImportType,
+  RegexHelper,
+  simplifyPath,
+} from '../helpers';
 import type { AsenaConfig, ControllerPath, ImportsByFiles } from '../types';
 import type { BaseCommand } from '../types/baseCommand';
 
@@ -51,7 +58,7 @@ export class Build implements BaseCommand {
 
   private removeAsenaEntryFile = () => {
     try {
-      fs.unlinkSync(this._buildFilePath);
+      fs.unlinkSync(path.normalize(this._buildFilePath));
     } catch {
       console.log('No asena entry file has found');
     }
@@ -102,7 +109,7 @@ export class Build implements BaseCommand {
     if (!checkControllerExistence(controllers)) {
       console.error('\x1b[31m%s\x1b[0m', 'No components has found');
 
-      fs.unlinkSync(this._buildFilePath);
+      fs.unlinkSync(path.normalize(this._buildFilePath));
 
       process.exit(1);
     }
@@ -155,7 +162,7 @@ export class Build implements BaseCommand {
   };
 
   private createBuildFilePath(): string {
-    return `${path.dirname(this.configFile.rootFile)}/index.asena${getFileExtension(this.configFile.rootFile)}`;
+    return `${path.dirname(this.configFile.rootFile)}/${changeFileExtensionToAsenaJs(simplifyPath(this.configFile.rootFile))}`;
   }
 
 }

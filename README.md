@@ -1,145 +1,201 @@
-# Asena-cli 
+<h1>
+  <img src="https://avatars.githubusercontent.com/u/179836938?s=200&v=4" width="125" align="center"/>
+</h1>
+
+# Asena CLI
+
+[![Version](https://img.shields.io/badge/version-0.4.4-blue.svg)](https://asena.dev)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Bun Version](https://img.shields.io/badge/Bun-1.2.8%2B-blueviolet)](https://bun.sh)
 
 Asena-cli provides several command-line utilities to help developers manage their asena applications efficiently. Here's a comprehensive guide to all available commands.
 
-## Installation
+## 📚 Table of Contents
+- [Installation](#-installation)
+- [Getting Started](#-getting-started)
+- [Commands](#-commands)
+- [Configuration](#-configuration)
+- [Project Structure](#-project-structure)
+
+
+## 🚀 Installation
+
+Prerequisite: [Bun runtime](https://bun.sh) (v1.2.8 or higher)
 
 ```bash
 bun install -g @asenajs/asena-cli
+````
+
+Verify installation:
+
+```bash
+asena --version
 ```
 
-### Help
+## 🏁 Getting Started
 
-```text
-asena --help
+3 steps to create a new project:
 
-Commands:
-  create          Creates an Asena project and installs the required dependencies.
-  build           For building the project and preparing it for production deployment
-  dev             Developer options
-  init [options]  Creates a asena-config.ts file with default values (requires manual updates).
-  help [command]  display help for command
+1. Scaffold a new project:
+
+```bash
+asena create
 ```
 
-## Table of Contents
-- [Create Command](#create-command)
-- [Init Command](#init-command)
-- [Build Command](#build-command)
-- [Dev Command](#dev-command)
+2. Navigate into the project directory:
 
-## Create Command
+```bash
+cd <Project name>
+```
+
+3. Start development:
+
+```bash
+asena dev start
+```
+
+Your application will be available at http://localhost:3000.
+
+## 📖 Commands
+
+### ```asena create```
 
 The Create command bootstraps new Asena projects with a complete development environment setup.
 
-### Features
+##### Features
 
 - **Interactive Setup**: Uses inquirer for a user-friendly setup experience
+- **Non-Interactive Mode**: Support for CLI arguments to run in non-TTY environments (SSH, CI/CD)
+- **Multi-Adapter Support**: Choose between Hono or Ergenecore adapters during project setup
 - **Project Structure**: Creates the basic project structure with necessary files and directories
 - **Default Components**: Generates default controller and server setup
 - **Development Tools**: Optional integration of:
-    - ESLint configuration
-    - Prettier setup
-- **Dependency Management**: Automatically installs required dependencies
+  - ESLint configuration
+  - Prettier setup
+- **Dependency Management**: Automatically installs required dependencies based on selected adapter
 
-### Usage
+##### Usage
 
-``` bash
+**Interactive Mode** (prompts for all options):
+```bash
 asena create
-```
-### Generated Structure
-``` 
-├── src/
-│ ├── controllers/
-│ │ └── AsenaController.ts
-│ └── index.ts
-├── package.json
-├── tsconfig.json
-├──.eslintrc.js (optional)
-├──.eslintignore (optional)
-└──.prettierrc.js (optional)
+# or create in current directory
+asena create .
 ```
 
-## Init Command
+**Non-Interactive Mode** (specify all options via CLI):
+```bash
+# Create with all features enabled
+asena create my-project --adapter=hono --logger --eslint --prettier
 
-The Init command helps set up project configuration with default settings.
+# Create in current directory without optional features
+asena create . --adapter=ergenecore --no-logger --no-eslint --no-prettier
+
+# Mix of CLI arguments and interactive prompts
+asena create my-app --adapter=hono  # Will prompt for other options
+```
+
+##### CLI Options
+
+| Option | Description | Values |
+|--------|-------------|--------|
+| `[project-name]` | Project name (use `.` for current directory) | Any string |
+| `--adapter <adapter>` | Adapter to use | `hono`, `ergenecore` |
+| `--logger` / `--no-logger` | Setup Asena logger | boolean (default: true) |
+| `--eslint` / `--no-eslint` | Setup ESLint | boolean (default: true) |
+| `--prettier` / `--no-prettier` | Setup Prettier | boolean (default: true) |
+
+### ```asena generate```
+
+Note: You can also use `asena g` as a shortcut.
+
+The generate command allows you to quickly and consistently create project components.
 
 ### Features
 
-- **Configuration Generation**: Creates `asena-config` configuration file
-- **Default Values**: Provides sensible defaults for quick start
+- **Multi-Component Support**: Ability to generate controllers, services, middlewares, configs, and websockets
+- **Automatic Code Generation**: Creates template code with base structure and necessary imports
+- **Adapter-Aware Generation**: Generates adapter-specific code based on project configuration
+- **Project Structure Integration**: Places generated files in the correct directories
+- **Shortcuts**: Command aliases for faster usage (g, c, s, m, ws)
 
-### Usage
 
-``` bash
-asena init
-```
+| **Component** | **Full Command**              | **Shortcut Command** | **Description**                    |
+|---------------|-------------------------------|----------------------|------------------------------------|
+| Controller    | `asena generate controller`   | `asena g c`          | Generates a controller             |
+| Service       | `asena generate service`      | `asena g s`          | Generates a service                |
+| Middleware    | `asena generate middleware`   | `asena g m`          | Generates a middleware             |
+| Config        | `asena generate config`       | `asena g config`     | Generates a server config class    |
+| WebSocket     | `asena generate websocket`    | `asena g ws`         | Generates a WebSocket namespace    |
 
-#### Note
 
-The config file may need to be edited according to your project.
+### ```asena dev start```
 
-## Build Command
+The Dev command enables development mode with enhanced debugging capabilities.
+
+#### Features
+
+- **Build Integration**: Automatically builds the project before starting
+
+### ```asena build```
 
 The Build command handles project deployment preparation.
 
-### Features
+#### Features
 
 - **Configuration Processing**: Reads and processes the Asena configuration file
 - **Code Generation**: Creates a temporary build file that combines all controllers and components
 - **Import Management**: Handles import statements and organizes them based on the project structure. No need to add controllers manually to root file
 - **Server Integration**: Processes the AsenaServer configuration and integrates components
 
-### Usage
+### ```asena init```
+
+The Init command helps set up project configuration with default settings(no need if you used ```asena create```).
+
+#### Features
+
+- **Configuration Generation**: Creates `asena-config` configuration file
+- **Default Values**: Provides sensible defaults for quick start
+
+## ⚙️ Configuration
+
+Customization via `asena.config.ts`:
+
+```typescript
+import { defineConfig } from '@asenajs/asena'
+
+export default defineConfig({
+    sourceFolder: 'src', // folder where the project files are located
+    rootFile: 'src/index.ts', // entry file of the project
+    buildOptions: { // build options. For more details, visit https://bun.sh/docs/bundler
+        outdir: 'dist',
+        sourcemap: 'linked',
+        target: 'bun',
+        minify: {
+            whitespace: true,
+            syntax: true,
+            identifiers: false,
+        },
+    },
+});
+```
+
+## 📂 Project Structure
+
+Default project structure:
 
 ```bash
-asena build
+my-app/
+├── src/
+│   ├── controllers/    # Route controllers
+│   ├── services/       # Business logic
+│   ├── middlewares/    # Middleware files
+│   ├── config/         # Server configuration classes
+│   ├── namespaces/     # WebSocket namespaces
+│   └── index.ts        # Application entry point
+├── tests/              # Test files
+├── public/             # Static assets
+├── asena.config.ts     # Configuration
+└── package.json
 ```
 
-### Configuration
-Configuration can be managed inside the asena-config config file. For a complete list of available options, refer to the [Bun build documentation](https://bun.sh/docs/bundler#reference)
-``` json
-{
-    "buildOptions": {
-    "outdir": "out",
-    "target": "bun",
-    "minify": true
-  }
-}
-```
-
-## Dev Command
-
-The Dev command enables development mode with enhanced debugging capabilities.
-
-### Features
-
-- **Build Integration**: Automatically builds the project before starting
-
-### Usage
-
-``` bash
-asena dev start
-```
-
-
-## Getting Started
-
-To start a new Asena project, follow these steps:
-
-1. Create a new project:
-
-``` bash
-asena create
-```
-
-2. Navigate to project directory:
-
-``` bash
-cd your-project-name
-```
-
-3. Start development server:
-
-```bash
-asena dev start
-```

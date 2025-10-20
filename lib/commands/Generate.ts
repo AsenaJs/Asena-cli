@@ -1,14 +1,13 @@
-import fs from 'fs';
+import path from 'node:path';
+import { $ } from 'bun';
 import { Command } from 'commander';
 import inquirer from 'inquirer';
-import { ConfigHandler, ControllerHandler, ImportHandler, MiddlewareHandler, ServiceHandler } from '../codeBuilder';
-import { getImportType, removeExtension } from '../helpers';
-import { convertToPascalCase } from '../helpers';
+import { ConfigHandler, ControllerHandler, ImportHandler, MiddlewareHandler, ServiceHandler, ServerConfigHandler, WebSocketHandler } from '../codeBuilder';
+import { convertToPascalCase, getImportType, removeExtension, getAdapterConfig, getMiddlewareImports, getControllerImports, getConfigImports, getWebSocketImports } from '../helpers';
 import type { BaseCommand } from '../types/baseCommand';
 import type { GenerateOptions } from '../types/generate';
 
 export class Generate implements BaseCommand {
-
   public command() {
     const generate = new Command('generate')
       .alias('g')
@@ -50,6 +49,29 @@ export class Generate implements BaseCommand {
         }
       });
 
+    generate
+      .command('config')
+      .description('Generates server config')
+      .action(async () => {
+        try {
+          await this.addConfig();
+        } catch (error) {
+          console.error('Build failed: ', error);
+        }
+      });
+
+    generate
+      .command('websocket')
+      .alias('ws')
+      .description('Generates WebSocket namespace')
+      .action(async () => {
+        try {
+          await this.addWebSocket();
+        } catch (error) {
+          console.error('Build failed: ', error);
+        }
+      });
+
     return generate;
   }
 
@@ -57,9 +79,11 @@ export class Generate implements BaseCommand {
     const controllerName = convertToPascalCase(removeExtension((await this.askQuestions('controller')).elementName));
 
     const importType = await getImportType();
+    const adapter = await getAdapterConfig();
+    const controllerImports = getControllerImports(adapter);
 
     const controllerCode =
-      new ImportHandler('', importType).importToCode({ '@asenajs/asena/server': ['Controller'] }, importType) +
+      new ImportHandler('', importType).importToCode(controllerImports, importType) +
       new ControllerHandler('').addController(controllerName, null).code;
 
     await this.generate(controllerCode, 'controllers', controllerName);
@@ -81,17 +105,42 @@ export class Generate implements BaseCommand {
     const controllerName = convertToPascalCase(removeExtension((await this.askQuestions('middleware')).elementName));
 
     const importType = await getImportType();
+    const adapter = await getAdapterConfig();
+    const middlewareImports = getMiddlewareImports(adapter);
 
     const controllerCode =
-      new ImportHandler('', importType).importToCode(
-        {
-          '@asenajs/asena/server': ['Middleware'],
-          '@asenajs/hono-adapter': ['type Context', 'MiddlewareService'],
-        },
-        importType,
-      ) + new MiddlewareHandler('').addMiddleware(controllerName).addDefaultHandle(controllerName).code;
+      new ImportHandler('', importType).importToCode(middlewareImports, importType) +
+      new MiddlewareHandler('').addMiddleware(controllerName).addDefaultHandle(controllerName).code;
 
     await this.generate(controllerCode, 'middlewares', controllerName);
+  }
+
+  private async addConfig() {
+    const configName = convertToPascalCase(removeExtension((await this.askQuestions('config')).elementName));
+
+    const importType = await getImportType();
+    const adapter = await getAdapterConfig();
+    const configImports = getConfigImports(adapter);
+
+    const configCode =
+      new ImportHandler('', importType).importToCode(configImports, importType) +
+      new ServerConfigHandler('').addConfigClass(configName).code;
+
+    await this.generate(configCode, 'config', configName);
+  }
+
+  private async addWebSocket() {
+    const wsName = convertToPascalCase(removeExtension((await this.askQuestions('websocket')).elementName));
+    const wsPath = await this.askWebSocketPath(wsName);
+
+    const importType = await getImportType();
+    const websocketImports = getWebSocketImports();
+
+    const websocketCode =
+      new ImportHandler('', importType).importToCode(websocketImports, importType) +
+      new WebSocketHandler('').addWebSocketNamespace(wsName, wsPath).code;
+
+    await this.generate(websocketCode, 'namespaces', wsName);
   }
 
   private async generate(code: string, elementType: string, elementName: string) {
@@ -100,9 +149,19 @@ export class Generate implements BaseCommand {
     const basePath = `${process.cwd()}/${sourceFolder}/${elementType}`;
     const elementFilePath = `${basePath}/${elementName}.ts`;
 
-    fs.mkdirSync(`${process.cwd()}/${sourceFolder}/controllers`, { recursive: true });
+    await $`mkdir -p ${path.normalize(basePath)}`.quiet();
 
-    await Bun.write(elementFilePath, code);
+    const fileExists = await Bun.file(path.normalize(elementFilePath)).exists();
+
+    if (!fileExists) {
+      await Bun.write(elementFilePath, code);
+    } else {
+      console.error('\x1b[31m%s\x1b[0m', `${elementName} already exists`);
+
+      await $`rm -f ${path.normalize(basePath)}`.quiet();
+
+      process.exit(1);
+    }
   }
 
   private async askQuestions(element: string): Promise<GenerateOptions> {
@@ -116,4 +175,22 @@ export class Generate implements BaseCommand {
     ]);
   }
 
+  private async askWebSocketPath(namespaceName: string): Promise<string> {
+    const defaultPath = `/${namespaceName.toLowerCase().replace(/namespace$/, '')}`;
+    const { path } = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'path',
+        message: 'Enter WebSocket path (e.g., /socket):',
+        default: defaultPath,
+        validate: (input: string) => {
+          if (!input) return 'Path cannot be empty!';
+          if (!input.startsWith('/')) return 'Path must start with /';
+          return true;
+        },
+      },
+    ]);
+
+    return path;
+  }
 }

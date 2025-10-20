@@ -1,8 +1,10 @@
 import { $ } from 'bun';
 import { Command } from 'commander';
+import inquirer from 'inquirer';
 import { INITIAL_ASENA_CONFIG_TS } from '../constants';
-import { getAsenaCliVersion, isAsenaConfigExists } from '../helpers';
+import { getAsenaCliVersion, isAsenaConfigExists, writeAdapterConfig } from '../helpers';
 import type { BaseCommand } from '../types/baseCommand';
+import type { AdapterType } from '../types/adapterConfig';
 
 export class Init implements BaseCommand {
 
@@ -23,14 +25,22 @@ export class Init implements BaseCommand {
       });
   }
 
-  public async exec() {
+  public async exec(adapter?: AdapterType) {
     if (!isAsenaConfigExists()) {
+      // 1. Use provided adapter or ask user which adapter to use
+      const selectedAdapter = adapter || (await this.askAdapterQuestion()).adapter;
+
+      // 2. Create .asena/config.json with selected adapter
+      await writeAdapterConfig({ adapter: selectedAdapter });
+
+      // 3. Install CLI package if needed
       if (!(await getAsenaCliVersion())) {
         const asenaCliVersion = await $`asena --version`.quiet().text();
 
         await $`bun add -D @asenajs/asena-cli@${asenaCliVersion}`.quiet();
       }
 
+      // 4. Create asena-config.ts
       const numberOfBytes = await Bun.write('asena-config.ts', INITIAL_ASENA_CONFIG_TS);
 
       if (numberOfBytes === 0) {
@@ -39,6 +49,21 @@ export class Init implements BaseCommand {
     } else {
       console.log('\x1b[31m%s\x1b[0m', 'Config file already exists');
     }
+  }
+
+  private async askAdapterQuestion(): Promise<{ adapter: AdapterType }> {
+    return inquirer.prompt([
+      {
+        type: 'list',
+        name: 'adapter',
+        message: 'Which adapter do you want to use?',
+        choices: [
+          { name: 'Hono Adapter (Recommended)', value: 'hono' },
+          { name: 'Ergenecore Adapter', value: 'ergenecore' },
+        ],
+        default: 'hono',
+      },
+    ]);
   }
 
 }
