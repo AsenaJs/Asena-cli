@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { $, type BuildConfig, write } from 'bun';
+import { type BuildConfig, write } from 'bun';
 import { Command } from 'commander';
 import { AsenaServerHandler, ConfigHandler, ImportHandler } from '../codeBuilder';
 import {
@@ -44,7 +44,7 @@ export class Build implements BaseCommand {
 
       await write(this._buildFilePath, buildCode);
 
-      await this.handleBuild();
+      await this.executeBuild();
 
       this.removeAsenaEntryFile();
 
@@ -92,13 +92,6 @@ export class Build implements BaseCommand {
     return { cleanedCode, asenaServerCodeBlock };
   }
 
-  private createExecutable = async () => {
-    const output =
-      await $`bun build ${this._buildFilePath} --outfile ${this.configFile?.buildOptions?.outdir}/executable --compile`.quiet();
-
-    return output.stdout.toString();
-  };
-
   private async readAndPrepareCode() {
     const rootFileCode = await Bun.file(this.configFile.rootFile).text();
 
@@ -135,30 +128,39 @@ export class Build implements BaseCommand {
     return { imports, allComponents };
   }
 
-  private async handleBuild() {
-    if (this.configFile.buildOptions?.executable) {
-      await this.createExecutable();
-    } else {
-      const output = await this.runBuild();
+  private async executeBuild() {
+    const buildResult = await this.buildWithBunAPI();
 
-      if (!output.success) {
-        throw new Error(output.logs.toString());
-      }
+    if (!buildResult.success) {
+      throw new Error(buildResult.logs.toString());
     }
   }
 
-  private runBuild = async () => {
-    if (this.configFile.buildOptions) {
-      let buildOptions: BuildConfig = { ...this.configFile.buildOptions, entrypoints: [this._buildFilePath] };
+  private buildWithBunAPI = async () => {
+    const asenaFooter = `/*
+ * ╔═══════════════════════════════════════╗
+ * ║     ⚡ Built with Asena Framework      ║
+ * ║   https://github.com/AsenaJs/Asena    ║
+ * ╚═══════════════════════════════════════╝
+ */`;
 
-      return await Bun.build(buildOptions);
-    }
-
-    return await Bun.build({
+    const defaultBuildConfig: BuildConfig = {
       entrypoints: [this._buildFilePath],
       outdir: './out',
       target: 'bun',
-    });
+      footer: asenaFooter,
+    };
+
+    const finalBuildConfig: BuildConfig = this.configFile.buildOptions
+      ? {
+          ...this.configFile.buildOptions,
+          entrypoints: [this._buildFilePath],
+          target: 'bun',
+          footer: asenaFooter,
+        }
+      : defaultBuildConfig;
+
+    return await Bun.build(finalBuildConfig);
   };
 
   private createBuildFilePath(): string {

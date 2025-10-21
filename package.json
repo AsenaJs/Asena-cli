@@ -1,6 +1,6 @@
 {
   "name": "@asenajs/asena-cli",
-  "version": "0.4.4",
+  "version": "0.5.0",
   "author": "LibirSoft",
   "license": "MIT",
   "bin": {
@@ -27,7 +27,7 @@
     "url": "https://github.com/AsenaJs/Asena-cli"
   },
   "dependencies": {
-    "@asenajs/asena": "^0.4.0",
+    "@asenajs/asena": "^0.5.0",
     "@changesets/cli": "^2.29.7",
     "commander": "^12.1.0",
     "inquirer": "^12.10.0",

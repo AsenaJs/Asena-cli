@@ -3,9 +3,9 @@ import { $ } from 'bun';
 import { Command } from 'commander';
 import inquirer from 'inquirer';
 import ora, { type Ora } from 'ora';
-import { AsenaServerHandler, ControllerHandler, ImportHandler, AsenaLoggerCreator } from '../codeBuilder';
+import { AsenaLoggerCreator, AsenaServerHandler, ControllerHandler, ImportHandler } from '../codeBuilder';
 import { ESLINT, ESLINT_IGNORE, ESLINT_INSTALLATIONS, PRETTIER, PRETTIER_INSTALLATIONS, TSCONFIG } from '../constants';
-import { getRootImports, getAdapterPackage, getAdapterFunctionName, getControllerImports } from '../helpers';
+import { getAdapterFunctionName, getAdapterPackage, getControllerImports, getRootImports } from '../helpers';
 import { ImportType } from '../types';
 import { Init } from './Init';
 import type { BaseCommand } from '../types/baseCommand';
@@ -145,7 +145,6 @@ export class Create implements BaseCommand {
     const packageJsonFile = `{
       "name":"${this.preference.projectName}",
       "module":"src/index.ts",
-      "type":"module"
     }`;
 
     await Bun.write(projectPath + '/package.json', packageJsonFile);

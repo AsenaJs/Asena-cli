@@ -3,8 +3,8 @@ import { Command } from 'commander';
 import inquirer from 'inquirer';
 import { INITIAL_ASENA_CONFIG_TS } from '../constants';
 import { getAsenaCliVersion, isAsenaConfigExists, writeAdapterConfig } from '../helpers';
+import type { AdapterType } from '../types';
 import type { BaseCommand } from '../types/baseCommand';
-import type { AdapterType } from '../types/adapterConfig';
 
 export class Init implements BaseCommand {
 
