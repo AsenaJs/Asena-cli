@@ -1,5 +1,12 @@
 # @asenajs/asena-cli
 
+## 0.5.0
+
+### Minor Changes
+
+- **Breaking Changes:**
+  - AsenaConfig changed. Now it's offer partial of bun BuildOptions(because most of them not necessery for asena building system)
+
 ## 0.4.4
 
 ### Patch Changes

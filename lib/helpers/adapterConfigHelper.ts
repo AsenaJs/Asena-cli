@@ -26,9 +26,11 @@ export async function readAdapterConfig(): Promise<AdapterConfig> {
 
     // If invalid adapter, default to hono
     console.warn(`Invalid adapter type '${config.adapter}' in config, defaulting to 'hono'`);
+
     return { adapter: 'hono' };
   } catch (error) {
     console.warn('Failed to parse .asena/config.json, defaulting to hono adapter');
+
     return { adapter: 'hono' };
   }
 }
@@ -41,6 +43,7 @@ export async function readAdapterConfig(): Promise<AdapterConfig> {
 export async function writeAdapterConfig(config: AdapterConfig): Promise<void> {
   // Create .asena directory if it doesn't exist (mkdir -p)
   await $`mkdir -p ${CONFIG_DIR}`.quiet();
+
   await Bun.write(CONFIG_FILE, JSON.stringify(config, null, 2));
 }
 
@@ -50,6 +53,7 @@ export async function writeAdapterConfig(config: AdapterConfig): Promise<void> {
  */
 export async function getAdapterConfig(): Promise<AdapterType> {
   const config = await readAdapterConfig();
+
   return config.adapter;
 }
 

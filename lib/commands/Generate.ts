@@ -2,12 +2,30 @@ import path from 'node:path';
 import { $ } from 'bun';
 import { Command } from 'commander';
 import inquirer from 'inquirer';
-import { ConfigHandler, ControllerHandler, ImportHandler, MiddlewareHandler, ServiceHandler, ServerConfigHandler, WebSocketHandler } from '../codeBuilder';
-import { convertToPascalCase, getImportType, removeExtension, getAdapterConfig, getMiddlewareImports, getControllerImports, getConfigImports, getWebSocketImports } from '../helpers';
+import {
+  ConfigHandler,
+  ControllerHandler,
+  ImportHandler,
+  MiddlewareHandler,
+  ServerConfigHandler,
+  ServiceHandler,
+  WebSocketHandler,
+} from '../codeBuilder';
+import {
+  convertToPascalCase,
+  getAdapterConfig,
+  getConfigImports,
+  getControllerImports,
+  getImportType,
+  getMiddlewareImports,
+  getWebSocketImports,
+  removeExtension,
+} from '../helpers';
 import type { BaseCommand } from '../types/baseCommand';
 import type { GenerateOptions } from '../types/generate';
 
 export class Generate implements BaseCommand {
+
   public command() {
     const generate = new Command('generate')
       .alias('g')
@@ -185,7 +203,9 @@ export class Generate implements BaseCommand {
         default: defaultPath,
         validate: (input: string) => {
           if (!input) return 'Path cannot be empty!';
+
           if (!input.startsWith('/')) return 'Path must start with /';
+
           return true;
         },
       },
@@ -193,4 +213,5 @@ export class Generate implements BaseCommand {
 
     return path;
   }
+
 }
