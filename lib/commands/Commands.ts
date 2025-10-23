@@ -6,7 +6,6 @@ import { Generate } from './Generate';
 import { Init } from './Init';
 
 export class Commands {
-
   private program = new Command();
 
   public constructor() {
@@ -30,5 +29,4 @@ export class Commands {
 
     return this.program;
   }
-
 }

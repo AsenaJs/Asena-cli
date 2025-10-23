@@ -7,8 +7,8 @@ describe('WebSocketHandler', () => {
     const result = handler.addWebSocketNamespace('AdminNamespace', '/admin');
 
     expect(result.code).toContain('@WebSocket');
-    expect(result.code).toContain('path: \'/admin\'');
-    expect(result.code).toContain('name: \'AdminNamespace\'');
+    expect(result.code).toContain("path: '/admin'");
+    expect(result.code).toContain("name: 'AdminNamespace'");
     expect(result.code).toContain('export class AdminNamespace extends AsenaWebSocketService');
   });
 
@@ -25,17 +25,17 @@ describe('WebSocketHandler', () => {
     const handler = new WebSocketHandler('');
     const result = handler.addWebSocketNamespace('TestNamespace', '/test');
 
-    expect(result.code).toContain('console.log(\'Client connected\')');
-    expect(result.code).toContain('console.log(\'Message received:\', message)');
-    expect(result.code).toContain('console.log(\'Client disconnected\')');
+    expect(result.code).toContain("console.log('Client connected')");
+    expect(result.code).toContain("console.log('Message received:', message)");
+    expect(result.code).toContain("console.log('Client disconnected')");
   });
 
   it('should allow custom namespace names and paths', () => {
     const handler = new WebSocketHandler('');
     const result = handler.addWebSocketNamespace('CustomNamespace', '/custom/path');
 
-    expect(result.code).toContain('path: \'/custom/path\'');
-    expect(result.code).toContain('name: \'CustomNamespace\'');
+    expect(result.code).toContain("path: '/custom/path'");
+    expect(result.code).toContain("name: 'CustomNamespace'");
     expect(result.code).toContain('export class CustomNamespace');
   });
 

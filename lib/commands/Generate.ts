@@ -25,7 +25,6 @@ import type { BaseCommand } from '../types/baseCommand';
 import type { GenerateOptions } from '../types/generate';
 
 export class Generate implements BaseCommand {
-
   public command() {
     const generate = new Command('generate')
       .alias('g')
@@ -213,5 +212,4 @@ export class Generate implements BaseCommand {
 
     return path;
   }
-
 }

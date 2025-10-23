@@ -7,7 +7,6 @@ import type { AdapterType } from '../types';
 import type { BaseCommand } from '../types/baseCommand';
 
 export class Init implements BaseCommand {
-
   public command() {
     return new Command('init')
       .description('Creates a asena-config.ts file with default values (requires manual updates).')
@@ -65,5 +64,4 @@ export class Init implements BaseCommand {
       },
     ]);
   }
-
 }

@@ -12,7 +12,6 @@ import type { BaseCommand } from '../types/baseCommand';
 import type { ProjectSetupOptions } from '../types/create';
 
 export class Create implements BaseCommand {
-
   private preference: ProjectSetupOptions = {
     projectName: 'AsenaProject',
     adapter: 'hono',
@@ -52,7 +51,6 @@ export class Create implements BaseCommand {
       });
   }
 
-  // eslint-disable-next-line max-params
   private async create(currentFolder: boolean, spinner: Ora, options?: any, projectName?: string) {
     this.preference = await this.askQuestions(currentFolder, options, projectName);
 
@@ -115,7 +113,7 @@ export class Create implements BaseCommand {
   }
 
   private async createAsenaLogger(projectPath: string) {
-    let loggerCode = AsenaLoggerCreator.createLogger();
+    const loggerCode = AsenaLoggerCreator.createLogger();
 
     await $`mkdir -p ${path.normalize(projectPath + '/src/logger')}`.quiet();
 
@@ -271,5 +269,4 @@ export class Create implements BaseCommand {
       prettier: answers.prettier,
     };
   }
-
 }

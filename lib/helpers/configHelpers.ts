@@ -19,7 +19,7 @@ export const getAsenaCliVersion = async (): Promise<string | null> => {
 
   const packageJson = await readJson(`${process.cwd()}/asena-config.ts`);
 
-  return packageJson['devDependencies']['@asenajs/asena-cli'];
+  return packageJson.devDependencies['@asenajs/asena-cli'];
 };
 
 export const defineConfig = (config: AsenaConfig) => {

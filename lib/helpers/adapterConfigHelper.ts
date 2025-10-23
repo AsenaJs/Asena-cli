@@ -28,7 +28,7 @@ export async function readAdapterConfig(): Promise<AdapterConfig> {
     console.warn(`Invalid adapter type '${config.adapter}' in config, defaulting to 'hono'`);
 
     return { adapter: 'hono' };
-  } catch (error) {
+  } catch {
     console.warn('Failed to parse .asena/config.json, defaulting to hono adapter');
 
     return { adapter: 'hono' };

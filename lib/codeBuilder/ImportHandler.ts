@@ -3,7 +3,6 @@ import { ImportType } from '../types';
 import type { ImportsByFiles } from '../types';
 
 export class ImportHandler {
-
   private importsByFile: ImportsByFiles = {};
 
   private allImports: string[] = [];
@@ -19,14 +18,6 @@ export class ImportHandler {
 
     this.init();
   }
-
-  public updateImportName() {}
-
-  public removeFromImports() {}
-
-  public searchForImports() {}
-
-  public isImportExists() {}
 
   public get getImports() {
     return this.allImports;
@@ -65,7 +56,7 @@ export class ImportHandler {
   }
 
   private init() {
-    let _importsByFile: ImportsByFiles = {};
+    const _importsByFile: ImportsByFiles = {};
     let _allImports: string[] = [];
 
     const importLines =
@@ -91,5 +82,4 @@ export class ImportHandler {
 
     this.allImports = _allImports;
   }
-
 }

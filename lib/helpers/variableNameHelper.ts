@@ -1,14 +1,14 @@
 export const convertToPascalCase = (str: string): string => {
   if (str.length < 1) {
-    throw new Error("Invalid variable name length");
+    throw new Error('Invalid variable name length');
   }
 
   let formattedVariableName = '';
 
-  let segmentedValue: string[] = str[0] === '_' ? str.slice(1).split(/[_ -]/) : str.split(/[_ -]/);
+  const segmentedValue: string[] = str.startsWith('_') ? str.slice(1).split(/[_ -]/) : str.split(/[_ -]/);
 
   if (segmentedValue.length < 1) {
-      throw new Error("Invalid variable name");
+    throw new Error('Invalid variable name');
   }
 
   for (const variable of segmentedValue) {
