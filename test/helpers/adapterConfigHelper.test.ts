@@ -6,7 +6,8 @@ import {
   writeAdapterConfig,
   getAdapterConfig,
   isAdapterConfigExists,
-} from '../../lib/helpers/adapterConfigHelper';
+  resolveSuffix,
+} from '../../lib/helpers';
 
 describe('adapterConfigHelper', () => {
   const TEST_DIR = path.join(import.meta.dir, '__test_adapter_config__');
@@ -159,6 +160,151 @@ describe('adapterConfigHelper', () => {
       const exists = await isAdapterConfigExists();
 
       expect(exists).toBe(false);
+
+      process.chdir(ORIGINAL_CWD);
+    });
+  });
+
+  describe('resolveSuffix', () => {
+    it('should return default suffix when suffixes is undefined', async () => {
+      process.chdir(TEST_DIR);
+      await rm(path.join(TEST_DIR, '.asena'), { recursive: true, force: true });
+
+      await writeAdapterConfig({ adapter: 'hono' });
+
+      const suffix = await resolveSuffix('controller');
+
+      expect(suffix).toBe('Controller');
+
+      process.chdir(ORIGINAL_CWD);
+    });
+
+    it('should return default suffix when suffixes is true (global)', async () => {
+      process.chdir(TEST_DIR);
+      await rm(path.join(TEST_DIR, '.asena'), { recursive: true, force: true });
+
+      await writeAdapterConfig({ adapter: 'hono', suffixes: true });
+
+      const controllerSuffix = await resolveSuffix('controller');
+      const serviceSuffix = await resolveSuffix('service');
+      const middlewareSuffix = await resolveSuffix('middleware');
+      const configSuffix = await resolveSuffix('config');
+      const websocketSuffix = await resolveSuffix('websocket');
+
+      expect(controllerSuffix).toBe('Controller');
+      expect(serviceSuffix).toBe('Service');
+      expect(middlewareSuffix).toBe('Middleware');
+      expect(configSuffix).toBe('Config');
+      expect(websocketSuffix).toBe('Namespace');
+
+      process.chdir(ORIGINAL_CWD);
+    });
+
+    it('should return empty string when suffixes is false (global)', async () => {
+      process.chdir(TEST_DIR);
+      await rm(path.join(TEST_DIR, '.asena'), { recursive: true, force: true });
+
+      await writeAdapterConfig({ adapter: 'hono', suffixes: false });
+
+      const suffix = await resolveSuffix('controller');
+
+      expect(suffix).toBe('');
+
+      process.chdir(ORIGINAL_CWD);
+    });
+
+    it('should return default suffix when component suffix is true (granular)', async () => {
+      process.chdir(TEST_DIR);
+      await rm(path.join(TEST_DIR, '.asena'), { recursive: true, force: true });
+
+      await writeAdapterConfig({
+        adapter: 'hono',
+        suffixes: { controller: true },
+      });
+
+      const suffix = await resolveSuffix('controller');
+
+      expect(suffix).toBe('Controller');
+
+      process.chdir(ORIGINAL_CWD);
+    });
+
+    it('should return empty string when component suffix is false (granular)', async () => {
+      process.chdir(TEST_DIR);
+      await rm(path.join(TEST_DIR, '.asena'), { recursive: true, force: true });
+
+      await writeAdapterConfig({
+        adapter: 'hono',
+        suffixes: { controller: false },
+      });
+
+      const suffix = await resolveSuffix('controller');
+
+      expect(suffix).toBe('');
+
+      process.chdir(ORIGINAL_CWD);
+    });
+
+    it('should return custom suffix when component suffix is string (granular)', async () => {
+      process.chdir(TEST_DIR);
+      await rm(path.join(TEST_DIR, '.asena'), { recursive: true, force: true });
+
+      await writeAdapterConfig({
+        adapter: 'hono',
+        suffixes: {
+          controller: 'Ctrl',
+          service: 'Svc',
+          middleware: 'MW',
+        },
+      });
+
+      const controllerSuffix = await resolveSuffix('controller');
+      const serviceSuffix = await resolveSuffix('service');
+      const middlewareSuffix = await resolveSuffix('middleware');
+
+      expect(controllerSuffix).toBe('Ctrl');
+      expect(serviceSuffix).toBe('Svc');
+      expect(middlewareSuffix).toBe('MW');
+
+      process.chdir(ORIGINAL_CWD);
+    });
+
+    it('should return default suffix when component is not in granular config (fallback)', async () => {
+      process.chdir(TEST_DIR);
+      await rm(path.join(TEST_DIR, '.asena'), { recursive: true, force: true });
+
+      await writeAdapterConfig({
+        adapter: 'hono',
+        suffixes: { controller: 'Ctrl' }, // Only controller defined
+      });
+
+      const serviceSuffix = await resolveSuffix('service'); // Service not defined
+
+      expect(serviceSuffix).toBe('Service'); // Should return default
+
+      process.chdir(ORIGINAL_CWD);
+    });
+
+    it('should handle mixed granular config (boolean and string)', async () => {
+      process.chdir(TEST_DIR);
+      await rm(path.join(TEST_DIR, '.asena'), { recursive: true, force: true });
+
+      await writeAdapterConfig({
+        adapter: 'hono',
+        suffixes: {
+          controller: 'Ctrl',
+          service: true,
+          middleware: false,
+        },
+      });
+
+      const controllerSuffix = await resolveSuffix('controller');
+      const serviceSuffix = await resolveSuffix('service');
+      const middlewareSuffix = await resolveSuffix('middleware');
+
+      expect(controllerSuffix).toBe('Ctrl');
+      expect(serviceSuffix).toBe('Service');
+      expect(middlewareSuffix).toBe('');
 
       process.chdir(ORIGINAL_CWD);
     });

@@ -4,7 +4,10 @@ coverage = true
 
 coverageSkipTestFiles = true
 
-
+coveragePathIgnorePatterns = [
+    "**/*.test.ts",
+    "test/**",
+]
 
 [test.reporter]
 junit = "junit.xml"

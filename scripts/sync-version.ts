@@ -21,7 +21,7 @@ interface PackageJson {
  * Reads and parses package.json
  */
 async function getPackageVersion(): Promise<string> {
-  const packageJson = await Bun.file(PACKAGE_JSON_PATH).json() as PackageJson;
+  const packageJson = (await Bun.file(PACKAGE_JSON_PATH).json()) as PackageJson;
 
   return packageJson.version;
 }
@@ -35,7 +35,7 @@ async function updateCommandsVersion(version: string): Promise<void> {
   // Replace the hardcoded version using regex
   const updatedContent = content.replace(
     /this\.program\.version\(['"][\d.]+['"]\);/,
-    `this.program.version('${version}');`
+    `this.program.version('${version}');`,
   );
 
   if (content === updatedContent) {
@@ -58,7 +58,7 @@ async function updateReadmeVersion(version: string): Promise<void> {
   // Replace version badge
   const updatedContent = content.replace(
     /\[!\[Version\]\(https:\/\/img\.shields\.io\/badge\/version-[\d.]+-blue\.svg\)\]/,
-    `[![Version](https://img.shields.io/badge/version-${version}-blue.svg)]`
+    `[![Version](https://img.shields.io/badge/version-${version}-blue.svg)]`,
   );
 
   if (content === updatedContent) {

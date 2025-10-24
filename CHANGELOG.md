@@ -1,5 +1,30 @@
 # @asenajs/asena-cli
 
+## 0.5.1
+
+### Patch Changes
+
+- fix(eslint): migrate to ESLint v9 with flat config
+  - Upgraded from ESLint v8 to v9 with modern flat config format
+  - Replaced deprecated alloy config with official typescript-eslint recommended rules
+  - Migrated from `.eslintrc.js` to `eslint.config.cjs` (flat config)
+  - Improved Prettier integration with `eslint-config-prettier`
+  - Added `.prettierignore` for better file exclusion control
+  - Removed unused ESLint plugins (alloy, import, n, promise)
+  - Added proper TypeScript project service configuration
+  - Configured sensible rule overrides for Asena framework patterns (decorators, metadata, etc.)
+
+- feat(generate): add configurable suffix system for component generation
+
+  Added a powerful suffix configuration system that allows developers to customize component naming conventions project-wide via `.asena/config.json`.
+
+  **Features:**
+  - **Global control**: Set `suffixes: true` for default suffixes or `false` for none
+  - **Granular control**: Configure each component type independently (controller, service, middleware, config, websocket)
+  - **Custom suffixes**: Use custom strings like `"Ctrl"`, `"Svc"`, or `"MW"`
+  - **Mixed configuration**: Combine boolean and string values for maximum flexibility
+  - **Backward compatible**: Undefined suffix settings default to standard behavior
+
 ## 0.5.0
 
 ### Minor Changes

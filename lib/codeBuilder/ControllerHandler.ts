@@ -1,7 +1,6 @@
 import { RegexHelper } from '../helpers';
 
 export class ControllerHandler {
-
   private _code: string;
 
   public constructor(code: string) {
@@ -19,7 +18,7 @@ export class ControllerHandler {
   public addGetRouterToController(controllerName: string, path: string, name: string) {
     const controller = `\n\n\t@Get('/${path}')\n\tpublic async ${name}(context:Context){\n\t\treturn context.send("Hello asena");\n\t}`;
 
-    const controllerEndIndex = RegexHelper.getElementIndexByName(this._code,"Controller", controllerName);
+    const controllerEndIndex = RegexHelper.getElementIndexByName(this._code, 'Controller', controllerName);
 
     if (!controllerEndIndex) throw new Error('Controller is not exists');
 
@@ -32,5 +31,4 @@ export class ControllerHandler {
   public get code() {
     return this._code;
   }
-
 }

@@ -1,5 +1,4 @@
 export class RegexHelper {
-
   // Legacy patterns (v0.x) - kept for backward compatibility in detection
   private static asenaServerRegex = /new\s+AsenaServer\s*\((?:[^()]*|\((?:[^()]*|\([^()]*\))*\))*\)/g;
 
@@ -10,8 +9,7 @@ export class RegexHelper {
   private static asenaServerFactoryCodeBlockRegex =
     /const\s+\w+\s*=\s*await\s+AsenaServerFactory\.create\s*\(\s*\{[\s\S]*?\}\s*\)\s*;[\s\S]*?await\s+\w+\.start\s*\(\s*\)\s*;/;
 
-  private static asenaServerFactoryCreateRegex =
-    /await\s+AsenaServerFactory\.create\s*\(\s*\{[\s\S]*?\}\s*\)/;
+  private static asenaServerFactoryCreateRegex = /await\s+AsenaServerFactory\.create\s*\(\s*\{[\s\S]*?\}\s*\)/;
 
   private static getImportLinesRegex =
     /import\s*(?:(?:type\s+)?[^'"{}\n]*(?:\{[^}]*\})?[^'";\n]*)(?:\s+from)?\s*['"][^'"]+['"];?/gms;
@@ -255,5 +253,4 @@ export class RegexHelper {
 
     return null;
   };
-
 }

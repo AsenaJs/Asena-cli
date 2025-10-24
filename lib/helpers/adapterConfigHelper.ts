@@ -1,8 +1,19 @@
 import { $ } from 'bun';
-import type { AdapterConfig, AdapterType } from '../types/adapterConfig';
+import type { AdapterConfig, AdapterType, ComponentType } from '../types';
 
 const CONFIG_DIR = '.asena';
 const CONFIG_FILE = `${CONFIG_DIR}/config.json`;
+
+/**
+ * Default suffixes for each component type
+ */
+const DEFAULT_SUFFIXES: Record<ComponentType, string> = {
+  controller: 'Controller',
+  service: 'Service',
+  middleware: 'Middleware',
+  config: 'Config',
+  websocket: 'Namespace',
+};
 
 /**
  * Read adapter configuration from .asena/config.json
@@ -28,7 +39,7 @@ export async function readAdapterConfig(): Promise<AdapterConfig> {
     console.warn(`Invalid adapter type '${config.adapter}' in config, defaulting to 'hono'`);
 
     return { adapter: 'hono' };
-  } catch (error) {
+  } catch {
     console.warn('Failed to parse .asena/config.json, defaulting to hono adapter');
 
     return { adapter: 'hono' };
@@ -63,4 +74,56 @@ export async function getAdapterConfig(): Promise<AdapterType> {
  */
 export async function isAdapterConfigExists(): Promise<boolean> {
   return await Bun.file(CONFIG_FILE).exists();
+}
+
+/**
+ * Resolve suffix for a component based on configuration
+ * @param componentType The type of component (controller, service, etc.)
+ * @returns The resolved suffix string (empty string if no suffix should be used)
+ *
+ * @example
+ * // Config: { suffixes: true }
+ * await resolveSuffix('controller') // Returns "Controller"
+ *
+ * @example
+ * // Config: { suffixes: false }
+ * await resolveSuffix('controller') // Returns ""
+ *
+ * @example
+ * // Config: { suffixes: { controller: "Ctrl" } }
+ * await resolveSuffix('controller') // Returns "Ctrl"
+ *
+ * @example
+ * // Config: { suffixes: { controller: false } }
+ * await resolveSuffix('controller') // Returns ""
+ */
+export async function resolveSuffix(componentType: ComponentType): Promise<string> {
+  const config = await readAdapterConfig();
+  const { suffixes } = config;
+
+  // If suffixes is not defined, use default suffix for backward compatibility
+  if (suffixes === undefined) {
+    return DEFAULT_SUFFIXES[componentType];
+  }
+
+  // If suffixes is a boolean
+  if (typeof suffixes === 'boolean') {
+    return suffixes ? DEFAULT_SUFFIXES[componentType] : '';
+  }
+
+  // If suffixes is an object (granular control)
+  const componentSuffix = suffixes[componentType];
+
+  // If component-specific suffix is not defined, use default
+  if (componentSuffix === undefined) {
+    return DEFAULT_SUFFIXES[componentType];
+  }
+
+  // If component suffix is boolean
+  if (typeof componentSuffix === 'boolean') {
+    return componentSuffix ? DEFAULT_SUFFIXES[componentType] : '';
+  }
+
+  // If component suffix is a custom string
+  return componentSuffix;
 }

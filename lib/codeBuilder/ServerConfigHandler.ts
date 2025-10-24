@@ -1,5 +1,4 @@
 export class ServerConfigHandler {
-
   private _code: string;
 
   public constructor(code: string) {
@@ -27,5 +26,4 @@ export class ${className} extends ConfigService {
   public get code() {
     return this._code;
   }
-
 }
