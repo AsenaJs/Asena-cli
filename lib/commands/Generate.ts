@@ -20,6 +20,7 @@ import {
   getMiddlewareImports,
   getWebSocketImports,
   removeExtension,
+  resolveSuffix,
 } from '../helpers';
 import type { BaseCommand } from '../types/baseCommand';
 import type { GenerateOptions } from '../types/generate';
@@ -93,7 +94,9 @@ export class Generate implements BaseCommand {
   }
 
   private async generateController() {
-    const controllerName = convertToPascalCase(removeExtension((await this.askQuestions('controller')).elementName));
+    const baseName = convertToPascalCase(removeExtension((await this.askQuestions('controller')).elementName));
+    const suffix = await resolveSuffix('controller');
+    const controllerName = baseName + suffix;
 
     const importType = await getImportType();
     const adapter = await getAdapterConfig();
@@ -107,33 +110,39 @@ export class Generate implements BaseCommand {
   }
 
   private async addService() {
-    const serviceName = convertToPascalCase(removeExtension((await this.askQuestions('service')).elementName));
+    const baseName = convertToPascalCase(removeExtension((await this.askQuestions('service')).elementName));
+    const suffix = await resolveSuffix('service');
+    const serviceName = baseName + suffix;
 
     const importType = await getImportType();
 
-    const controllerCode =
+    const serviceCode =
       new ImportHandler('', importType).importToCode({ '@asenajs/asena/server': ['Service'] }, importType) +
       new ServiceHandler('').addService(serviceName).code;
 
-    await this.generate(controllerCode, 'services', serviceName);
+    await this.generate(serviceCode, 'services', serviceName);
   }
 
   private async addMiddleware() {
-    const controllerName = convertToPascalCase(removeExtension((await this.askQuestions('middleware')).elementName));
+    const baseName = convertToPascalCase(removeExtension((await this.askQuestions('middleware')).elementName));
+    const suffix = await resolveSuffix('middleware');
+    const middlewareName = baseName + suffix;
 
     const importType = await getImportType();
     const adapter = await getAdapterConfig();
     const middlewareImports = getMiddlewareImports(adapter);
 
-    const controllerCode =
+    const middlewareCode =
       new ImportHandler('', importType).importToCode(middlewareImports, importType) +
-      new MiddlewareHandler('').addMiddleware(controllerName).addDefaultHandle(controllerName).code;
+      new MiddlewareHandler('').addMiddleware(middlewareName).addDefaultHandle(middlewareName).code;
 
-    await this.generate(controllerCode, 'middlewares', controllerName);
+    await this.generate(middlewareCode, 'middlewares', middlewareName);
   }
 
   private async addConfig() {
-    const configName = convertToPascalCase(removeExtension((await this.askQuestions('config')).elementName));
+    const baseName = convertToPascalCase(removeExtension((await this.askQuestions('config')).elementName));
+    const suffix = await resolveSuffix('config');
+    const configName = baseName + suffix;
 
     const importType = await getImportType();
     const adapter = await getAdapterConfig();
@@ -147,8 +156,10 @@ export class Generate implements BaseCommand {
   }
 
   private async addWebSocket() {
-    const wsName = convertToPascalCase(removeExtension((await this.askQuestions('websocket')).elementName));
-    const wsPath = await this.askWebSocketPath(wsName);
+    const baseName = convertToPascalCase(removeExtension((await this.askQuestions('websocket')).elementName));
+    const suffix = await resolveSuffix('websocket');
+    const wsName = baseName + suffix;
+    const wsPath = await this.askWebSocketPath(baseName);
 
     const importType = await getImportType();
     const websocketImports = getWebSocketImports();

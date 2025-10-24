@@ -29,66 +29,6 @@ export const TSCONFIG = `{
   }
 }`;
 
-export const ESLINT = `module.exports = {
-  env: {
-    browser: true,
-    es2021: true,
-  },
-  extends: ['alloy', 'alloy/typescript', 'prettier'],
-  overrides: [
-    {
-      env: {
-        node: true,
-      },
-      files: ['.eslintrc.{js,cjs}', './**/*.js'],
-      parserOptions: {
-        sourceType: 'script',
-      },
-    },
-  ],
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-  },
-  plugins: ['import'],
-  rules: {
-    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-    'lines-between-class-members': ['error', 'always'],
-    'padded-blocks': ['error', { classes: 'always' }],
-    'padding-line-between-statements': [
-      'error',
-      { blankLine: 'always', prev: 'directive', next: '*' },
-      { blankLine: 'any', prev: 'directive', next: 'directive' },
-      { blankLine: 'always', prev: ['case', 'default'], next: '*' },
-      { blankLine: 'always', prev: ['const', 'let', 'var'], next: '*' },
-      { blankLine: 'always', prev: 'class', next: '*' },
-      { blankLine: 'always', prev: ['for', 'if', 'iife', 'do', 'expression', 'try', 'while'], next: '*' },
-      { blankLine: 'any', prev: ['const', 'let', 'var'], next: ['const', 'let', 'var'] },
-    ],
-    'import/order': [
-      'error',
-      {
-        groups: [
-          'builtin',
-          'external',
-          'internal',
-          ['parent', 'sibling', 'index'], 
-          'object',
-          'type',
-        ],
-        alphabetize: {
-          order: 'asc', // Sort alphabetically
-          caseInsensitive: true,
-        },
-        'newlines-between': 'never', // Add a newline between import groups
-      },
-    ],
-  },
-};
-`;
-
-export const ESLINT_IGNORE = `.eslintrc.js`;
-
 export const PRETTIER = `module.exports = {
   // max 120 characters per line
   printWidth: 120,
@@ -134,12 +74,34 @@ export const PRETTIER = `module.exports = {
 
 export const ESLINT_INSTALLATIONS = [
   'eslint',
-  'eslint-config-alloy',
-  'eslint-config-prettier',
-  'eslint-plugin-alloy',
-  'eslint-plugin-import',
-  'eslint-plugin-n',
-  'eslint-plugin-prettier',
-  'eslint-plugin-promise',
+  '@typescript-eslint/parser',
+  '@typescript-eslint/eslint-plugin',
+  'typescript-eslint',
 ];
+
+export const ESLINT_WITH_PRETTIER_INSTALLATIONS = [
+  'eslint-config-prettier',
+];
+
 export const PRETTIER_INSTALLATIONS = `prettier`;
+
+export const PRETTIER_IGNORE = `# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Logs
+*.log
+
+# Coverage
+coverage/
+
+# Lock files
+bun.lockb
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+*.md
+`;

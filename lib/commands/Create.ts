@@ -4,7 +4,14 @@ import { Command } from 'commander';
 import inquirer from 'inquirer';
 import ora, { type Ora } from 'ora';
 import { AsenaLoggerCreator, AsenaServerHandler, ControllerHandler, ImportHandler } from '../codeBuilder';
-import { ESLINT, ESLINT_IGNORE, ESLINT_INSTALLATIONS, PRETTIER, PRETTIER_INSTALLATIONS, TSCONFIG } from '../constants';
+import {
+  ESLINT_INSTALLATIONS,
+  ESLINT_WITH_PRETTIER_INSTALLATIONS,
+  PRETTIER,
+  PRETTIER_IGNORE,
+  PRETTIER_INSTALLATIONS,
+  TSCONFIG,
+} from '../constants';
 import { getAdapterFunctionName, getAdapterPackage, getControllerImports, getRootImports } from '../helpers';
 import { ImportType } from '../types';
 import { Init } from './Init';
@@ -160,14 +167,105 @@ export class Create implements BaseCommand {
     await $`bun add -D @types/bun typescript`.quiet();
   }
 
+  private getEslintConfig(): string {
+    const usePrettier = this.preference.prettier;
+
+    return `// @ts-check
+const eslint = require('@eslint/js');
+const tseslint = require('typescript-eslint');
+${usePrettier ? "const eslintConfigPrettier = require('eslint-config-prettier');" : ''}
+
+module.exports = tseslint.config(
+  // ESLint recommended rules
+  eslint.configs.recommended,
+
+  // TypeScript ESLint recommended rules
+  ...tseslint.configs.recommendedTypeChecked,
+  ...tseslint.configs.stylisticTypeChecked,
+${usePrettier ? '\n  // Prettier config to disable conflicting rules\n  eslintConfigPrettier,\n' : ''}
+  // Global ignores
+  {
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      '*.js',
+      '*.mjs',
+      'test/**',
+      '**/*.test.ts',
+      '**/*.spec.ts',
+      'eslint.config.cjs',
+      '*.md',
+    ],
+  },
+
+  // Base configuration
+  {
+    languageOptions: {
+      parserOptions: {
+        projectService: {
+          allowDefaultProject: ['*.js', '*.mjs', '*.cjs'],
+        },
+        tsconfigRootDir: __dirname,
+      },
+    },
+  },
+
+  // Custom rules
+  {
+    rules: {
+      // TypeScript rules
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/method-signature-style': 'off',
+
+      // Relax some strict TypeScript rules for decorator metadata
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unsafe-function-type': 'off',
+
+      // Allow empty interfaces (common in TypeScript patterns)
+      '@typescript-eslint/no-empty-interface': 'off',
+
+      // Allow require() in specific cases (Bun compatibility)
+      '@typescript-eslint/no-require-imports': 'off',
+
+      // Disable rules that require strictNullChecks (tsconfig has strict: false)
+      '@typescript-eslint/prefer-nullish-coalescing': 'off',
+
+      // Allow any in union types (common in adapter interfaces)
+      '@typescript-eslint/no-redundant-type-constituents': 'off',
+
+      // Allow index signatures (common in dynamic interfaces)
+      '@typescript-eslint/consistent-indexed-object-style': 'off',
+
+      // Allow async functions without await (common in interface implementations)
+      '@typescript-eslint/require-await': 'off',
+
+      // Allow flexible generic constructors
+      '@typescript-eslint/consistent-generic-constructors': 'off',
+    },
+  },
+);
+`;
+  }
+
   private async installAndCreateEslint() {
+    // Install base ESLint packages
     const output = await $`bun add -D ${ESLINT_INSTALLATIONS}`.quiet();
 
     if (output.exitCode !== 0) return;
 
-    await Bun.write(process.cwd() + '/.eslintrc.js', ESLINT);
+    // Install prettier integration if prettier is enabled
+    if (this.preference.prettier) {
+      await $`bun add -D ${ESLINT_WITH_PRETTIER_INSTALLATIONS}`.quiet();
+    }
 
-    await Bun.write(process.cwd() + '/.eslintignore', ESLINT_IGNORE);
+    // Generate and write dynamic config
+    const eslintConfig = this.getEslintConfig();
+    await Bun.write(process.cwd() + '/eslint.config.cjs', eslintConfig);
 
     return output.stderr.toString() === '';
   }
@@ -176,6 +274,8 @@ export class Create implements BaseCommand {
     const output = await $`bun add -D ${PRETTIER_INSTALLATIONS}`.quiet();
 
     await Bun.write(process.cwd() + '/.prettierrc.js', PRETTIER);
+
+    await Bun.write(process.cwd() + '/.prettierignore', PRETTIER_IGNORE);
 
     return output.stderr.toString() === '';
   }

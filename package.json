@@ -1,6 +1,6 @@
 {
   "name": "@asenajs/asena-cli",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "author": "LibirSoft",
   "license": "MIT",
   "bin": {
@@ -14,7 +14,7 @@
     "clean": "rm -rf dist",
     "test": "bun test",
     "pre-release": "bun update && bun run build",
-    "prepublishOnly": "bun run scripts/sync-version.ts && bun run build",
+    "prepublishOnly": "bun scripts/sync-version.ts && bun run build",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

@@ -11,7 +11,7 @@ export class Commands {
   public constructor() {
     this.program.name('asena');
 
-    this.program.version('0.5.0');
+    this.program.version('0.5.1');
 
     this.program.addCommand(new Create().command());
 

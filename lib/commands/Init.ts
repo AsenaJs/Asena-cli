@@ -29,8 +29,11 @@ export class Init implements BaseCommand {
       // 1. Use provided adapter or ask user which adapter to use
       const selectedAdapter = adapter || (await this.askAdapterQuestion()).adapter;
 
-      // 2. Create .asena/config.json with selected adapter
-      await writeAdapterConfig({ adapter: selectedAdapter });
+      // 2. Create .asena/config.json with selected adapter and default suffix settings
+      await writeAdapterConfig({
+        adapter: selectedAdapter,
+        suffixes: true, // Default: use standard suffixes (Controller, Service, etc.)
+      });
 
       // 3. Install CLI package if needed
       if (!(await getAsenaCliVersion())) {
