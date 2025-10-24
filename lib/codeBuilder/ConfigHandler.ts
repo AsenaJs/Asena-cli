@@ -50,7 +50,7 @@ export class ConfigHandler {
       }
     }
 
-    if (!config || !config.rootFile || !config.sourceFolder) {
+    if (!config?.rootFile || !config.sourceFolder) {
       throw new Error('No config file detected or invalid format');
     }
 

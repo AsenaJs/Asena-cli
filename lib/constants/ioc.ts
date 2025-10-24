@@ -25,8 +25,8 @@ export async function loadComponentConstants(projectRoot: string = process.cwd()
   } catch (error) {
     throw new Error(
       `Failed to load ComponentConstants from @asenajs/asena in project: ${projectRoot}\n` +
-      'Make sure @asenajs/asena is installed as a dependency in your project.\n' +
-      `Error: ${error instanceof Error ? error.message : String(error)}`
+        'Make sure @asenajs/asena is installed as a dependency in your project.\n' +
+        `Error: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 }

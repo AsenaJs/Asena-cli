@@ -6,7 +6,6 @@ import { Build } from './Build';
 import type { BaseCommand } from '../types/baseCommand';
 
 export class Dev implements BaseCommand {
-
   public command() {
     const devCommand = new Command('dev').description('Developer options');
 
@@ -33,5 +32,4 @@ export class Dev implements BaseCommand {
 
     await $`bun run ${buildFile}`;
   }
-
 }

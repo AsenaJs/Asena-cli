@@ -4,7 +4,7 @@
 
 # Asena CLI
 
-[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](https://asena.dev)
+[![Version](https://img.shields.io/badge/version-0.5.1-blue.svg)](https://asena.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Bun Version](https://img.shields.io/badge/Bun-1.2.8%2B-blueviolet)](https://bun.sh)
 

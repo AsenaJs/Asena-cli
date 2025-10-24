@@ -29,7 +29,7 @@ export const getControllers = async (rootFile: string, sourceFolder: string) => 
 
       try {
         fileContent = await import(path.join(process.cwd(), file));
-      } catch (e) {
+      } catch {
         continue;
       }
 
@@ -51,7 +51,7 @@ export const getControllers = async (rootFile: string, sourceFolder: string) => 
       .filter((c) => {
         try {
           return !!getMetadata(ComponentConstants.IOCObjectKey, c as any);
-        } catch (e) {
+        } catch {
           return false;
         }
       }) as Class[];

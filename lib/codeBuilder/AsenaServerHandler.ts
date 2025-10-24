@@ -1,7 +1,6 @@
 import { RegexHelper } from '../helpers';
 
 export class AsenaServerHandler {
-
   private _asenaServer: string;
 
   public constructor(asenaServer: string) {
@@ -62,5 +61,4 @@ ${this._asenaServer.substring(optionsEndIndex)}`;
   public get asenaServer() {
     return this._asenaServer;
   }
-
 }

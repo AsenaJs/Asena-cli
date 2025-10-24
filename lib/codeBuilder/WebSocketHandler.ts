@@ -1,5 +1,4 @@
 export class WebSocketHandler {
-
   private _code: string;
 
   public constructor(code: string) {
@@ -33,5 +32,4 @@ export class ${className} extends AsenaWebSocketService {
   public get code() {
     return this._code;
   }
-
 }

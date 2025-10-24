@@ -22,10 +22,7 @@
  * @see {@link https://bun.sh/docs/bundler Bun Bundler Documentation}
  */
 export type BuildOptions = Partial<
-  Pick<
-    Bun.BuildConfig,
-    'outdir' | 'sourcemap' | 'minify' | 'external' | 'format' | 'drop'
-  >
+  Pick<Bun.BuildConfig, 'outdir' | 'sourcemap' | 'minify' | 'external' | 'format' | 'drop'>
 >;
 
 /**
@@ -70,7 +67,7 @@ export interface AsenaConfig {
    * main entry point for the build process. The build system will use this file
    * to create the entrypoints configuration.
    *
-      * @remarks
+   * @remarks
    * This path will always override the entrypoints in buildOptions if specified.
    *
    * @example './src/index.ts' or './src/main.ts'
