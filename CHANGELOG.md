@@ -1,5 +1,21 @@
 # @asenajs/asena-cli
 
+## 0.6.0
+
+### Minor Changes
+
+- Add validator generation support
+  - New `asena generate validator` command to create validation schemas
+  - ValidatorHandler for generating validator boilerplate code
+  - Adapter-specific validator imports and configurations
+  - Enhanced Create command with validator setup options
+
+### Patch Changes
+
+- Fix test suite compatibility with CommonJS module system
+  - Updated ImportHandler test to expect correct require format for scoped packages (removed incorrect './@' prefix)
+  - Updated Create command test to reflect CommonJS default behavior (no 'type: "module"' field in package.json)
+
 ## 0.5.1
 
 ### Patch Changes
