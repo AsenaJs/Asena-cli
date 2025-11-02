@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { ImportHandler } from '../../lib/codeBuilder/ImportHandler';
+import { ImportHandler } from '../../lib/codeBuilder';
 import { ImportType } from '../../lib/types';
 
 describe('ImportHandler', () => {
@@ -182,7 +182,7 @@ const x = 1;
         ImportType.REQUIRE,
       );
 
-      expect(result).toContain("const {AsenaServer} = require('./@asenajs/asena')");
+      expect(result).toContain("const {AsenaServer} = require('@asenajs/asena')");
     });
 
     it('should add multiple requires from same file', () => {
@@ -258,6 +258,7 @@ import {
     it('should handle consecutive importToCode calls', () => {
       const handler = new ImportHandler('', ImportType.IMPORT);
 
+      // @ts-ignore
       const result1 = handler.importToCode(
         {
           '@asenajs/asena': ['AsenaServer'],

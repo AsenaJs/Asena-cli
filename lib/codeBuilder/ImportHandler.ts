@@ -50,9 +50,16 @@ export class ImportHandler {
   }
 
   private importFormatter(imports: string[], filePath: string, importType: ImportType) {
+    // Check if it's a relative path (starts with . or ..)
+    const isRelativePath = filePath.startsWith('.') || filePath.startsWith('..');
+    // Check if it's an npm package (starts with @ or doesn't contain /)
+    const isNpmPackage = filePath.startsWith('@') || !filePath.includes('/');
+    // Only add ./ prefix for relative paths that don't already have it
+    const prefix = isRelativePath || isNpmPackage ? '' : './';
+
     return importType === ImportType.IMPORT
-      ? `import {${imports.join(',')}} from '${filePath.startsWith('@') ? '' : './'}${filePath}'; \n`
-      : `const {${imports.join(',')}} = require('./${filePath}'); \n`;
+      ? `import {${imports.join(',')}} from '${prefix}${filePath}'; \n`
+      : `const {${imports.join(',')}} = require('${prefix}${filePath}'); \n`;
   }
 
   private init() {

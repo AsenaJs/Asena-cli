@@ -9,6 +9,7 @@ import {
   MiddlewareHandler,
   ServerConfigHandler,
   ServiceHandler,
+  ValidatorHandler,
   WebSocketHandler,
 } from '../codeBuilder';
 import {
@@ -18,6 +19,7 @@ import {
   getControllerImports,
   getImportType,
   getMiddlewareImports,
+  getValidatorImports,
   getWebSocketImports,
   removeExtension,
   resolveSuffix,
@@ -29,7 +31,7 @@ export class Generate implements BaseCommand {
   public command() {
     const generate = new Command('generate')
       .alias('g')
-      .description('For generating service, middleware and controller');
+      .description('For generating service, middleware, controller and validator');
 
     generate
       .command('controller')
@@ -62,6 +64,18 @@ export class Generate implements BaseCommand {
       .action(async () => {
         try {
           await this.addMiddleware();
+        } catch (error) {
+          console.error('Build failed: ', error);
+        }
+      });
+
+    generate
+      .command('validator')
+      .alias('v')
+      .description('Generates validator with Zod schema')
+      .action(async () => {
+        try {
+          await this.addValidator();
         } catch (error) {
           console.error('Build failed: ', error);
         }
@@ -169,6 +183,22 @@ export class Generate implements BaseCommand {
       new WebSocketHandler('').addWebSocketNamespace(wsName, wsPath).code;
 
     await this.generate(websocketCode, 'namespaces', wsName);
+  }
+
+  private async addValidator() {
+    const baseName = convertToPascalCase(removeExtension((await this.askQuestions('validator')).elementName));
+    const suffix = await resolveSuffix('validator');
+    const validatorName = baseName + suffix;
+
+    const importType = await getImportType();
+    const adapter = await getAdapterConfig();
+    const validatorImports = getValidatorImports(adapter);
+
+    const validatorCode =
+      new ImportHandler('', importType).importToCode(validatorImports, importType) +
+      new ValidatorHandler('').addValidator(validatorName).addExampleSchema(validatorName).code;
+
+    await this.generate(validatorCode, 'middlewares/validators', validatorName);
   }
 
   private async generate(code: string, elementType: string, elementName: string) {

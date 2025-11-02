@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { mkdtemp, rm } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { Create } from '../../lib/commands/Create';
 
 describe('Create command CLI arguments', () => {
@@ -102,5 +105,176 @@ describe('Create command CLI arguments', () => {
     for (const expectedOpt of expectedOptions) {
       expect(commandOptions).toContain(expectedOpt);
     }
+  });
+});
+
+describe('Create command package.json generation', () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    // Create a temporary directory for each test
+    tempDir = await mkdtemp(join(tmpdir(), 'asena-test-'));
+  });
+
+  afterEach(async () => {
+    // Clean up after each test
+    if (tempDir) {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('should create package.json with basic scripts', async () => {
+    const create = new Create();
+    const projectPath = tempDir;
+
+    // Call the private method using type assertion
+    await (create as any).createPackageJson(projectPath);
+
+    // Read and parse the generated package.json
+    const packageJsonPath = join(projectPath, 'package.json');
+    const packageJsonContent = await Bun.file(packageJsonPath).text();
+    const packageJson = JSON.parse(packageJsonContent);
+
+    // Verify basic scripts exist
+    expect(packageJson.scripts).toBeDefined();
+    expect(packageJson.scripts.start).toBe('bun src/index.ts');
+    expect(packageJson.scripts.build).toBe('asena build');
+    expect(packageJson.scripts['start:prod']).toBe('bun run dist/index.js');
+  });
+
+  it('should include eslint scripts when eslint is enabled', async () => {
+    const create = new Create();
+    const projectPath = tempDir;
+
+    // Set preference to include eslint
+    (create as any).preference = {
+      projectName: 'TestProject',
+      adapter: 'hono',
+      logger: false,
+      eslint: true,
+      prettier: false,
+    };
+
+    await (create as any).createPackageJson(projectPath);
+
+    const packageJsonPath = join(projectPath, 'package.json');
+    const packageJsonContent = await Bun.file(packageJsonPath).text();
+    const packageJson = JSON.parse(packageJsonContent);
+
+    // Verify eslint scripts exist
+    expect(packageJson.scripts.lint).toBe('eslint .');
+    expect(packageJson.scripts['lint:fix']).toBe('eslint . --fix');
+  });
+
+  it('should include prettier scripts when prettier is enabled', async () => {
+    const create = new Create();
+    const projectPath = tempDir;
+
+    // Set preference to include prettier
+    (create as any).preference = {
+      projectName: 'TestProject',
+      adapter: 'hono',
+      logger: false,
+      eslint: false,
+      prettier: true,
+    };
+
+    await (create as any).createPackageJson(projectPath);
+
+    const packageJsonPath = join(projectPath, 'package.json');
+    const packageJsonContent = await Bun.file(packageJsonPath).text();
+    const packageJson = JSON.parse(packageJsonContent);
+
+    // Verify prettier scripts exist
+    expect(packageJson.scripts.format).toBe('prettier --write .');
+    expect(packageJson.scripts['format:check']).toBe('prettier --check .');
+  });
+
+  it('should include combined check scripts when both eslint and prettier are enabled', async () => {
+    const create = new Create();
+    const projectPath = tempDir;
+
+    // Set preference to include both eslint and prettier
+    (create as any).preference = {
+      projectName: 'TestProject',
+      adapter: 'hono',
+      logger: false,
+      eslint: true,
+      prettier: true,
+    };
+
+    await (create as any).createPackageJson(projectPath);
+
+    const packageJsonPath = join(projectPath, 'package.json');
+    const packageJsonContent = await Bun.file(packageJsonPath).text();
+    const packageJson = JSON.parse(packageJsonContent);
+
+    // Verify all scripts exist
+    expect(packageJson.scripts.lint).toBe('eslint .');
+    expect(packageJson.scripts['lint:fix']).toBe('eslint . --fix');
+    expect(packageJson.scripts.format).toBe('prettier --write .');
+    expect(packageJson.scripts['format:check']).toBe('prettier --check .');
+    expect(packageJson.scripts.check).toBe('bun run lint && bun run format:check');
+    expect(packageJson.scripts['check:fix']).toBe('bun run lint:fix && bun run format');
+  });
+
+  it('should not include eslint/prettier scripts when disabled', async () => {
+    const create = new Create();
+    const projectPath = tempDir;
+
+    // Set preference to exclude both eslint and prettier
+    (create as any).preference = {
+      projectName: 'TestProject',
+      adapter: 'hono',
+      logger: false,
+      eslint: false,
+      prettier: false,
+    };
+
+    await (create as any).createPackageJson(projectPath);
+
+    const packageJsonPath = join(projectPath, 'package.json');
+    const packageJsonContent = await Bun.file(packageJsonPath).text();
+    const packageJson = JSON.parse(packageJsonContent);
+
+    // Verify eslint/prettier scripts do NOT exist
+    expect(packageJson.scripts.lint).toBeUndefined();
+    expect(packageJson.scripts['lint:fix']).toBeUndefined();
+    expect(packageJson.scripts.format).toBeUndefined();
+    expect(packageJson.scripts['format:check']).toBeUndefined();
+    expect(packageJson.scripts.check).toBeUndefined();
+    expect(packageJson.scripts['check:fix']).toBeUndefined();
+
+    // But basic scripts should still exist
+    expect(packageJson.scripts.start).toBe('bun src/index.ts');
+    expect(packageJson.scripts.build).toBe('asena build');
+    expect(packageJson.scripts['start:prod']).toBe('bun run dist/index.js');
+  });
+
+  it('should not include type field in package.json (CommonJS by default)', async () => {
+    const create = new Create();
+    const projectPath = tempDir;
+
+    await (create as any).createPackageJson(projectPath);
+
+    const packageJsonPath = join(projectPath, 'package.json');
+    const packageJsonContent = await Bun.file(packageJsonPath).text();
+    const packageJson = JSON.parse(packageJsonContent);
+
+    // Without type field, package.json defaults to CommonJS
+    expect(packageJson.type).toBeUndefined();
+  });
+
+  it('should set module field to src/index.ts', async () => {
+    const create = new Create();
+    const projectPath = tempDir;
+
+    await (create as any).createPackageJson(projectPath);
+
+    const packageJsonPath = join(projectPath, 'package.json');
+    const packageJsonContent = await Bun.file(packageJsonPath).text();
+    const packageJson = JSON.parse(packageJsonContent);
+
+    expect(packageJson.module).toBe('src/index.ts');
   });
 });
