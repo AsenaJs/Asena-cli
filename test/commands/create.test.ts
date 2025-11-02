@@ -251,7 +251,7 @@ describe('Create command package.json generation', () => {
     expect(packageJson.scripts['start:prod']).toBe('bun run dist/index.js');
   });
 
-  it('should include type: module in package.json', async () => {
+  it('should not include type field in package.json (CommonJS by default)', async () => {
     const create = new Create();
     const projectPath = tempDir;
 
@@ -261,7 +261,8 @@ describe('Create command package.json generation', () => {
     const packageJsonContent = await Bun.file(packageJsonPath).text();
     const packageJson = JSON.parse(packageJsonContent);
 
-    expect(packageJson.type).toBe('module');
+    // Without type field, package.json defaults to CommonJS
+    expect(packageJson.type).toBeUndefined();
   });
 
   it('should set module field to src/index.ts', async () => {
