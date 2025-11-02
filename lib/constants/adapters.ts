@@ -67,6 +67,24 @@ export const ERGENECORE_CONFIG_IMPORTS: ImportsByFiles = {
 };
 
 /**
+ * Hono Adapter imports for validator files
+ */
+export const HONO_VALIDATOR_IMPORTS: ImportsByFiles = {
+  '@asenajs/asena/server': ['Middleware'],
+  '@asenajs/hono-adapter': ['ValidationService'],
+  zod: ['z'],
+};
+
+/**
+ * Ergenecore Adapter imports for validator files
+ */
+export const ERGENECORE_VALIDATOR_IMPORTS: ImportsByFiles = {
+  '@asenajs/asena/server': ['Middleware'],
+  '@asenajs/ergenecore': ['ValidationService'],
+  zod: ['z'],
+};
+
+/**
  * WebSocket namespace imports (adapter-agnostic)
  */
 export const WEBSOCKET_IMPORTS: ImportsByFiles = {

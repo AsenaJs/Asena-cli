@@ -147,12 +147,37 @@ export class Create implements BaseCommand {
   }
 
   private async createPackageJson(projectPath: string) {
-    const packageJsonFile = `{
-      "name":"${this.preference.projectName}",
-      "module":"src/index.ts",
-    }`;
+    const scripts: Record<string, string> = {
+      start: 'bun src/index.ts',
+      build: 'asena build',
+      'start:prod': 'bun run dist/index.js',
+    };
 
-    await Bun.write(projectPath + '/package.json', packageJsonFile);
+    // Add ESLint scripts if enabled
+    if (this.preference.eslint) {
+      scripts['lint'] = 'eslint .';
+      scripts['lint:fix'] = 'eslint . --fix';
+    }
+
+    // Add Prettier scripts if enabled
+    if (this.preference.prettier) {
+      scripts['format'] = 'prettier --write .';
+      scripts['format:check'] = 'prettier --check .';
+    }
+
+    // Add combined check scripts if both are enabled
+    if (this.preference.eslint && this.preference.prettier) {
+      scripts['check'] = 'bun run lint && bun run format:check';
+      scripts['check:fix'] = 'bun run lint:fix && bun run format';
+    }
+
+    const packageJson = {
+      name: this.preference.projectName,
+      module: 'src/index.ts',
+      scripts,
+    };
+
+    await Bun.write(projectPath + '/package.json', JSON.stringify(packageJson, null, 2));
   }
 
   private async installPreRequests() {

@@ -5,10 +5,12 @@ import {
   HONO_CONTROLLER_IMPORTS,
   HONO_MIDDLEWARE_IMPORTS,
   HONO_CONFIG_IMPORTS,
+  HONO_VALIDATOR_IMPORTS,
   ERGENECORE_ROOT_IMPORTS,
   ERGENECORE_CONTROLLER_IMPORTS,
   ERGENECORE_MIDDLEWARE_IMPORTS,
   ERGENECORE_CONFIG_IMPORTS,
+  ERGENECORE_VALIDATOR_IMPORTS,
   WEBSOCKET_IMPORTS,
   ADAPTER_PACKAGES,
 } from '../constants/adapters';
@@ -64,6 +66,15 @@ export function getConfigImports(adapter: AdapterType): ImportsByFiles {
  */
 export function getWebSocketImports(): ImportsByFiles {
   return WEBSOCKET_IMPORTS;
+}
+
+/**
+ * Get validator imports for the specified adapter
+ * @param adapter AdapterType ('hono' or 'ergenecore')
+ * @returns ImportsByFiles for validator files
+ */
+export function getValidatorImports(adapter: AdapterType): ImportsByFiles {
+  return adapter === 'hono' ? HONO_VALIDATOR_IMPORTS : ERGENECORE_VALIDATOR_IMPORTS;
 }
 
 /**

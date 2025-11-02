@@ -6,4 +6,5 @@ export * from './AsenaLoggerCreator';
 export * from './MiddlewareHandler';
 export * from './ServiceHandler';
 export * from './ServerConfigHandler';
+export * from './ValidatorHandler';
 export * from './WebSocketHandler';
