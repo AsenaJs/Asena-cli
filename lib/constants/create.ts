@@ -79,9 +79,7 @@ export const ESLINT_INSTALLATIONS = [
   'typescript-eslint',
 ];
 
-export const ESLINT_WITH_PRETTIER_INSTALLATIONS = [
-  'eslint-config-prettier',
-];
+export const ESLINT_WITH_PRETTIER_INSTALLATIONS = ['eslint-config-prettier'];
 
 export const PRETTIER_INSTALLATIONS = `prettier`;
 

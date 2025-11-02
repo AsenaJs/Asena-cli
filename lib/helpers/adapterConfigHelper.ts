@@ -11,6 +11,7 @@ const DEFAULT_SUFFIXES: Record<ComponentType, string> = {
   controller: 'Controller',
   service: 'Service',
   middleware: 'Middleware',
+  validator: 'Validator',
   config: 'Config',
   websocket: 'Namespace',
 };
