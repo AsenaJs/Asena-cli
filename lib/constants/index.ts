@@ -4,3 +4,4 @@ export * from './create';
 export * from './file';
 export * from './init';
 export * from './adapters';
+export * from './configSchema';

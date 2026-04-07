@@ -8,6 +8,7 @@ import {
   isAdapterConfigExists,
   resolveSuffix,
 } from '../../lib/helpers';
+import { CONFIG_SCHEMA } from '../../lib/constants/configSchema';
 
 describe('adapterConfigHelper', () => {
   const TEST_DIR = path.join(import.meta.dir, '__test_adapter_config__');
@@ -66,6 +67,52 @@ describe('adapterConfigHelper', () => {
       // Check if it's pretty-printed (has newlines and spaces)
       expect(content).toContain('\n');
       expect(content).toContain('  ');
+
+      process.chdir(ORIGINAL_CWD);
+    });
+
+    it('should add $schema reference to config.json', async () => {
+      process.chdir(TEST_DIR);
+      await rm(path.join(TEST_DIR, '.asena'), { recursive: true, force: true });
+
+      await writeAdapterConfig({ adapter: 'hono' });
+
+      const content = await Bun.file(path.join(TEST_DIR, '.asena/config.json')).json();
+
+      expect(content.$schema).toBe('./config.schema.json');
+
+      process.chdir(ORIGINAL_CWD);
+    });
+
+    it('should write config.schema.json alongside config.json', async () => {
+      process.chdir(TEST_DIR);
+      await rm(path.join(TEST_DIR, '.asena'), { recursive: true, force: true });
+
+      await writeAdapterConfig({ adapter: 'hono' });
+
+      const schemaPath = path.join(TEST_DIR, '.asena/config.schema.json');
+      const exists = await Bun.file(schemaPath).exists();
+
+      expect(exists).toBe(true);
+
+      const schema = await Bun.file(schemaPath).json();
+
+      expect(schema.$schema).toBe('http://json-schema.org/draft-07/schema#');
+      expect(schema.title).toBe('Asena CLI Configuration');
+      expect(schema.properties.adapter.enum).toEqual(['hono', 'ergenecore']);
+
+      process.chdir(ORIGINAL_CWD);
+    });
+
+    it('should write schema matching CONFIG_SCHEMA constant', async () => {
+      process.chdir(TEST_DIR);
+      await rm(path.join(TEST_DIR, '.asena'), { recursive: true, force: true });
+
+      await writeAdapterConfig({ adapter: 'ergenecore' });
+
+      const schema = await Bun.file(path.join(TEST_DIR, '.asena/config.schema.json')).json();
+
+      expect(schema).toEqual(CONFIG_SCHEMA);
 
       process.chdir(ORIGINAL_CWD);
     });

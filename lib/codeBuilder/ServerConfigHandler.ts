@@ -6,8 +6,7 @@ export class ServerConfigHandler {
   }
 
   public addConfigClass(className: string) {
-    const configClass = `
-@Config()
+    const configClass = `\n@Config()
 export class ${className} extends ConfigService {
 
   public onError(error: Error, context: Context): Response | Promise<Response> {

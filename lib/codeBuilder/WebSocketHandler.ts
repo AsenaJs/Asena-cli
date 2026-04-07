@@ -6,8 +6,7 @@ export class WebSocketHandler {
   }
 
   public addWebSocketNamespace(className: string, path: string) {
-    const websocketClass = `
-@WebSocket({ path: '${path}', name: '${className}' })
+    const websocketClass = `\n@WebSocket({ path: '${path}', name: '${className}' })
 export class ${className} extends AsenaWebSocketService {
 
   protected async onOpen(ws: Socket): Promise<void> {

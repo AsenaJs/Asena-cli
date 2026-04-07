@@ -1,4 +1,4 @@
-import { Service } from '@asenajs/asena/server';
+import { Service } from '@asenajs/asena/decorators';
 
 @Service('TestService')
 export class TestService {

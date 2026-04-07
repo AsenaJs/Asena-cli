@@ -4,7 +4,7 @@
   "private": true,
   "description": "Test fixture for @asenajs/asena-cli component detection integration tests",
   "dependencies": {
-    "@asenajs/asena": "^0.4.0",
+    "@asenajs/asena": "^0.7.0",
     "@asenajs/hono-adapter": "^1.2.0"
   }
 }

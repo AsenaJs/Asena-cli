@@ -131,7 +131,7 @@ export class Generate implements BaseCommand {
     const importType = await getImportType();
 
     const serviceCode =
-      new ImportHandler('', importType).importToCode({ '@asenajs/asena/server': ['Service'] }, importType) +
+      new ImportHandler('', importType).importToCode({ '@asenajs/asena/decorators': ['Service'] }, importType) +
       new ServiceHandler('').addService(serviceName).code;
 
     await this.generate(serviceCode, 'services', serviceName);

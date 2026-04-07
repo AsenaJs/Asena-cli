@@ -32,9 +32,9 @@ describe('adapterImportHelper', () => {
     it('should return Hono controller imports for hono adapter', () => {
       const imports = getControllerImports('hono');
 
-      expect(imports['@asenajs/asena/server']).toContain('Controller');
+      expect(imports['@asenajs/asena/decorators']).toContain('Controller');
 
-      expect(imports['@asenajs/asena/web']).toContain('Get');
+      expect(imports['@asenajs/asena/decorators/http']).toContain('Get');
 
       expect(imports['@asenajs/hono-adapter']).toContain('type Context');
     });
@@ -42,9 +42,9 @@ describe('adapterImportHelper', () => {
     it('should return Ergenecore controller imports for ergenecore adapter', () => {
       const imports = getControllerImports('ergenecore');
 
-      expect(imports['@asenajs/asena/server']).toContain('Controller');
+      expect(imports['@asenajs/asena/decorators']).toContain('Controller');
 
-      expect(imports['@asenajs/asena/web']).toContain('Get');
+      expect(imports['@asenajs/asena/decorators/http']).toContain('Get');
 
       expect(imports['@asenajs/ergenecore']).toContain('type Context');
     });
@@ -54,7 +54,7 @@ describe('adapterImportHelper', () => {
     it('should return Hono middleware imports for hono adapter', () => {
       const imports = getMiddlewareImports('hono');
 
-      expect(imports['@asenajs/asena/server']).toContain('Middleware');
+      expect(imports['@asenajs/asena/decorators']).toContain('Middleware');
 
       expect(imports['@asenajs/hono-adapter']).toContain('type Context');
 
@@ -64,7 +64,7 @@ describe('adapterImportHelper', () => {
     it('should return Ergenecore middleware imports for ergenecore adapter', () => {
       const imports = getMiddlewareImports('ergenecore');
 
-      expect(imports['@asenajs/asena/server']).toContain('Middleware');
+      expect(imports['@asenajs/asena/decorators']).toContain('Middleware');
 
       expect(imports['@asenajs/ergenecore']).toContain('type Context');
 
@@ -76,7 +76,7 @@ describe('adapterImportHelper', () => {
     it('should return Hono config imports for hono adapter', () => {
       const imports = getConfigImports('hono');
 
-      expect(imports['@asenajs/asena/server']).toContain('Config');
+      expect(imports['@asenajs/asena/decorators']).toContain('Config');
 
       expect(imports['@asenajs/hono-adapter']).toContain('ConfigService');
 
@@ -86,7 +86,7 @@ describe('adapterImportHelper', () => {
     it('should return Ergenecore config imports for ergenecore adapter', () => {
       const imports = getConfigImports('ergenecore');
 
-      expect(imports['@asenajs/asena/server']).toContain('Config');
+      expect(imports['@asenajs/asena/decorators']).toContain('Config');
 
       expect(imports['@asenajs/ergenecore']).toContain('ConfigService');
 
@@ -98,7 +98,7 @@ describe('adapterImportHelper', () => {
     it('should return adapter-agnostic WebSocket imports', () => {
       const imports = getWebSocketImports();
 
-      expect(imports['@asenajs/asena/server']).toContain('WebSocket');
+      expect(imports['@asenajs/asena/decorators']).toContain('WebSocket');
 
       expect(imports['@asenajs/asena/web-socket']).toContain('AsenaWebSocketService');
 
