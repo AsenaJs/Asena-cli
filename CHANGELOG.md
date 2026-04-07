@@ -1,5 +1,46 @@
 # @asenajs/asena-cli
 
+## 0.7.0
+
+### Minor Changes
+
+- ### Import Path Migration
+  - Migrate all generated import paths from `@asenajs/asena/server` and `@asenajs/asena/web` to the new `@asenajs/asena/decorators` and `@asenajs/asena/decorators/http` subpath exports
+  - Service generate command now uses `@asenajs/asena/decorators` instead of `@asenajs/asena/server`
+
+  ### Code Generation Quality
+  - Replace tab indentation with 2-space indentation in all code generators (Controller, Middleware, Validator, WebSocket, ServerConfig)
+  - Use single quotes consistently in generated code
+  - Add proper spacing in class declarations and method signatures
+  - Fix extra whitespace before `export class` in ControllerHandler
+
+  ### Create Command Enhancements
+  - Add `--skip-install` flag for monorepo/offline workflows — writes dependencies to package.json without running `bun install`
+  - Add `.gitignore` generation with sensible defaults (node_modules, dist, .env, IDE files)
+  - Use current folder name as project name when creating in current directory (instead of hardcoded "myApp")
+  - Add `dev` and `dev:hot` scripts to generated package.json
+
+  ### Config Schema & IDE Support
+  - Add JSON Schema for `.asena/config.json` — enables autocomplete and validation in IDEs
+  - Write `config.schema.json` alongside config file with `$schema` reference
+  - Add `$schema` field to AdapterConfig type
+
+  ### Test Fixture Fix
+  - Update fixture `@asenajs/asena` dependency from `^0.4.0` to `^0.7.0`
+  - Install fixture dependencies so integration tests pass
+
+  ### New Tests
+  - ControllerHandler: indentation, spacing, path handling
+  - MiddlewareHandler: structure, indentation, spacing
+  - ValidatorHandler: structure, schema generation
+
+  ### Dependency Updates
+  - `@asenajs/asena` `^0.6.0` → `^0.7.0`
+  - `eslint` `^9.39.0` → `^9.39.4`
+  - `prettier` `^3.6.2` → `^3.8.1`
+  - `typescript-eslint` `^8.46.2` → `^8.58.0`
+  - `inquirer` `^12.10.0` → `^12.11.1`
+
 ## 0.6.0
 
 ### Minor Changes

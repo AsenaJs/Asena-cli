@@ -1,0 +1,28 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "sample-app-test-fixture",
+      "dependencies": {
+        "@asenajs/asena": "^0.7.0",
+        "@asenajs/hono-adapter": "^1.2.0",
+      },
+    },
+  },
+  "packages": {
+    "@asenajs/asena": ["@asenajs/asena@0.7.0", "", { "dependencies": { "reflect-metadata": "^0.2.2" } }, "sha512-qU+NkkorV8rx++AT1snv5WG7+BVaiwzM8541pbENRwYx1nxqp8BgYEv01LHkJFNR28VrEqAo1lhvOuEhNe4oYQ=="],
+
+    "@asenajs/hono-adapter": ["@asenajs/hono-adapter@1.5.0", "", { "dependencies": { "@hono/zod-validator": "^0.4.3", "hono": "^4.12.9", "zod": "^4.3.6" }, "peerDependencies": { "@asenajs/asena": "^0.7.0", "typescript": "^5.8.2" } }, "sha512-9+SJV19VisYcpsCfn88lEHaYo7m9Gk/9G/w8bq10ppAJWGgBVznXiThliSN1lpKl6Xggue5WCyWvC6oIQz2eFQ=="],
+
+    "@hono/zod-validator": ["@hono/zod-validator@0.4.3", "", { "peerDependencies": { "hono": ">=3.9.0", "zod": "^3.19.1" } }, "sha512-xIgMYXDyJ4Hj6ekm9T9Y27s080Nl9NXHcJkOvkXPhubOLj8hZkOL8pDnnXfvCf5xEE8Q4oMFenQUZZREUY2gqQ=="],
+
+    "hono": ["hono@4.12.11", "", {}, "sha512-r4xbIa3mGGGoH9nN4A14DOg2wx7y2oQyJEb5O57C/xzETG/qx4c7CVDQ5WMeKHZ7ORk2W0hZ/sQKXTav3cmYBA=="],
+
+    "reflect-metadata": ["reflect-metadata@0.2.2", "", {}, "sha512-urBwgfrvVP/eAyXx4hluJivBKzuEbSQs9rKWCrCkbSxNv8mxPcUZKeuoF3Uy4mJl3Lwprp6yy5/39VWigZ4K6Q=="],
+
+    "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
+    "zod": ["zod@4.3.6", "", {}, "sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg=="],
+  }
+}

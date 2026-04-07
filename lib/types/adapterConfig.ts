@@ -32,6 +32,7 @@ export interface SuffixSettings {
  * CLI configuration stored in .asena/config.json
  */
 export interface AdapterConfig {
+  $schema?: string;
   adapter: AdapterType;
   /**
    * Suffix configuration

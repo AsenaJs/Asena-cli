@@ -24,7 +24,7 @@ export class Init implements BaseCommand {
       });
   }
 
-  public async exec(adapter?: AdapterType) {
+  public async exec(adapter?: AdapterType, skipInstall = false) {
     if (!isAsenaConfigExists()) {
       // 1. Use provided adapter or ask user which adapter to use
       const selectedAdapter = adapter || (await this.askAdapterQuestion()).adapter;
@@ -35,8 +35,8 @@ export class Init implements BaseCommand {
         suffixes: true, // Default: use standard suffixes (Controller, Service, etc.)
       });
 
-      // 3. Install CLI package if needed
-      if (!(await getAsenaCliVersion())) {
+      // 3. Install CLI package if needed (skip if --skip-install was used)
+      if (!skipInstall && !(await getAsenaCliVersion())) {
         const asenaCliVersion = await $`asena --version`.quiet().text();
 
         await $`bun add -D @asenajs/asena-cli@${asenaCliVersion}`.quiet();

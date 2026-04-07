@@ -12,8 +12,8 @@ export const HONO_ROOT_IMPORTS: ImportsByFiles = {
  * Hono Adapter imports for controller files
  */
 export const HONO_CONTROLLER_IMPORTS: ImportsByFiles = {
-  '@asenajs/asena/server': ['Controller'],
-  '@asenajs/asena/web': ['Get'],
+  '@asenajs/asena/decorators': ['Controller'],
+  '@asenajs/asena/decorators/http': ['Get'],
   '@asenajs/hono-adapter': ['type Context'],
 };
 
@@ -21,7 +21,7 @@ export const HONO_CONTROLLER_IMPORTS: ImportsByFiles = {
  * Hono Adapter imports for middleware files
  */
 export const HONO_MIDDLEWARE_IMPORTS: ImportsByFiles = {
-  '@asenajs/asena/server': ['Middleware'],
+  '@asenajs/asena/decorators': ['Middleware'],
   '@asenajs/hono-adapter': ['type Context', 'MiddlewareService'],
 };
 
@@ -37,8 +37,8 @@ export const ERGENECORE_ROOT_IMPORTS: ImportsByFiles = {
  * Ergenecore Adapter imports for controller files
  */
 export const ERGENECORE_CONTROLLER_IMPORTS: ImportsByFiles = {
-  '@asenajs/asena/server': ['Controller'],
-  '@asenajs/asena/web': ['Get'],
+  '@asenajs/asena/decorators': ['Controller'],
+  '@asenajs/asena/decorators/http': ['Get'],
   '@asenajs/ergenecore': ['type Context'],
 };
 
@@ -46,7 +46,7 @@ export const ERGENECORE_CONTROLLER_IMPORTS: ImportsByFiles = {
  * Ergenecore Adapter imports for middleware files
  */
 export const ERGENECORE_MIDDLEWARE_IMPORTS: ImportsByFiles = {
-  '@asenajs/asena/server': ['Middleware'],
+  '@asenajs/asena/decorators': ['Middleware'],
   '@asenajs/ergenecore': ['type Context', 'MiddlewareService'],
 };
 
@@ -54,7 +54,7 @@ export const ERGENECORE_MIDDLEWARE_IMPORTS: ImportsByFiles = {
  * Hono Adapter imports for config files (ServerConfig)
  */
 export const HONO_CONFIG_IMPORTS: ImportsByFiles = {
-  '@asenajs/asena/server': ['Config'],
+  '@asenajs/asena/decorators': ['Config'],
   '@asenajs/hono-adapter': ['ConfigService', 'type Context'],
 };
 
@@ -62,7 +62,7 @@ export const HONO_CONFIG_IMPORTS: ImportsByFiles = {
  * Ergenecore Adapter imports for config files (ServerConfig)
  */
 export const ERGENECORE_CONFIG_IMPORTS: ImportsByFiles = {
-  '@asenajs/asena/server': ['Config'],
+  '@asenajs/asena/decorators': ['Config'],
   '@asenajs/ergenecore': ['ConfigService', 'type Context'],
 };
 
@@ -70,7 +70,7 @@ export const ERGENECORE_CONFIG_IMPORTS: ImportsByFiles = {
  * Hono Adapter imports for validator files
  */
 export const HONO_VALIDATOR_IMPORTS: ImportsByFiles = {
-  '@asenajs/asena/server': ['Middleware'],
+  '@asenajs/asena/decorators': ['Middleware'],
   '@asenajs/hono-adapter': ['ValidationService'],
   zod: ['z'],
 };
@@ -79,7 +79,7 @@ export const HONO_VALIDATOR_IMPORTS: ImportsByFiles = {
  * Ergenecore Adapter imports for validator files
  */
 export const ERGENECORE_VALIDATOR_IMPORTS: ImportsByFiles = {
-  '@asenajs/asena/server': ['Middleware'],
+  '@asenajs/asena/decorators': ['Middleware'],
   '@asenajs/ergenecore': ['ValidationService'],
   zod: ['z'],
 };
@@ -88,7 +88,7 @@ export const ERGENECORE_VALIDATOR_IMPORTS: ImportsByFiles = {
  * WebSocket namespace imports (adapter-agnostic)
  */
 export const WEBSOCKET_IMPORTS: ImportsByFiles = {
-  '@asenajs/asena/server': ['WebSocket'],
+  '@asenajs/asena/decorators': ['WebSocket'],
   '@asenajs/asena/web-socket': ['AsenaWebSocketService', 'type Socket'],
 };
 

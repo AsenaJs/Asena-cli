@@ -7,6 +7,7 @@ import { AsenaLoggerCreator, AsenaServerHandler, ControllerHandler, ImportHandle
 import {
   ESLINT_INSTALLATIONS,
   ESLINT_WITH_PRETTIER_INSTALLATIONS,
+  GITIGNORE,
   PRETTIER,
   PRETTIER_IGNORE,
   PRETTIER_INSTALLATIONS,
@@ -38,6 +39,7 @@ export class Create implements BaseCommand {
       .option('--no-eslint', 'Skip ESLint setup')
       .option('--prettier', 'Setup Prettier')
       .option('--no-prettier', 'Skip Prettier setup')
+      .option('--skip-install', 'Skip dependency installation (useful for monorepos)')
       .action(async (projectName, options) => {
         const spinner = ora('Creating asena project...');
 
@@ -61,16 +63,18 @@ export class Create implements BaseCommand {
   private async create(currentFolder: boolean, spinner: Ora, options?: any, projectName?: string) {
     this.preference = await this.askQuestions(currentFolder, options, projectName);
 
-    // If creating in current folder, set project name to "myApp"
+    const skipInstall = options?.skipInstall === true;
+
+    // If creating in current folder, use the current folder name as project name
     if (currentFolder) {
-      this.preference.projectName = 'myApp';
+      this.preference.projectName = path.basename(process.cwd());
     }
 
     spinner.start();
 
     const projectPath = currentFolder ? process.cwd() : path.resolve(process.cwd(), this.preference.projectName);
 
-    await this.createPackageJson(projectPath);
+    await this.createPackageJson(projectPath, skipInstall);
 
     await this.createDefaultController(projectPath);
 
@@ -80,15 +84,31 @@ export class Create implements BaseCommand {
 
     if (!currentFolder) process.chdir(projectPath);
 
-    await this.installPreRequests();
+    if (!skipInstall) {
+      await this.installPreRequests();
+    }
 
-    if (this.preference.eslint) await this.installAndCreateEslint();
+    if (this.preference.eslint) {
+      if (skipInstall) {
+        await this.createEslintConfig();
+      } else {
+        await this.installAndCreateEslint();
+      }
+    }
 
-    if (this.preference.prettier) await this.installAndCreatePrettier();
+    if (this.preference.prettier) {
+      if (skipInstall) {
+        await this.createPrettierConfig();
+      } else {
+        await this.installAndCreatePrettier();
+      }
+    }
 
     await this.createTsConfig();
 
-    await new Init().exec(this.preference.adapter);
+    await this.createGitignore(projectPath);
+
+    await new Init().exec(this.preference.adapter, skipInstall);
   }
 
   private async createDefaultIndexFile(projectPath: string) {
@@ -146,8 +166,10 @@ export class Create implements BaseCommand {
     await Bun.write(projectPath + '/src/controllers/AsenaController.ts', controllerCode);
   }
 
-  private async createPackageJson(projectPath: string) {
+  private async createPackageJson(projectPath: string, skipInstall = false) {
     const scripts: Record<string, string> = {
+      dev: 'asena dev start',
+      'dev:hot': 'bun run --hot src/index.ts',
       start: 'bun src/index.ts',
       build: 'asena build',
       'start:prod': 'bun run dist/index.js',
@@ -171,11 +193,51 @@ export class Create implements BaseCommand {
       scripts['check:fix'] = 'bun run lint:fix && bun run format';
     }
 
-    const packageJson = {
+    const packageJson: Record<string, any> = {
       name: this.preference.projectName,
       module: 'src/index.ts',
       scripts,
     };
+
+    // When skip-install is set, write dependencies directly to package.json
+    // so the user can run `bun install` later
+    if (skipInstall) {
+      const adapterPackage = getAdapterPackage(this.preference.adapter);
+
+      const dependencies: Record<string, string> = {
+        '@asenajs/asena': 'latest',
+        [adapterPackage]: 'latest',
+      };
+
+      if (this.preference.logger) {
+        dependencies['@asenajs/asena-logger'] = 'latest';
+      }
+
+      const devDependencies: Record<string, string> = {
+        '@types/bun': 'latest',
+        typescript: 'latest',
+        '@asenajs/asena-cli': 'latest',
+      };
+
+      if (this.preference.eslint) {
+        for (const pkg of ESLINT_INSTALLATIONS) {
+          devDependencies[pkg] = 'latest';
+        }
+
+        if (this.preference.prettier) {
+          for (const pkg of ESLINT_WITH_PRETTIER_INSTALLATIONS) {
+            devDependencies[pkg] = 'latest';
+          }
+        }
+      }
+
+      if (this.preference.prettier) {
+        devDependencies['prettier'] = 'latest';
+      }
+
+      packageJson['dependencies'] = dependencies;
+      packageJson['devDependencies'] = devDependencies;
+    }
 
     await Bun.write(projectPath + '/package.json', JSON.stringify(packageJson, null, 2));
   }
@@ -277,6 +339,17 @@ ${usePrettier ? '\n  // Prettier config to disable conflicting rules\n  eslintCo
 `;
   }
 
+  private async createEslintConfig() {
+    const eslintConfig = this.getEslintConfig();
+
+    await Bun.write(process.cwd() + '/eslint.config.cjs', eslintConfig);
+  }
+
+  private async createPrettierConfig() {
+    await Bun.write(process.cwd() + '/.prettierrc.js', PRETTIER);
+    await Bun.write(process.cwd() + '/.prettierignore', PRETTIER_IGNORE);
+  }
+
   private async installAndCreateEslint() {
     // Install base ESLint packages
     const output = await $`bun add -D ${ESLINT_INSTALLATIONS}`.quiet();
@@ -307,6 +380,10 @@ ${usePrettier ? '\n  // Prettier config to disable conflicting rules\n  eslintCo
 
   private async createTsConfig() {
     await Bun.write(process.cwd() + '/tsconfig.json', TSCONFIG);
+  }
+
+  private async createGitignore(projectPath: string) {
+    await Bun.write(path.join(projectPath, '.gitignore'), GITIGNORE);
   }
 
   private async askQuestions(

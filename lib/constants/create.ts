@@ -103,3 +103,34 @@ pnpm-lock.yaml
 
 *.md
 `;
+
+export const GITIGNORE = `# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+
+# Asena CLI
+.asena/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE/Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+`;

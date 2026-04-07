@@ -30,6 +30,14 @@ describe('ServerConfigHandler', () => {
     expect(result.code).not.toContain('ServerConfig');
   });
 
+  it('should not start with leading blank line when appended to empty code', () => {
+    const handler = new ServerConfigHandler('');
+    const result = handler.addConfigClass('ServerConfig');
+
+    // Should start with \n (for separation) then directly @Config, not \n\n
+    expect(result.code).not.toMatch(/^\n\n/);
+  });
+
   it('should append to existing code', () => {
     const existingCode = '// Existing code\n';
     const handler = new ServerConfigHandler(existingCode);

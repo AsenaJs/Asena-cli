@@ -22,37 +22,37 @@ export class ValidatorHandler {
    * @param validatorName Name of the validator class
    */
   public addExampleSchema(validatorName: string) {
-    const exampleSchema = `\t/**
-\t * Validates JSON body data
-\t * @returns Zod schema for request body validation
-\t */
-\tjson() {
-\t\treturn z.object({
-\t\t\tname: z.string().min(3, 'Name must be at least 3 characters'),
-\t\t\temail: z.string().email('Invalid email format'),
-\t\t});
-\t}
+    const exampleSchema = `  /**
+   * Validates JSON body data
+   * @returns Zod schema for request body validation
+   */
+  json() {
+    return z.object({
+      name: z.string().min(3, 'Name must be at least 3 characters'),
+      email: z.string().email('Invalid email format'),
+    });
+  }
 
-\t/**
-\t * Validates query parameters (optional)
-\t * Uncomment to use query validation
-\t */
-\t// query() {
-\t//   return z.object({
-\t//     page: z.string().transform(Number).pipe(z.number().min(1)),
-\t//     limit: z.string().transform(Number).pipe(z.number().max(100)),
-\t//   });
-\t// }
+  /**
+   * Validates query parameters (optional)
+   * Uncomment to use query validation
+   */
+  // query() {
+  //   return z.object({
+  //     page: z.string().transform(Number).pipe(z.number().min(1)),
+  //     limit: z.string().transform(Number).pipe(z.number().max(100)),
+  //   });
+  // }
 
-\t/**
-\t * Validates URL parameters (optional)
-\t * Uncomment to use param validation
-\t */
-\t// param() {
-\t//   return z.object({
-\t//     id: z.string().uuid('Invalid ID format'),
-\t//   });
-\t// }
+  /**
+   * Validates URL parameters (optional)
+   * Uncomment to use param validation
+   */
+  // param() {
+  //   return z.object({
+  //     id: z.string().uuid('Invalid ID format'),
+  //   });
+  // }
 `;
 
     // Find the closing brace of the validator class using a custom regex

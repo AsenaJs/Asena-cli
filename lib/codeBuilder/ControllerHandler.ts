@@ -8,7 +8,14 @@ export class ControllerHandler {
   }
 
   public addController(controllerName: string, controllerPath: string | null) {
-    const controller = `\n@Controller(${controllerPath ? controllerPath : ''})\n export class ${controllerName}{\n\n}`;
+    const controller = [
+      '',
+      `@Controller(${controllerPath ?? ''})`,
+      `export class ${controllerName} {`,
+      '',
+      '}',
+      '',
+    ].join('\n');
 
     this._code = this._code + controller;
 
@@ -16,7 +23,13 @@ export class ControllerHandler {
   }
 
   public addGetRouterToController(controllerName: string, path: string, name: string) {
-    const controller = `\n\n\t@Get('/${path}')\n\tpublic async ${name}(context:Context){\n\t\treturn context.send("Hello asena");\n\t}`;
+    const controller = [
+      '',
+      `  @Get('/${path}')`,
+      `  public async ${name}(context: Context) {`,
+      `    return context.send('Hello asena');`,
+      '  }',
+    ].join('\n');
 
     const controllerEndIndex = RegexHelper.getElementIndexByName(this._code, 'Controller', controllerName);
 

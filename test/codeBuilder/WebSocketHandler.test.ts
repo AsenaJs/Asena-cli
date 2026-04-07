@@ -39,6 +39,14 @@ describe('WebSocketHandler', () => {
     expect(result.code).toContain('export class CustomNamespace');
   });
 
+  it('should not start with leading blank line when appended to empty code', () => {
+    const handler = new WebSocketHandler('');
+    const result = handler.addWebSocketNamespace('TestNamespace', '/test');
+
+    // Should start with \n (for separation) then directly @WebSocket, not \n\n
+    expect(result.code).not.toMatch(/^\n\n/);
+  });
+
   it('should append to existing code', () => {
     const existingCode = '// Existing code\n';
     const handler = new WebSocketHandler(existingCode);

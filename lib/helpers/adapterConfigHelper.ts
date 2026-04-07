@@ -1,8 +1,10 @@
 import { $ } from 'bun';
 import type { AdapterConfig, AdapterType, ComponentType } from '../types';
+import { CONFIG_SCHEMA } from '../constants/configSchema';
 
 const CONFIG_DIR = '.asena';
 const CONFIG_FILE = `${CONFIG_DIR}/config.json`;
+const SCHEMA_FILE = `${CONFIG_DIR}/config.schema.json`;
 
 /**
  * Default suffixes for each component type
@@ -56,7 +58,16 @@ export async function writeAdapterConfig(config: AdapterConfig): Promise<void> {
   // Create .asena directory if it doesn't exist (mkdir -p)
   await $`mkdir -p ${CONFIG_DIR}`.quiet();
 
-  await Bun.write(CONFIG_FILE, JSON.stringify(config, null, 2));
+  // Add $schema reference for IDE autocomplete/validation
+  const configWithSchema: AdapterConfig = {
+    $schema: './config.schema.json',
+    ...config,
+  };
+
+  await Promise.all([
+    Bun.write(CONFIG_FILE, JSON.stringify(configWithSchema, null, 2)),
+    Bun.write(SCHEMA_FILE, JSON.stringify(CONFIG_SCHEMA, null, 2)),
+  ]);
 }
 
 /**

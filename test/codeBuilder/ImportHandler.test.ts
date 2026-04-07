@@ -7,7 +7,7 @@ describe('ImportHandler', () => {
     it('should parse existing ES6 imports from code', () => {
       const code = `
 import { AsenaServer } from '@asenajs/asena';
-import { Controller } from '@asenajs/asena/server';
+import { Controller } from '@asenajs/asena/decorators';
 
 const x = 1;
 `;
@@ -22,7 +22,7 @@ const x = 1;
     it('should parse existing CommonJS requires from code', () => {
       const code = `
 const { AsenaServer } = require('@asenajs/asena');
-const { Controller } = require('@asenajs/asena/server');
+const { Controller } = require('@asenajs/asena/decorators');
 
 const x = 1;
 `;
@@ -283,7 +283,7 @@ import {
     it('should return all imports as array', () => {
       const code = `
 import { AsenaServer } from '@asenajs/asena';
-import { Controller } from '@asenajs/asena/server';
+import { Controller } from '@asenajs/asena/decorators';
 `;
       const handler = new ImportHandler(code, ImportType.IMPORT);
       const imports = handler.getImports;

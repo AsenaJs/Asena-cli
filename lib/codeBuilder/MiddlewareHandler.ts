@@ -8,7 +8,7 @@ export class MiddlewareHandler {
   }
 
   public addMiddleware(serviceName: string) {
-    const service = `\n@Middleware()\nexport class ${serviceName} extends MiddlewareService{\n\n}`;
+    const service = `\n@Middleware()\nexport class ${serviceName} extends MiddlewareService {\n\n}`;
 
     this._code = this._code + service;
 
@@ -16,7 +16,7 @@ export class MiddlewareHandler {
   }
 
   public addDefaultHandle(serviceName: string) {
-    const handle = `\n\n\tpublic handle(context:Context, next:Function) {\n\t\tcontext.setValue("testValue","test");\n\n\t\tnext();\n\t}`;
+    const handle = `\n\n  public handle(context: Context, next: Function) {\n    context.setValue('testValue', 'test');\n    next();\n  }`;
 
     const controllerEndIndex = RegexHelper.getElementIndexByName(this._code, 'Middleware', serviceName);
 

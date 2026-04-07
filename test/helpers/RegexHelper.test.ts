@@ -175,7 +175,7 @@ console.log('Done');
     it('should extract import lines', () => {
       const code = `
 import { AsenaServer } from '@asenajs/asena';
-import { Controller } from '@asenajs/asena/server';
+import { Controller } from '@asenajs/asena/decorators';
 import type { Context } from 'hono';
 
 const x = 1;

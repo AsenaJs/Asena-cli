@@ -86,6 +86,19 @@ describe('Create command CLI arguments', () => {
     expect(noPrettierOption).toBeDefined();
   });
 
+  it('should have skip-install option', () => {
+    const create = new Create();
+    const command = create.command();
+
+    const options = command.options;
+
+    const skipInstallOption = options.find((opt) => opt.long === '--skip-install');
+
+    expect(skipInstallOption).toBeDefined();
+
+    expect(skipInstallOption?.description).toContain('Skip dependency installation');
+  });
+
   it('should parse all required options correctly', () => {
     const create = new Create();
     const command = create.command();
@@ -98,6 +111,7 @@ describe('Create command CLI arguments', () => {
       '--no-eslint',
       '--prettier',
       '--no-prettier',
+      '--skip-install',
     ];
 
     const commandOptions = command.options.map((opt) => opt.long);
@@ -276,5 +290,74 @@ describe('Create command package.json generation', () => {
     const packageJson = JSON.parse(packageJsonContent);
 
     expect(packageJson.module).toBe('src/index.ts');
+  });
+
+  it('should include dependencies in package.json when skipInstall is true', async () => {
+    const create = new Create();
+    const projectPath = tempDir;
+
+    (create as any).preference = {
+      projectName: 'TestProject',
+      adapter: 'hono',
+      logger: true,
+      eslint: true,
+      prettier: true,
+    };
+
+    await (create as any).createPackageJson(projectPath, true);
+
+    const packageJsonPath = join(projectPath, 'package.json');
+    const packageJsonContent = await Bun.file(packageJsonPath).text();
+    const packageJson = JSON.parse(packageJsonContent);
+
+    // Should have dependencies
+    expect(packageJson.dependencies).toBeDefined();
+    expect(packageJson.dependencies['@asenajs/asena']).toBe('latest');
+    expect(packageJson.dependencies['@asenajs/hono-adapter']).toBe('latest');
+    expect(packageJson.dependencies['@asenajs/asena-logger']).toBe('latest');
+
+    // Should have devDependencies
+    expect(packageJson.devDependencies).toBeDefined();
+    expect(packageJson.devDependencies['@types/bun']).toBe('latest');
+    expect(packageJson.devDependencies['typescript']).toBe('latest');
+    expect(packageJson.devDependencies['@asenajs/asena-cli']).toBe('latest');
+    expect(packageJson.devDependencies['eslint']).toBe('latest');
+    expect(packageJson.devDependencies['prettier']).toBe('latest');
+  });
+
+  it('should not include dependencies when skipInstall is false', async () => {
+    const create = new Create();
+    const projectPath = tempDir;
+
+    await (create as any).createPackageJson(projectPath, false);
+
+    const packageJsonPath = join(projectPath, 'package.json');
+    const packageJsonContent = await Bun.file(packageJsonPath).text();
+    const packageJson = JSON.parse(packageJsonContent);
+
+    expect(packageJson.dependencies).toBeUndefined();
+    expect(packageJson.devDependencies).toBeUndefined();
+  });
+
+  it('should include ergenecore adapter when skipInstall is true with ergenecore', async () => {
+    const create = new Create();
+    const projectPath = tempDir;
+
+    (create as any).preference = {
+      projectName: 'TestProject',
+      adapter: 'ergenecore',
+      logger: false,
+      eslint: false,
+      prettier: false,
+    };
+
+    await (create as any).createPackageJson(projectPath, true);
+
+    const packageJsonPath = join(projectPath, 'package.json');
+    const packageJsonContent = await Bun.file(packageJsonPath).text();
+    const packageJson = JSON.parse(packageJsonContent);
+
+    expect(packageJson.dependencies['@asenajs/ergenecore']).toBe('latest');
+    expect(packageJson.dependencies['@asenajs/asena-logger']).toBeUndefined();
   });
 });

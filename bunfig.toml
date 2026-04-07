@@ -5,8 +5,13 @@ coverage = true
 coverageSkipTestFiles = true
 
 coveragePathIgnorePatterns = [
-    "**/*.test.ts",
-    "test/**",
+    "lib/defaults/**",
+    "test/utils/*.ts",
+    "test/fixtures/**/**.ts",
+    "dist/**/*.js",
+    "dist/**/*.ts",
+    "../**/*.ts",
+    "../**/*.js"
 ]
 
 [test.reporter]
