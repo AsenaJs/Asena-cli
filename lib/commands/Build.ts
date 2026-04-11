@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { type BuildConfig, write } from 'bun';
+import { type BuildConfig, type BunPlugin, write } from 'bun';
 import { Command } from 'commander';
 import { AsenaServerHandler, ConfigHandler, ImportHandler } from '../codeBuilder';
 import {
@@ -44,6 +44,8 @@ export class Build implements BaseCommand {
       await write(this._buildFilePath, buildCode);
 
       await this.executeBuild();
+
+      await this.copyIncludedAssets();
 
       this.removeAsenaEntryFile();
 
@@ -143,11 +145,14 @@ export class Build implements BaseCommand {
  * ╚═══════════════════════════════════════╝
  */`;
 
+    const { plugin: htmlPlugin, htmlImports } = this.createHTMLPlugin();
+
     const defaultBuildConfig: BuildConfig = {
       entrypoints: [this._buildFilePath],
       outdir: './out',
       target: 'bun',
       footer: asenaFooter,
+      plugins: [htmlPlugin],
     };
 
     const finalBuildConfig: BuildConfig = this.configFile.buildOptions
@@ -156,11 +161,132 @@ export class Build implements BaseCommand {
           entrypoints: [this._buildFilePath],
           target: 'bun',
           footer: asenaFooter,
+          plugins: [htmlPlugin],
         }
       : defaultBuildConfig;
 
-    return await Bun.build(finalBuildConfig);
+    const result = await Bun.build(finalBuildConfig);
+
+    if (result.success && htmlImports.size > 0) {
+      const outdir = this.configFile.buildOptions?.outdir || './out';
+
+      this.rewriteHTMLImports(outdir, htmlImports);
+    }
+
+    return result;
   };
+
+  /**
+   * Creates a Bun build plugin that marks .html imports as external and collects
+   * path mappings for post-build rewriting.
+   *
+   * Bun's bundler preserves the original import specifier for external modules,
+   * so path rewrites from onResolve are NOT applied to the output.
+   * The collected htmlImports map is used by rewriteHTMLImports() after the build.
+   */
+  private createHTMLPlugin(): { plugin: BunPlugin; htmlImports: Map<string, string> } {
+    const htmlImports = new Map<string, string>();
+
+    const plugin: BunPlugin = {
+      name: 'asena-html-resolver',
+      setup(build) {
+        build.onResolve({ filter: /\.html$/ }, (args) => {
+          const absolutePath = path.resolve(path.dirname(args.importer), args.path);
+
+          if (!fs.existsSync(absolutePath)) {
+            throw new Error(`HTML file not found: ${absolutePath} (imported from ${args.importer})`);
+          }
+
+          const relativePath = path.relative(process.cwd(), absolutePath).replace(/\\/g, '/');
+          const rewrittenPath = './' + relativePath;
+
+          htmlImports.set(args.path, rewrittenPath);
+
+          return {
+            path: rewrittenPath,
+            external: true,
+          };
+        });
+      },
+    };
+
+    return { plugin, htmlImports };
+  }
+
+  /**
+   * Rewrites HTML import paths in the build output files.
+   * Bun preserves original import specifiers for external modules,
+   * so we need to fix them post-build to match the copied file locations.
+   */
+  private rewriteHTMLImports(outdir: string, htmlImports: Map<string, string>) {
+    const outputFiles = fs.readdirSync(outdir).filter((f) => f.endsWith('.js'));
+
+    for (const file of outputFiles) {
+      const filePath = path.join(outdir, file);
+      let content = fs.readFileSync(filePath, 'utf-8');
+      let modified = false;
+
+      for (const [originalPath, rewrittenPath] of htmlImports) {
+        if (content.includes(`"${originalPath}"`)) {
+          content = content.replaceAll(`"${originalPath}"`, `"${rewrittenPath}"`);
+          modified = true;
+        }
+      }
+
+      if (modified) {
+        fs.writeFileSync(filePath, content);
+      }
+    }
+  }
+
+  /**
+   * Copies files and directories listed in the `include` config to the output directory.
+   * Directories are copied recursively, preserving their structure.
+   */
+  private async copyIncludedAssets() {
+    const include = this.configFile.include;
+
+    if (!include || include.length === 0) {
+      return;
+    }
+
+    const outdir = this.configFile.buildOptions?.outdir || './out';
+
+    for (const entry of include) {
+      const srcPath = path.resolve(process.cwd(), entry);
+      const destPath = path.join(outdir, entry);
+
+      if (!fs.existsSync(srcPath)) {
+        console.warn(`\x1b[33m[include]\x1b[0m Skipping "${entry}" — path not found`);
+
+        continue;
+      }
+
+      const stat = fs.statSync(srcPath);
+
+      if (stat.isDirectory()) {
+        this.copyDirRecursive(srcPath, destPath);
+      } else {
+        fs.mkdirSync(path.dirname(destPath), { recursive: true });
+        fs.copyFileSync(srcPath, destPath);
+      }
+    }
+  }
+
+  private copyDirRecursive(src: string, dest: string) {
+    fs.mkdirSync(dest, { recursive: true });
+
+    for (const entry of fs.readdirSync(src)) {
+      const srcEntry = path.join(src, entry);
+      const destEntry = path.join(dest, entry);
+
+      if (fs.statSync(srcEntry).isDirectory()) {
+        this.copyDirRecursive(srcEntry, destEntry);
+      } else {
+        fs.copyFileSync(srcEntry, destEntry);
+      }
+    }
+  }
 
   private createBuildFilePath(): string {
     return `${path.dirname(this.configFile.rootFile)}/${changeFileExtensionToAsenaJs(simplifyPath(this.configFile.rootFile))}`;
