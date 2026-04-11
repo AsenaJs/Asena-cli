@@ -90,4 +90,16 @@ export interface AsenaConfig {
    * @see {@link BuildOptions}
    */
   buildOptions?: BuildOptions;
+
+  /**
+   * Files and directories to copy into the output directory during build.
+   *
+   * Useful for including static assets (HTML pages, CSS, images) that are
+   * referenced at runtime but not bundled by the bundler.
+   *
+   * Paths are relative to the project root. Directories are copied recursively.
+   *
+   * @example ['public', 'static', 'templates/email.html']
+   */
+  include?: string[];
 }

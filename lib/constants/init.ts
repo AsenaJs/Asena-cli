@@ -2,6 +2,7 @@ export const INITIAL_ASENA_CONFIG_TS = `import {defineConfig} from "@asenajs/ase
 export default defineConfig({
   sourceFolder: 'src',
   rootFile: 'src/index.ts',
+  // include: ['public'], // Directories/files to copy into outdir during build
   buildOptions: {
     outdir: 'dist',
     minify: {

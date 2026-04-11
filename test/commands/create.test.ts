@@ -153,7 +153,7 @@ describe('Create command package.json generation', () => {
     expect(packageJson.scripts).toBeDefined();
     expect(packageJson.scripts.start).toBe('bun src/index.ts');
     expect(packageJson.scripts.build).toBe('asena build');
-    expect(packageJson.scripts['start:prod']).toBe('bun run dist/index.js');
+    expect(packageJson.scripts['start:prod']).toBe('bun run dist/index.asena.js');
   });
 
   it('should include eslint scripts when eslint is enabled', async () => {
@@ -262,7 +262,7 @@ describe('Create command package.json generation', () => {
     // But basic scripts should still exist
     expect(packageJson.scripts.start).toBe('bun src/index.ts');
     expect(packageJson.scripts.build).toBe('asena build');
-    expect(packageJson.scripts['start:prod']).toBe('bun run dist/index.js');
+    expect(packageJson.scripts['start:prod']).toBe('bun run dist/index.asena.js');
   });
 
   it('should not include type field in package.json (CommonJS by default)', async () => {

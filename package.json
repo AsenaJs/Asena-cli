@@ -1,6 +1,6 @@
 {
   "name": "@asenajs/asena-cli",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "author": "LibirSoft",
   "license": "MIT",
   "bin": {
@@ -33,7 +33,7 @@
     "url": "https://github.com/AsenaJs/Asena-cli"
   },
   "dependencies": {
-    "@asenajs/asena": "^0.7.0",
+    "@asenajs/asena": "^0.7.1",
     "@changesets/cli": "^2.30.0",
     "commander": "^12.1.0",
     "inquirer": "^12.11.1",
@@ -44,13 +44,13 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/yargs": "^17.0.35",
-    "@typescript-eslint/eslint-plugin": "^8.58.0",
-    "@typescript-eslint/parser": "^8.58.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.1",
+    "@typescript-eslint/parser": "^8.58.1",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^9.1.2",
-    "prettier": "^3.8.1",
+    "prettier": "^3.8.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.58.0"
+    "typescript-eslint": "^8.58.1"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"

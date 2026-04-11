@@ -31,6 +31,10 @@ export class ConfigHandler {
     return this._configFile.buildOptions?.outdir ? this._configFile.buildOptions?.outdir : './out';
   }
 
+  public get include(): string[] {
+    return this._configFile.include || [];
+  }
+
   private readConfigFile = async () => {
     const folderPath = path.normalize(path.join(process.cwd()));
     const files: string[] = getAllFiles(folderPath);

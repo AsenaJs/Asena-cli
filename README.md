@@ -4,7 +4,7 @@
 
 # Asena CLI
 
-[![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)](https://asena.sh)
+[![Version](https://img.shields.io/badge/version-0.7.1-blue.svg)](https://asena.sh)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Bun Version](https://img.shields.io/badge/Bun-1.3.11%2B-blueviolet)](https://bun.sh)
 
@@ -162,15 +162,15 @@ The Init command helps set up project configuration with default settings(no nee
 Customization via `asena.config.ts`:
 
 ```typescript
-import { defineConfig } from '@asenajs/asena'
+import { defineConfig } from '@asenajs/asena-cli'
 
 export default defineConfig({
     sourceFolder: 'src', // folder where the project files are located
     rootFile: 'src/index.ts', // entry file of the project
+    include: ['public'], // files/directories to copy to output (required for @FrontendController)
     buildOptions: { // build options. For more details, visit https://bun.sh/docs/bundler
         outdir: 'dist',
         sourcemap: 'linked',
-        target: 'bun',
         minify: {
             whitespace: true,
             syntax: true,
@@ -179,6 +179,8 @@ export default defineConfig({
     },
 });
 ```
+
+> **Note:** When using `@FrontendController`, the `include` option must list directories containing your HTML files. The CLI automatically rewrites HTML import paths during build so they resolve correctly from the output directory. Do **not** add `*.html` to `buildOptions.external`.
 
 ## 📂 Project Structure
 

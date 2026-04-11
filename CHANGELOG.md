@@ -1,5 +1,20 @@
 # @asenajs/asena-cli
 
+## 0.7.1
+
+### Patch Changes
+
+- ### Features
+  - **Include Option**: New `include` config property allows specifying files and directories to copy into the build output. Essential for `@FrontendController` HTML files whose import paths are static and break after bundling.
+  - **HTML Build Plugin**: Bun build plugin that marks `.html` imports as external and collects path mappings during build for post-build rewriting.
+  - **HTML Import Rewriting**: Post-build step that rewrites HTML import paths in bundled JavaScript files to point to correct relative locations.
+
+  ### Fixes
+  - **Entry Point**: Default production script now uses `dist/index.asena.js` instead of `dist/index.js`.
+
+  ### Tests
+  - Added comprehensive test suite for `copyIncludedAssets()`, `createHTMLPlugin()`, and `rewriteHTMLImports()` (622 lines).
+
 ## 0.7.0
 
 ### Minor Changes

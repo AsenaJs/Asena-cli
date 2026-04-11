@@ -172,7 +172,7 @@ export class Create implements BaseCommand {
       'dev:hot': 'bun run --hot src/index.ts',
       start: 'bun src/index.ts',
       build: 'asena build',
-      'start:prod': 'bun run dist/index.js',
+      'start:prod': 'bun run dist/index.asena.js',
     };
 
     // Add ESLint scripts if enabled
