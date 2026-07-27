@@ -1,5 +1,32 @@
 # @asenajs/asena-cli
 
+## 0.8.0
+
+### Minor Changes
+
+- Scaffolded middleware compiles against 0.9.0, and the core dependency is no longer two minors stale
+
+  `asena generate middleware` emitted `async handle(context)`, which stopped type-checking once the
+  adapters tightened `MiddlewareService.handle` to mirror Asena's `AsenaMiddlewareService` — the
+  `next` parameter is part of the contract, and a synchronous guard returning `false` is a supported
+  shape. The generated middleware now carries the full signature:
+
+  ```typescript
+  public async handle(context: Context, next: () => Promise<void>) {
+    context.setValue('testValue', 'test');
+    await next();
+  }
+  ```
+
+  The `@asenajs/asena` dependency moves from `^0.7.1` to `^0.9.0`. The old range could not resolve
+  0.9.0, so the CLI pulled a second, two-minors-old copy of the framework alongside the one the
+  project actually uses. Component detection was never affected — `loadComponentConstants()`
+  deliberately imports `ComponentConstants` from the _project's_ `node_modules` so the CLI compares
+  the same `Symbol` instances the running application does — but the duplicate had no reason to be
+  there.
+
+  `asena create` is unaffected: it scaffolds every `@asenajs/*` dependency as `latest`.
+
 ## 0.7.1
 
 ### Patch Changes

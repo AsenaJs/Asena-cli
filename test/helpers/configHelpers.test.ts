@@ -36,7 +36,12 @@ describe('configHelpers', () => {
     });
 
     it('should preserve all config properties', () => {
-      const config: AsenaConfig = {
+      // `target` is deliberately NOT part of BuildOptions - Build.ts hardcodes target: 'bun'.
+      // The documented example config (asenaConfig.ts JSDoc, the monorepo CLAUDE.md and the
+      // sample-app fixture) all still pass it, so defineConfig must hand unknown keys straight
+      // back rather than drop them. Typed as the extra key it is instead of pretending
+      // BuildOptions declares it - see the report note on that doc/type mismatch.
+      const config: AsenaConfig & { buildOptions: AsenaConfig['buildOptions'] & { target: string } } = {
         rootFile: 'src/main.ts',
         sourceFolder: 'src',
         buildOptions: {
@@ -50,7 +55,7 @@ describe('configHelpers', () => {
 
       expect(result.buildOptions?.outdir).toBe('build');
 
-      expect(result.buildOptions?.target).toBe('bun');
+      expect((result.buildOptions as { target?: string }).target).toBe('bun');
 
       expect(result.buildOptions?.minify).toBe(true);
     });
