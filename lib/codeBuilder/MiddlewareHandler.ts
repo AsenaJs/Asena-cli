@@ -16,7 +16,9 @@ export class MiddlewareHandler {
   }
 
   public addDefaultHandle(serviceName: string) {
-    const handle = `\n\n  public handle(context: Context, next: Function) {\n    context.setValue('testValue', 'test');\n    next();\n  }`;
+    // `next: Function` and a synchronous body used to be generated here, but that does not
+    // type-check against Ergenecore's MiddlewareService - the scaffold must compile as-is.
+    const handle = `\n\n  public async handle(context: Context, next: () => Promise<void>) {\n    context.setValue('testValue', 'test');\n    await next();\n  }`;
 
     const controllerEndIndex = RegexHelper.getElementIndexByName(this._code, 'Middleware', serviceName);
 

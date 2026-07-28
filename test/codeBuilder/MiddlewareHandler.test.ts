@@ -46,7 +46,19 @@ describe('MiddlewareHandler', () => {
       handler.addDefaultHandle('AuthMiddleware');
 
       expect(handler.code).toContain('context: Context');
-      expect(handler.code).toContain('next: Function');
+      expect(handler.code).toContain('next: () => Promise<void>');
+    });
+
+    it('should generate a handle that type-checks against both adapters', () => {
+      const handler = new MiddlewareHandler('');
+      handler.addMiddleware('AuthMiddleware');
+      handler.addDefaultHandle('AuthMiddleware');
+
+      // Ergenecore's MiddlewareService types next as () => Promise<void>, so a bare
+      // Function parameter or a non-awaited call would not compile in a fresh project.
+      expect(handler.code).toContain('public async handle(');
+      expect(handler.code).toContain('await next();');
+      expect(handler.code).not.toContain('next: Function');
     });
 
     it('should not have double newline before next()', () => {
@@ -54,7 +66,7 @@ describe('MiddlewareHandler', () => {
       handler.addMiddleware('AuthMiddleware');
       handler.addDefaultHandle('AuthMiddleware');
 
-      expect(handler.code).not.toContain(';\n\n    next()');
+      expect(handler.code).not.toContain(';\n\n    await next()');
     });
   });
 });

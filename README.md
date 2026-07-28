@@ -4,9 +4,9 @@
 
 # Asena CLI
 
-[![Version](https://img.shields.io/badge/version-0.7.1-blue.svg)](https://asena.sh)
+[![Version](https://img.shields.io/badge/version-0.8.0-blue.svg)](https://asena.sh)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Bun Version](https://img.shields.io/badge/Bun-1.3.11%2B-blueviolet)](https://bun.sh)
+[![Bun Version](https://img.shields.io/badge/Bun-1.3.12%2B-blueviolet)](https://bun.sh)
 
 Asena-cli provides several command-line utilities to help developers manage their asena applications efficiently. Here's a comprehensive guide to all available commands.
 
@@ -20,7 +20,7 @@ Asena-cli provides several command-line utilities to help developers manage thei
 
 ## 🚀 Installation
 
-Prerequisite: [Bun runtime](https://bun.sh) (v1.2.8 or higher)
+Prerequisite: [Bun runtime](https://bun.sh) (v1.3.12 or higher)
 
 ```bash
 bun install -g @asenajs/asena-cli

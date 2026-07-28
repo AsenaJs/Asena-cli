@@ -1,0 +1,428 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="bun test" tests="239" assertions="531" failures="0" skipped="0" time="0.166842606">
+  <testsuite name="test/integration/componentDetection.test.ts" file="test/integration/componentDetection.test.ts" tests="5" assertions="13" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="Component Detection Integration" file="test/integration/componentDetection.test.ts" line="16" tests="5" assertions="13" failures="0" skipped="0" time="0.038" hostname="Duffy">
+      <testcase name="should detect @Service decorated component" classname="Component Detection Integration" time="0.038658" file="test/integration/componentDetection.test.ts" line="21" assertions="3" />
+      <testcase name="should detect @Controller decorated component" classname="Component Detection Integration" time="0.000183" file="test/integration/componentDetection.test.ts" line="41" assertions="3" />
+      <testcase name="should skip root file (index.ts)" classname="Component Detection Integration" time="0.000101" file="test/integration/componentDetection.test.ts" line="60" assertions="1" />
+      <testcase name="should detect all components in one scan" classname="Component Detection Integration" time="0.000161" file="test/integration/componentDetection.test.ts" line="75" assertions="3" />
+      <testcase name="should use ComponentConstants from fixture node_modules" classname="Component Detection Integration" time="0.000093" file="test/integration/componentDetection.test.ts" line="98" assertions="3" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/constants/ioc.test.ts" file="test/constants/ioc.test.ts" tests="4" assertions="12" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="loadComponentConstants" file="test/constants/ioc.test.ts" line="8" tests="4" assertions="12" failures="0" skipped="0" time="0.001" hostname="Duffy">
+      <testcase name="should load ComponentConstants from current project" classname="loadComponentConstants" time="0.001042" file="test/constants/ioc.test.ts" line="9" assertions="3" />
+      <testcase name="should have all required Symbol keys" classname="loadComponentConstants" time="0.00009" file="test/constants/ioc.test.ts" line="19" assertions="6" />
+      <testcase name="should load the same Symbol instance on multiple calls" classname="loadComponentConstants" time="0.000045" file="test/constants/ioc.test.ts" line="36" assertions="2" />
+      <testcase name="should throw error if @asenajs/asena is not installed" classname="loadComponentConstants" time="0.000187" file="test/constants/ioc.test.ts" line="46" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/commands/build.test.ts" file="test/commands/build.test.ts" tests="25" assertions="41" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="Build" file="test/commands/build.test.ts" line="18" tests="25" assertions="41" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testsuite name="copyIncludedAssets" file="test/commands/build.test.ts" line="19" tests="5" assertions="7" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should copy a directory recursively to outdir" classname="copyIncludedAssets &amp;gt; Build" time="0.000691" file="test/commands/build.test.ts" line="31" assertions="4" />
+        <testcase name="should copy a single file to outdir" classname="copyIncludedAssets &amp;gt; Build" time="0.000204" file="test/commands/build.test.ts" line="77" assertions="2" />
+        <testcase name="should skip non-existent paths with a warning" classname="copyIncludedAssets &amp;gt; Build" time="0.000138" file="test/commands/build.test.ts" line="108" assertions="1" />
+        <testcase name="should do nothing when include is empty" classname="copyIncludedAssets &amp;gt; Build" time="0.000083" file="test/commands/build.test.ts" line="135" assertions="0" />
+        <testcase name="should do nothing when include is undefined" classname="copyIncludedAssets &amp;gt; Build" time="0.000049" file="test/commands/build.test.ts" line="151" assertions="0" />
+      </testsuite>
+      <testsuite name="createHTMLPlugin" file="test/commands/build.test.ts" line="163" tests="5" assertions="14" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return a BunPlugin with correct name and htmlImports map" classname="createHTMLPlugin &amp;gt; Build" time="0.000051" file="test/commands/build.test.ts" line="164" assertions="4" />
+        <testcase name="should collect html imports when onResolve is triggered" classname="createHTMLPlugin &amp;gt; Build" time="0.000188" file="test/commands/build.test.ts" line="174" assertions="4" />
+        <testcase name="should throw when HTML file does not exist" classname="createHTMLPlugin &amp;gt; Build" time="0.000056" file="test/commands/build.test.ts" line="215" assertions="1" />
+        <testcase name="should handle deeply nested HTML imports" classname="createHTMLPlugin &amp;gt; Build" time="0.000098" file="test/commands/build.test.ts" line="237" assertions="2" />
+        <testcase name="should handle multiple HTML imports from different source files" classname="createHTMLPlugin &amp;gt; Build" time="0.000099" file="test/commands/build.test.ts" line="273" assertions="3" />
+      </testsuite>
+      <testsuite name="rewriteHTMLImports" file="test/commands/build.test.ts" line="319" tests="8" assertions="11" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should rewrite HTML import paths in JS output files" classname="rewriteHTMLImports &amp;gt; Build" time="0.000205" file="test/commands/build.test.ts" line="331" assertions="1" />
+        <testcase name="should rewrite multiple different HTML imports" classname="rewriteHTMLImports &amp;gt; Build" time="0.000112" file="test/commands/build.test.ts" line="346" assertions="4" />
+        <testcase name="should rewrite all occurrences of the same import" classname="rewriteHTMLImports &amp;gt; Build" time="0.000091" file="test/commands/build.test.ts" line="373" assertions="1" />
+        <testcase name="should not modify files without HTML imports" classname="rewriteHTMLImports &amp;gt; Build" time="0.000076" file="test/commands/build.test.ts" line="391" assertions="1" />
+        <testcase name="should only process .js files" classname="rewriteHTMLImports &amp;gt; Build" time="0.000089" file="test/commands/build.test.ts" line="409" assertions="2" />
+        <testcase name="should handle empty outdir gracefully" classname="rewriteHTMLImports &amp;gt; Build" time="0.000042" file="test/commands/build.test.ts" line="435" assertions="0" />
+        <testcase name="should handle empty htmlImports map" classname="rewriteHTMLImports &amp;gt; Build" time="0.000062" file="test/commands/build.test.ts" line="446" assertions="1" />
+        <testcase name="should preserve non-HTML import strings in the file" classname="rewriteHTMLImports &amp;gt; Build" time="0.000067" file="test/commands/build.test.ts" line="461" assertions="1" />
+      </testsuite>
+      <testsuite name="rewriteHTMLImports - security" file="test/commands/build.test.ts" line="480" tests="7" assertions="9" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should only replace exact path matches within quotes" classname="rewriteHTMLImports - security &amp;gt; Build" time="0.000081" file="test/commands/build.test.ts" line="492" assertions="2" />
+        <testcase name="should not be affected by path traversal in import strings" classname="rewriteHTMLImports - security &amp;gt; Build" time="0.000066" file="test/commands/build.test.ts" line="516" assertions="1" />
+        <testcase name="should not perform partial string replacements within longer paths" classname="rewriteHTMLImports - security &amp;gt; Build" time="0.00006" file="test/commands/build.test.ts" line="535" assertions="1" />
+        <testcase name="should not replace paths embedded in other strings" classname="rewriteHTMLImports - security &amp;gt; Build" time="0.000063" file="test/commands/build.test.ts" line="552" assertions="1" />
+        <testcase name="should handle paths with special regex characters safely" classname="rewriteHTMLImports - security &amp;gt; Build" time="0.000062" file="test/commands/build.test.ts" line="569" assertions="1" />
+        <testcase name="should handle paths with unicode characters" classname="rewriteHTMLImports - security &amp;gt; Build" time="0.000067" file="test/commands/build.test.ts" line="585" assertions="1" />
+        <testcase name="should handle multiple JS output files" classname="rewriteHTMLImports - security &amp;gt; Build" time="0.000091" file="test/commands/build.test.ts" line="601" assertions="2" />
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/commands/create.test.ts" file="test/commands/create.test.ts" tests="18" assertions="63" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="Create command CLI arguments" file="test/commands/create.test.ts" line="7" tests="8" assertions="24" failures="0" skipped="0" time="0.001" hostname="Duffy">
+      <testcase name="should have correct command description" classname="Create command CLI arguments" time="0.001664" file="test/commands/create.test.ts" line="8" assertions="2" />
+      <testcase name="should accept project-name argument" classname="Create command CLI arguments" time="0.000114" file="test/commands/create.test.ts" line="17" assertions="4" />
+      <testcase name="should have adapter option" classname="Create command CLI arguments" time="0.000091" file="test/commands/create.test.ts" line="34" assertions="2" />
+      <testcase name="should have logger options" classname="Create command CLI arguments" time="0.000068" file="test/commands/create.test.ts" line="47" assertions="2" />
+      <testcase name="should have eslint options" classname="Create command CLI arguments" time="0.000152" file="test/commands/create.test.ts" line="61" assertions="2" />
+      <testcase name="should have prettier options" classname="Create command CLI arguments" time="0.000193" file="test/commands/create.test.ts" line="75" assertions="2" />
+      <testcase name="should have skip-install option" classname="Create command CLI arguments" time="0.000054" file="test/commands/create.test.ts" line="89" assertions="2" />
+      <testcase name="should parse all required options correctly" classname="Create command CLI arguments" time="0.000059" file="test/commands/create.test.ts" line="102" assertions="8" />
+    </testsuite>
+    <testsuite name="Create command package.json generation" file="test/commands/create.test.ts" line="125" tests="10" assertions="39" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testcase name="should create package.json with basic scripts" classname="Create command package.json generation" time="0.000605" file="test/commands/create.test.ts" line="140" assertions="4" />
+      <testcase name="should include eslint scripts when eslint is enabled" classname="Create command package.json generation" time="0.000181" file="test/commands/create.test.ts" line="159" assertions="2" />
+      <testcase name="should include prettier scripts when prettier is enabled" classname="Create command package.json generation" time="0.000148" file="test/commands/create.test.ts" line="183" assertions="2" />
+      <testcase name="should include combined check scripts when both eslint and prettier are enabled" classname="Create command package.json generation" time="0.000137" file="test/commands/create.test.ts" line="207" assertions="6" />
+      <testcase name="should not include eslint/prettier scripts when disabled" classname="Create command package.json generation" time="0.000164" file="test/commands/create.test.ts" line="235" assertions="9" />
+      <testcase name="should not include type field in package.json (CommonJS by default)" classname="Create command package.json generation" time="0.0001" file="test/commands/create.test.ts" line="268" assertions="1" />
+      <testcase name="should set module field to src/index.ts" classname="Create command package.json generation" time="0.000127" file="test/commands/create.test.ts" line="282" assertions="1" />
+      <testcase name="should include dependencies in package.json when skipInstall is true" classname="Create command package.json generation" time="0.000147" file="test/commands/create.test.ts" line="295" assertions="10" />
+      <testcase name="should not include dependencies when skipInstall is false" classname="Create command package.json generation" time="0.000137" file="test/commands/create.test.ts" line="328" assertions="2" />
+      <testcase name="should include ergenecore adapter when skipInstall is true with ergenecore" classname="Create command package.json generation" time="0.000111" file="test/commands/create.test.ts" line="342" assertions="2" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/helpers/fileHelper.test.ts" file="test/helpers/fileHelper.test.ts" tests="24" assertions="44" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="fileHelper" file="test/helpers/fileHelper.test.ts" line="14" tests="24" assertions="44" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testsuite name="getFileExtension" file="test/helpers/fileHelper.test.ts" line="15" tests="4" assertions="9" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return .js for JavaScript files" classname="getFileExtension &amp;gt; fileHelper" time="0.000043" file="test/helpers/fileHelper.test.ts" line="16" assertions="2" />
+        <testcase name="should return .ts for TypeScript files" classname="getFileExtension &amp;gt; fileHelper" time="0.00001" file="test/helpers/fileHelper.test.ts" line="22" assertions="2" />
+        <testcase name="should handle files with multiple dots" classname="getFileExtension &amp;gt; fileHelper" time="0.00001" file="test/helpers/fileHelper.test.ts" line="28" assertions="2" />
+        <testcase name="should throw error for invalid extensions" classname="getFileExtension &amp;gt; fileHelper" time="0.000042" file="test/helpers/fileHelper.test.ts" line="34" assertions="3" />
+      </testsuite>
+      <testsuite name="removeExtension" file="test/helpers/fileHelper.test.ts" line="46" tests="5" assertions="9" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should remove file extension" classname="removeExtension &amp;gt; fileHelper" time="0.000024" file="test/helpers/fileHelper.test.ts" line="47" assertions="2" />
+        <testcase name="should handle files with multiple dots" classname="removeExtension &amp;gt; fileHelper" time="0.000008" file="test/helpers/fileHelper.test.ts" line="53" assertions="2" />
+        <testcase name="should return original name if no extension" classname="removeExtension &amp;gt; fileHelper" time="0.000006" file="test/helpers/fileHelper.test.ts" line="59" assertions="2" />
+        <testcase name="should handle empty string" classname="removeExtension &amp;gt; fileHelper" time="0.000005" file="test/helpers/fileHelper.test.ts" line="65" assertions="1" />
+        <testcase name="should handle paths with extension" classname="removeExtension &amp;gt; fileHelper" time="0.000007" file="test/helpers/fileHelper.test.ts" line="69" assertions="2" />
+      </testsuite>
+      <testsuite name="simplifyPath" file="test/helpers/fileHelper.test.ts" line="76" tests="4" assertions="7" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should simplify path with 2 parts" classname="simplifyPath &amp;gt; fileHelper" time="0.000023" file="test/helpers/fileHelper.test.ts" line="77" assertions="2" />
+        <testcase name="should simplify path with more than 2 parts" classname="simplifyPath &amp;gt; fileHelper" time="0.000012" file="test/helpers/fileHelper.test.ts" line="83" assertions="2" />
+        <testcase name="should return original path if less than 2 parts" classname="simplifyPath &amp;gt; fileHelper" time="0.000008" file="test/helpers/fileHelper.test.ts" line="89" assertions="2" />
+        <testcase name="should handle complex paths" classname="simplifyPath &amp;gt; fileHelper" time="0.000006" file="test/helpers/fileHelper.test.ts" line="95" assertions="1" />
+      </testsuite>
+      <testsuite name="changeFileExtensionToAsenaJs" file="test/helpers/fileHelper.test.ts" line="100" tests="5" assertions="7" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should change .ts to .asena.js" classname="changeFileExtensionToAsenaJs &amp;gt; fileHelper" time="0.000026" file="test/helpers/fileHelper.test.ts" line="101" assertions="1" />
+        <testcase name="should change .js to .asena.js" classname="changeFileExtensionToAsenaJs &amp;gt; fileHelper" time="0.000008" file="test/helpers/fileHelper.test.ts" line="107" assertions="1" />
+        <testcase name="should handle files with multiple dots" classname="changeFileExtensionToAsenaJs &amp;gt; fileHelper" time="0.000006" file="test/helpers/fileHelper.test.ts" line="113" assertions="1" />
+        <testcase name="should handle full paths" classname="changeFileExtensionToAsenaJs &amp;gt; fileHelper" time="0.000012" file="test/helpers/fileHelper.test.ts" line="119" assertions="2" />
+        <testcase name="should preserve directory structure" classname="changeFileExtensionToAsenaJs &amp;gt; fileHelper" time="0.000015" file="test/helpers/fileHelper.test.ts" line="127" assertions="2" />
+      </testsuite>
+      <testsuite name="getAllFiles" file="test/helpers/fileHelper.test.ts" line="138" tests="6" assertions="12" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should get all files recursively" classname="getAllFiles &amp;gt; fileHelper" time="0.000144" file="test/helpers/fileHelper.test.ts" line="168" assertions="3" />
+        <testcase name="should exclude node_modules directory" classname="getAllFiles &amp;gt; fileHelper" time="0.000063" file="test/helpers/fileHelper.test.ts" line="180" assertions="1" />
+        <testcase name="should include dist directory (not excluded by default)" classname="getAllFiles &amp;gt; fileHelper" time="0.000056" file="test/helpers/fileHelper.test.ts" line="190" assertions="1" />
+        <testcase name="should include nested files" classname="getAllFiles &amp;gt; fileHelper" time="0.00003" file="test/helpers/fileHelper.test.ts" line="198" assertions="1" />
+        <testcase name="should throw error for invalid directory" classname="getAllFiles &amp;gt; fileHelper" time="0.000046" file="test/helpers/fileHelper.test.ts" line="205" assertions="1" />
+        <testcase name="should return array of absolute paths" classname="getAllFiles &amp;gt; fileHelper" time="0.000033" file="test/helpers/fileHelper.test.ts" line="210" assertions="5" />
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/helpers/variableNameHelper.test.ts" file="test/helpers/variableNameHelper.test.ts" tests="13" assertions="25" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="variableNameHelper" file="test/helpers/variableNameHelper.test.ts" line="4" tests="13" assertions="25" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testsuite name="convertToPascalCase" file="test/helpers/variableNameHelper.test.ts" line="5" tests="13" assertions="25" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should convert kebab-case to PascalCase" classname="convertToPascalCase &amp;gt; variableNameHelper" time="0.000491" file="test/helpers/variableNameHelper.test.ts" line="6" assertions="2" />
+        <testcase name="should convert snake_case to PascalCase" classname="convertToPascalCase &amp;gt; variableNameHelper" time="0.000034" file="test/helpers/variableNameHelper.test.ts" line="12" assertions="2" />
+        <testcase name="should convert space-separated to PascalCase" classname="convertToPascalCase &amp;gt; variableNameHelper" time="0.000011" file="test/helpers/variableNameHelper.test.ts" line="18" assertions="2" />
+        <testcase name="should handle single word" classname="convertToPascalCase &amp;gt; variableNameHelper" time="0.000009" file="test/helpers/variableNameHelper.test.ts" line="24" assertions="2" />
+        <testcase name="should handle already PascalCase" classname="convertToPascalCase &amp;gt; variableNameHelper" time="0.000008" file="test/helpers/variableNameHelper.test.ts" line="30" assertions="2" />
+        <testcase name="should handle leading underscore" classname="convertToPascalCase &amp;gt; variableNameHelper" time="0.00001" file="test/helpers/variableNameHelper.test.ts" line="36" assertions="2" />
+        <testcase name="should handle mixed separators" classname="convertToPascalCase &amp;gt; variableNameHelper" time="0.000012" file="test/helpers/variableNameHelper.test.ts" line="42" assertions="2" />
+        <testcase name="should handle multiple consecutive separators" classname="convertToPascalCase &amp;gt; variableNameHelper" time="0.000009" file="test/helpers/variableNameHelper.test.ts" line="48" assertions="2" />
+        <testcase name="should throw error for empty string" classname="convertToPascalCase &amp;gt; variableNameHelper" time="0.000029" file="test/helpers/variableNameHelper.test.ts" line="54" assertions="1" />
+        <testcase name="should handle lowercase input" classname="convertToPascalCase &amp;gt; variableNameHelper" time="0.000009" file="test/helpers/variableNameHelper.test.ts" line="59" assertions="2" />
+        <testcase name="should handle UPPERCASE input" classname="convertToPascalCase &amp;gt; variableNameHelper" time="0.000009" file="test/helpers/variableNameHelper.test.ts" line="65" assertions="2" />
+        <testcase name="should handle camelCase to PascalCase" classname="convertToPascalCase &amp;gt; variableNameHelper" time="0.000008" file="test/helpers/variableNameHelper.test.ts" line="71" assertions="2" />
+        <testcase name="should preserve numbers in variable names" classname="convertToPascalCase &amp;gt; variableNameHelper" time="0.00001" file="test/helpers/variableNameHelper.test.ts" line="77" assertions="2" />
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/helpers/RegexHelper.test.ts" file="test/helpers/RegexHelper.test.ts" tests="22" assertions="39" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="RegexHelper" file="test/helpers/RegexHelper.test.ts" line="4" tests="22" assertions="39" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testsuite name="New API Pattern Detection (v1.0.0+)" file="test/helpers/RegexHelper.test.ts" line="5" tests="7" assertions="16" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should detect AsenaServerFactory.create() pattern" classname="New API Pattern Detection (v1.0.0+) &amp;gt; RegexHelper" time="0.000084" file="test/helpers/RegexHelper.test.ts" line="6" assertions="2" />
+        <testcase name="should detect AsenaServerFactory with components" classname="New API Pattern Detection (v1.0.0+) &amp;gt; RegexHelper" time="0.000015" file="test/helpers/RegexHelper.test.ts" line="23" assertions="2" />
+        <testcase name="should get AsenaServerFactory.create() block" classname="New API Pattern Detection (v1.0.0+) &amp;gt; RegexHelper" time="0.000028" file="test/helpers/RegexHelper.test.ts" line="41" assertions="2" />
+        <testcase name="should find options object closing brace position" classname="New API Pattern Detection (v1.0.0+) &amp;gt; RegexHelper" time="0.000042" file="test/helpers/RegexHelper.test.ts" line="56" assertions="2" />
+        <testcase name="should remove components field from options" classname="New API Pattern Detection (v1.0.0+) &amp;gt; RegexHelper" time="0.000047" file="test/helpers/RegexHelper.test.ts" line="69" assertions="2" />
+        <testcase name="should handle components field at the end without comma" classname="New API Pattern Detection (v1.0.0+) &amp;gt; RegexHelper" time="0.00001" file="test/helpers/RegexHelper.test.ts" line="85" assertions="2" />
+        <testcase name="should remove entire AsenaServerFactory code block" classname="New API Pattern Detection (v1.0.0+) &amp;gt; RegexHelper" time="0.000027" file="test/helpers/RegexHelper.test.ts" line="98" assertions="4" />
+      </testsuite>
+      <testsuite name="Legacy API Pattern Detection (v0.x)" file="test/helpers/RegexHelper.test.ts" line="126" tests="4" assertions="9" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should detect legacy new AsenaServer pattern" classname="Legacy API Pattern Detection (v0.x) &amp;gt; RegexHelper" time="0.000036" file="test/helpers/RegexHelper.test.ts" line="127" assertions="2" />
+        <testcase name="should detect legacy pattern with components" classname="Legacy API Pattern Detection (v0.x) &amp;gt; RegexHelper" time="0.000009" file="test/helpers/RegexHelper.test.ts" line="136" assertions="2" />
+        <testcase name="should remove legacy AsenaServer code block" classname="Legacy API Pattern Detection (v0.x) &amp;gt; RegexHelper" time="0.000013" file="test/helpers/RegexHelper.test.ts" line="145" assertions="3" />
+        <testcase name="should get legacy AsenaServer offset" classname="Legacy API Pattern Detection (v0.x) &amp;gt; RegexHelper" time="0.00003" file="test/helpers/RegexHelper.test.ts" line="164" assertions="2" />
+      </testsuite>
+      <testsuite name="Import/Require Detection" file="test/helpers/RegexHelper.test.ts" line="174" tests="4" assertions="5" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should extract import lines" classname="Import/Require Detection &amp;gt; RegexHelper" time="0.000108" file="test/helpers/RegexHelper.test.ts" line="175" assertions="2" />
+        <testcase name="should extract require lines" classname="Import/Require Detection &amp;gt; RegexHelper" time="0.000041" file="test/helpers/RegexHelper.test.ts" line="190" assertions="1" />
+        <testcase name="should extract import file paths" classname="Import/Require Detection &amp;gt; RegexHelper" time="0.000147" file="test/helpers/RegexHelper.test.ts" line="202" assertions="1" />
+        <testcase name="should extract require file paths" classname="Import/Require Detection &amp;gt; RegexHelper" time="0.000038" file="test/helpers/RegexHelper.test.ts" line="209" assertions="1" />
+      </testsuite>
+      <testsuite name="Class Element Detection" file="test/helpers/RegexHelper.test.ts" line="217" tests="3" assertions="5" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should find controller class closing brace index" classname="Class Element Detection &amp;gt; RegexHelper" time="0.000075" file="test/helpers/RegexHelper.test.ts" line="218" assertions="2" />
+        <testcase name="should return null for non-existent class" classname="Class Element Detection &amp;gt; RegexHelper" time="0.000024" file="test/helpers/RegexHelper.test.ts" line="236" assertions="1" />
+        <testcase name="should handle nested braces in class body" classname="Class Element Detection &amp;gt; RegexHelper" time="0.000024" file="test/helpers/RegexHelper.test.ts" line="246" assertions="2" />
+      </testsuite>
+      <testsuite name="Edge Cases" file="test/helpers/RegexHelper.test.ts" line="266" tests="4" assertions="4" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return null when no AsenaServer found" classname="Edge Cases &amp;gt; RegexHelper" time="0.000008" file="test/helpers/RegexHelper.test.ts" line="267" assertions="1" />
+        <testcase name="should handle empty code" classname="Edge Cases &amp;gt; RegexHelper" time="0.000007" file="test/helpers/RegexHelper.test.ts" line="274" assertions="1" />
+        <testcase name="should handle code with no imports" classname="Edge Cases &amp;gt; RegexHelper" time="0.000009" file="test/helpers/RegexHelper.test.ts" line="280" assertions="1" />
+        <testcase name="should handle multiline imports" classname="Edge Cases &amp;gt; RegexHelper" time="0.000008" file="test/helpers/RegexHelper.test.ts" line="287" assertions="1" />
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/helpers/adapterConfigHelper.test.ts" file="test/helpers/adapterConfigHelper.test.ts" tests="21" assertions="34" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="adapterConfigHelper" file="test/helpers/adapterConfigHelper.test.ts" line="13" tests="21" assertions="34" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testsuite name="writeAdapterConfig" file="test/helpers/adapterConfigHelper.test.ts" line="26" tests="6" assertions="11" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should create .asena/config.json with adapter" classname="writeAdapterConfig &amp;gt; adapterConfigHelper" time="0.000781" file="test/helpers/adapterConfigHelper.test.ts" line="27" assertions="2" />
+        <testcase name="should create .asena directory if not exists" classname="writeAdapterConfig &amp;gt; adapterConfigHelper" time="0.000279" file="test/helpers/adapterConfigHelper.test.ts" line="45" assertions="1" />
+        <testcase name="should write correctly formatted JSON" classname="writeAdapterConfig &amp;gt; adapterConfigHelper" time="0.000332" file="test/helpers/adapterConfigHelper.test.ts" line="59" assertions="2" />
+        <testcase name="should add $schema reference to config.json" classname="writeAdapterConfig &amp;gt; adapterConfigHelper" time="0.000288" file="test/helpers/adapterConfigHelper.test.ts" line="74" assertions="1" />
+        <testcase name="should write config.schema.json alongside config.json" classname="writeAdapterConfig &amp;gt; adapterConfigHelper" time="0.000355" file="test/helpers/adapterConfigHelper.test.ts" line="87" assertions="4" />
+        <testcase name="should write schema matching CONFIG_SCHEMA constant" classname="writeAdapterConfig &amp;gt; adapterConfigHelper" time="0.000269" file="test/helpers/adapterConfigHelper.test.ts" line="107" assertions="1" />
+      </testsuite>
+      <testsuite name="readAdapterConfig" file="test/helpers/adapterConfigHelper.test.ts" line="121" tests="3" assertions="3" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should read adapter config from .asena/config.json" classname="readAdapterConfig &amp;gt; adapterConfigHelper" time="0.000392" file="test/helpers/adapterConfigHelper.test.ts" line="122" assertions="1" />
+        <testcase name="should return default hono if config does not exist" classname="readAdapterConfig &amp;gt; adapterConfigHelper" time="0.000103" file="test/helpers/adapterConfigHelper.test.ts" line="135" assertions="1" />
+        <testcase name="should return default adapter if config is invalid" classname="readAdapterConfig &amp;gt; adapterConfigHelper" time="0.000166" file="test/helpers/adapterConfigHelper.test.ts" line="146" assertions="1" />
+      </testsuite>
+      <testsuite name="getAdapterConfig" file="test/helpers/adapterConfigHelper.test.ts" line="163" tests="2" assertions="2" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return adapter type from config" classname="getAdapterConfig &amp;gt; adapterConfigHelper" time="0.000226" file="test/helpers/adapterConfigHelper.test.ts" line="164" assertions="1" />
+        <testcase name="should return default hono if config does not exist" classname="getAdapterConfig &amp;gt; adapterConfigHelper" time="0.000077" file="test/helpers/adapterConfigHelper.test.ts" line="177" assertions="1" />
+      </testsuite>
+      <testsuite name="isAdapterConfigExists" file="test/helpers/adapterConfigHelper.test.ts" line="189" tests="2" assertions="2" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return true if config exists" classname="isAdapterConfigExists &amp;gt; adapterConfigHelper" time="0.000141" file="test/helpers/adapterConfigHelper.test.ts" line="190" assertions="1" />
+        <testcase name="should return false if config does not exist" classname="isAdapterConfigExists &amp;gt; adapterConfigHelper" time="0.000112" file="test/helpers/adapterConfigHelper.test.ts" line="203" assertions="1" />
+      </testsuite>
+      <testsuite name="resolveSuffix" file="test/helpers/adapterConfigHelper.test.ts" line="215" tests="8" assertions="16" failures="0" skipped="0" time="0.001" hostname="Duffy">
+        <testcase name="should return default suffix when suffixes is undefined" classname="resolveSuffix &amp;gt; adapterConfigHelper" time="0.000213" file="test/helpers/adapterConfigHelper.test.ts" line="216" assertions="1" />
+        <testcase name="should return default suffix when suffixes is true (global)" classname="resolveSuffix &amp;gt; adapterConfigHelper" time="0.000308" file="test/helpers/adapterConfigHelper.test.ts" line="229" assertions="5" />
+        <testcase name="should return empty string when suffixes is false (global)" classname="resolveSuffix &amp;gt; adapterConfigHelper" time="0.000201" file="test/helpers/adapterConfigHelper.test.ts" line="250" assertions="1" />
+        <testcase name="should return default suffix when component suffix is true (granular)" classname="resolveSuffix &amp;gt; adapterConfigHelper" time="0.000292" file="test/helpers/adapterConfigHelper.test.ts" line="263" assertions="1" />
+        <testcase name="should return empty string when component suffix is false (granular)" classname="resolveSuffix &amp;gt; adapterConfigHelper" time="0.000213" file="test/helpers/adapterConfigHelper.test.ts" line="279" assertions="1" />
+        <testcase name="should return custom suffix when component suffix is string (granular)" classname="resolveSuffix &amp;gt; adapterConfigHelper" time="0.000775" file="test/helpers/adapterConfigHelper.test.ts" line="295" assertions="3" />
+        <testcase name="should return default suffix when component is not in granular config (fallback)" classname="resolveSuffix &amp;gt; adapterConfigHelper" time="0.001089" file="test/helpers/adapterConfigHelper.test.ts" line="319" assertions="1" />
+        <testcase name="should handle mixed granular config (boolean and string)" classname="resolveSuffix &amp;gt; adapterConfigHelper" time="0.000324" file="test/helpers/adapterConfigHelper.test.ts" line="335" assertions="3" />
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/helpers/adapterImportHelper.test.ts" file="test/helpers/adapterImportHelper.test.ts" tests="14" assertions="30" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="adapterImportHelper" file="test/helpers/adapterImportHelper.test.ts" line="12" tests="14" assertions="30" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testsuite name="getRootImports" file="test/helpers/adapterImportHelper.test.ts" line="13" tests="2" assertions="4" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return Hono imports for hono adapter" classname="getRootImports &amp;gt; adapterImportHelper" time="0.000029" file="test/helpers/adapterImportHelper.test.ts" line="14" assertions="2" />
+        <testcase name="should return Ergenecore imports for ergenecore adapter" classname="getRootImports &amp;gt; adapterImportHelper" time="0.000009" file="test/helpers/adapterImportHelper.test.ts" line="22" assertions="2" />
+      </testsuite>
+      <testsuite name="getControllerImports" file="test/helpers/adapterImportHelper.test.ts" line="31" tests="2" assertions="6" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return Hono controller imports for hono adapter" classname="getControllerImports &amp;gt; adapterImportHelper" time="0.000016" file="test/helpers/adapterImportHelper.test.ts" line="32" assertions="3" />
+        <testcase name="should return Ergenecore controller imports for ergenecore adapter" classname="getControllerImports &amp;gt; adapterImportHelper" time="0.000009" file="test/helpers/adapterImportHelper.test.ts" line="42" assertions="3" />
+      </testsuite>
+      <testsuite name="getMiddlewareImports" file="test/helpers/adapterImportHelper.test.ts" line="53" tests="2" assertions="6" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return Hono middleware imports for hono adapter" classname="getMiddlewareImports &amp;gt; adapterImportHelper" time="0.000015" file="test/helpers/adapterImportHelper.test.ts" line="54" assertions="3" />
+        <testcase name="should return Ergenecore middleware imports for ergenecore adapter" classname="getMiddlewareImports &amp;gt; adapterImportHelper" time="0.000009" file="test/helpers/adapterImportHelper.test.ts" line="64" assertions="3" />
+      </testsuite>
+      <testsuite name="getConfigImports" file="test/helpers/adapterImportHelper.test.ts" line="75" tests="2" assertions="6" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return Hono config imports for hono adapter" classname="getConfigImports &amp;gt; adapterImportHelper" time="0.000013" file="test/helpers/adapterImportHelper.test.ts" line="76" assertions="3" />
+        <testcase name="should return Ergenecore config imports for ergenecore adapter" classname="getConfigImports &amp;gt; adapterImportHelper" time="0.000008" file="test/helpers/adapterImportHelper.test.ts" line="86" assertions="3" />
+      </testsuite>
+      <testsuite name="getWebSocketImports" file="test/helpers/adapterImportHelper.test.ts" line="97" tests="2" assertions="4" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return adapter-agnostic WebSocket imports" classname="getWebSocketImports &amp;gt; adapterImportHelper" time="0.000014" file="test/helpers/adapterImportHelper.test.ts" line="98" assertions="3" />
+        <testcase name="should return same imports regardless of adapter" classname="getWebSocketImports &amp;gt; adapterImportHelper" time="0.000007" file="test/helpers/adapterImportHelper.test.ts" line="108" assertions="1" />
+      </testsuite>
+      <testsuite name="getAdapterFunctionName" file="test/helpers/adapterImportHelper.test.ts" line="116" tests="2" assertions="2" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return createHonoAdapter for hono" classname="getAdapterFunctionName &amp;gt; adapterImportHelper" time="0.00001" file="test/helpers/adapterImportHelper.test.ts" line="117" assertions="1" />
+        <testcase name="should return createErgenecoreAdapter for ergenecore" classname="getAdapterFunctionName &amp;gt; adapterImportHelper" time="0.000005" file="test/helpers/adapterImportHelper.test.ts" line="123" assertions="1" />
+      </testsuite>
+      <testsuite name="getAdapterPackage" file="test/helpers/adapterImportHelper.test.ts" line="130" tests="2" assertions="2" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return @asenajs/hono-adapter for hono" classname="getAdapterPackage &amp;gt; adapterImportHelper" time="0.000006" file="test/helpers/adapterImportHelper.test.ts" line="131" assertions="1" />
+        <testcase name="should return @asenajs/ergenecore for ergenecore" classname="getAdapterPackage &amp;gt; adapterImportHelper" time="0.000005" file="test/helpers/adapterImportHelper.test.ts" line="137" assertions="1" />
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/helpers/configHelpers.test.ts" file="test/helpers/configHelpers.test.ts" tests="5" assertions="12" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="configHelpers" file="test/helpers/configHelpers.test.ts" line="7" tests="5" assertions="12" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testsuite name="defineConfig" file="test/helpers/configHelpers.test.ts" line="8" tests="3" assertions="7" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return the same config object" classname="defineConfig &amp;gt; configHelpers" time="0.000032" file="test/helpers/configHelpers.test.ts" line="9" assertions="3" />
+        <testcase name="should work with minimal config" classname="defineConfig &amp;gt; configHelpers" time="0.00001" file="test/helpers/configHelpers.test.ts" line="27" assertions="1" />
+        <testcase name="should preserve all config properties" classname="defineConfig &amp;gt; configHelpers" time="0.000018" file="test/helpers/configHelpers.test.ts" line="38" assertions="3" />
+      </testsuite>
+      <testsuite name="readJson" file="test/helpers/configHelpers.test.ts" line="64" tests="2" assertions="5" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should read and parse JSON file" classname="readJson &amp;gt; configHelpers" time="0.000175" file="test/helpers/configHelpers.test.ts" line="83" assertions="3" />
+        <testcase name="should read nested JSON properties" classname="readJson &amp;gt; configHelpers" time="0.000054" file="test/helpers/configHelpers.test.ts" line="93" assertions="2" />
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="/home/libir/Desktop/asena/Asena-cli/test/helpers/configHelpers.test.ts" file="/home/libir/Desktop/asena/Asena-cli/test/helpers/configHelpers.test.ts" tests="1" assertions="1" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="configHelpers" file="/home/libir/Desktop/asena/Asena-cli/test/helpers/configHelpers.test.ts" line="7" tests="1" assertions="1" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testsuite name="isAsenaConfigExists" file="/home/libir/Desktop/asena/Asena-cli/test/helpers/configHelpers.test.ts" line="102" tests="1" assertions="1" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return true when asena-config.ts exists" classname="isAsenaConfigExists &amp;gt; configHelpers" time="0.000163" file="/home/libir/Desktop/asena/Asena-cli/test/helpers/configHelpers.test.ts" line="116" assertions="1" />
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/helpers/configHelpers.test.ts" file="test/helpers/configHelpers.test.ts" tests="1" assertions="1" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="configHelpers" file="test/helpers/configHelpers.test.ts" line="7" tests="1" assertions="1" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testsuite name="isAsenaConfigExists" file="test/helpers/configHelpers.test.ts" line="102" tests="1" assertions="1" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return false when asena-config.ts does not exist" classname="isAsenaConfigExists &amp;gt; configHelpers" time="0.000073" file="test/helpers/configHelpers.test.ts" line="126" assertions="1" />
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/helpers/tsConfigHelper.test.ts" file="test/helpers/tsConfigHelper.test.ts" tests="7" assertions="7" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="tsConfigHelper" file="test/helpers/tsConfigHelper.test.ts" line="7" tests="7" assertions="7" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testsuite name="getImportType" file="test/helpers/tsConfigHelper.test.ts" line="8" tests="7" assertions="7" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return REQUIRE when tsconfig.json does not exist" classname="getImportType &amp;gt; tsConfigHelper" time="0.00014" file="test/helpers/tsConfigHelper.test.ts" line="22" assertions="1" />
+        <testcase name="should return IMPORT when module is ESNext" classname="getImportType &amp;gt; tsConfigHelper" time="0.000278" file="test/helpers/tsConfigHelper.test.ts" line="34" assertions="1" />
+        <testcase name="should return IMPORT when module is ES6" classname="getImportType &amp;gt; tsConfigHelper" time="0.000115" file="test/helpers/tsConfigHelper.test.ts" line="53" assertions="1" />
+        <testcase name="should return REQUIRE when module is CommonJS" classname="getImportType &amp;gt; tsConfigHelper" time="0.000084" file="test/helpers/tsConfigHelper.test.ts" line="71" assertions="1" />
+        <testcase name="should handle tsconfig with comments" classname="getImportType &amp;gt; tsConfigHelper" time="0.000128" file="test/helpers/tsConfigHelper.test.ts" line="89" assertions="1" />
+        <testcase name="should return IMPORT for case-insensitive module name" classname="getImportType &amp;gt; tsConfigHelper" time="0.000088" file="test/helpers/tsConfigHelper.test.ts" line="109" assertions="1" />
+        <testcase name="should return REQUIRE when compilerOptions is missing" classname="getImportType &amp;gt; tsConfigHelper" time="0.000091" file="test/helpers/tsConfigHelper.test.ts" line="127" assertions="1" />
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/helpers/controllerHelper.test.ts" file="test/helpers/controllerHelper.test.ts" tests="5" assertions="5" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="controllerHelper" file="test/helpers/controllerHelper.test.ts" line="5" tests="5" assertions="5" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testsuite name="checkControllerExistence" file="test/helpers/controllerHelper.test.ts" line="6" tests="5" assertions="5" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return true when components exist" classname="checkControllerExistence &amp;gt; controllerHelper" time="0.000416" file="test/helpers/controllerHelper.test.ts" line="7" assertions="1" />
+        <testcase name="should return false when no components exist" classname="checkControllerExistence &amp;gt; controllerHelper" time="0.000046" file="test/helpers/controllerHelper.test.ts" line="18" assertions="1" />
+        <testcase name="should return true when at least one file has components" classname="checkControllerExistence &amp;gt; controllerHelper" time="0.000021" file="test/helpers/controllerHelper.test.ts" line="29" assertions="1" />
+        <testcase name="should return false for empty object" classname="checkControllerExistence &amp;gt; controllerHelper" time="0.000009" file="test/helpers/controllerHelper.test.ts" line="40" assertions="1" />
+        <testcase name="should return false when all arrays are empty" classname="checkControllerExistence &amp;gt; controllerHelper" time="0.000011" file="test/helpers/controllerHelper.test.ts" line="48" assertions="1" />
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/codeBuilder/AsenaServerHandler.test.ts" file="test/codeBuilder/AsenaServerHandler.test.ts" tests="15" assertions="48" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="AsenaServerHandler" file="test/codeBuilder/AsenaServerHandler.test.ts" line="4" tests="15" assertions="48" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testsuite name="createEmptyAsenaServer" file="test/codeBuilder/AsenaServerHandler.test.ts" line="5" tests="4" assertions="12" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should create empty server with default port 3000" classname="createEmptyAsenaServer &amp;gt; AsenaServerHandler" time="0.000087" file="test/codeBuilder/AsenaServerHandler.test.ts" line="6" assertions="5" />
+        <testcase name="should create empty server with custom port" classname="createEmptyAsenaServer &amp;gt; AsenaServerHandler" time="0.000015" file="test/codeBuilder/AsenaServerHandler.test.ts" line="21" assertions="1" />
+        <testcase name="should return handler instance for chaining" classname="createEmptyAsenaServer &amp;gt; AsenaServerHandler" time="0.00001" file="test/codeBuilder/AsenaServerHandler.test.ts" line="28" assertions="1" />
+        <testcase name="should generate valid TypeScript syntax" classname="createEmptyAsenaServer &amp;gt; AsenaServerHandler" time="0.000046" file="test/codeBuilder/AsenaServerHandler.test.ts" line="35" assertions="5" />
+      </testsuite>
+      <testsuite name="addComponents" file="test/codeBuilder/AsenaServerHandler.test.ts" line="55" tests="7" assertions="15" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should add components to options object" classname="addComponents &amp;gt; AsenaServerHandler" time="0.000065" file="test/codeBuilder/AsenaServerHandler.test.ts" line="56" assertions="2" />
+        <testcase name="should handle single component" classname="addComponents &amp;gt; AsenaServerHandler" time="0.000019" file="test/codeBuilder/AsenaServerHandler.test.ts" line="68" assertions="1" />
+        <testcase name="should handle multiple components" classname="addComponents &amp;gt; AsenaServerHandler" time="0.000022" file="test/codeBuilder/AsenaServerHandler.test.ts" line="78" assertions="4" />
+        <testcase name="should replace existing components" classname="addComponents &amp;gt; AsenaServerHandler" time="0.000021" file="test/codeBuilder/AsenaServerHandler.test.ts" line="94" assertions="3" />
+        <testcase name="should maintain valid object syntax after adding components" classname="addComponents &amp;gt; AsenaServerHandler" time="0.00003" file="test/codeBuilder/AsenaServerHandler.test.ts" line="115" assertions="3" />
+        <testcase name="should throw error when no AsenaServerFactory.create() found" classname="addComponents &amp;gt; AsenaServerHandler" time="0.000048" file="test/codeBuilder/AsenaServerHandler.test.ts" line="130" assertions="1" />
+        <testcase name="should handle empty components array" classname="addComponents &amp;gt; AsenaServerHandler" time="0.000024" file="test/codeBuilder/AsenaServerHandler.test.ts" line="138" assertions="1" />
+      </testsuite>
+      <testsuite name="asenaServer getter" file="test/codeBuilder/AsenaServerHandler.test.ts" line="149" tests="2" assertions="3" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return the current server code" classname="asenaServer getter &amp;gt; AsenaServerHandler" time="0.000009" file="test/codeBuilder/AsenaServerHandler.test.ts" line="150" assertions="1" />
+        <testcase name="should return updated code after createEmptyAsenaServer" classname="asenaServer getter &amp;gt; AsenaServerHandler" time="0.000011" file="test/codeBuilder/AsenaServerHandler.test.ts" line="157" assertions="2" />
+      </testsuite>
+      <testsuite name="Integration scenarios" file="test/codeBuilder/AsenaServerHandler.test.ts" line="170" tests="2" assertions="18" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should support full workflow: create -&gt; add components" classname="Integration scenarios &amp;gt; AsenaServerHandler" time="0.000043" file="test/codeBuilder/AsenaServerHandler.test.ts" line="171" assertions="11" />
+        <testcase name="should produce valid multiline formatted code" classname="Integration scenarios &amp;gt; AsenaServerHandler" time="0.000063" file="test/codeBuilder/AsenaServerHandler.test.ts" line="207" assertions="7" />
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/codeBuilder/ImportHandler.test.ts" file="test/codeBuilder/ImportHandler.test.ts" tests="21" assertions="40" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="ImportHandler" file="test/codeBuilder/ImportHandler.test.ts" line="5" tests="21" assertions="40" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testsuite name="Constructor and Initialization" file="test/codeBuilder/ImportHandler.test.ts" line="6" tests="4" assertions="5" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should parse existing ES6 imports from code" classname="Constructor and Initialization &amp;gt; ImportHandler" time="0.000337" file="test/codeBuilder/ImportHandler.test.ts" line="7" assertions="2" />
+        <testcase name="should parse existing CommonJS requires from code" classname="Constructor and Initialization &amp;gt; ImportHandler" time="0.000095" file="test/codeBuilder/ImportHandler.test.ts" line="22" assertions="1" />
+        <testcase name="should handle code with no imports" classname="Constructor and Initialization &amp;gt; ImportHandler" time="0.000016" file="test/codeBuilder/ImportHandler.test.ts" line="35" assertions="1" />
+        <testcase name="should handle empty code" classname="Constructor and Initialization &amp;gt; ImportHandler" time="0.000009" file="test/codeBuilder/ImportHandler.test.ts" line="43" assertions="1" />
+      </testsuite>
+      <testsuite name="importToCode - ES6 Imports" file="test/codeBuilder/ImportHandler.test.ts" line="51" tests="8" assertions="19" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should add new import to empty code" classname="importToCode - ES6 Imports &amp;gt; ImportHandler" time="0.000094" file="test/codeBuilder/ImportHandler.test.ts" line="52" assertions="1" />
+        <testcase name="should add multiple imports from same file" classname="importToCode - ES6 Imports &amp;gt; ImportHandler" time="0.000026" file="test/codeBuilder/ImportHandler.test.ts" line="64" assertions="4" />
+        <testcase name="should add imports from multiple files" classname="importToCode - ES6 Imports &amp;gt; ImportHandler" time="0.000023" file="test/codeBuilder/ImportHandler.test.ts" line="82" assertions="4" />
+        <testcase name="should prepend imports to existing code" classname="importToCode - ES6 Imports &amp;gt; ImportHandler" time="0.000019" file="test/codeBuilder/ImportHandler.test.ts" line="101" assertions="3" />
+        <testcase name="should handle scoped package imports (starting with @)" classname="importToCode - ES6 Imports &amp;gt; ImportHandler" time="0.000016" file="test/codeBuilder/ImportHandler.test.ts" line="118" assertions="2" />
+        <testcase name="should add ./ prefix for relative imports" classname="importToCode - ES6 Imports &amp;gt; ImportHandler" time="0.000017" file="test/codeBuilder/ImportHandler.test.ts" line="132" assertions="1" />
+        <testcase name="should skip .asena. files" classname="importToCode - ES6 Imports &amp;gt; ImportHandler" time="0.000015" file="test/codeBuilder/ImportHandler.test.ts" line="144" assertions="2" />
+        <testcase name="should skip empty import arrays" classname="importToCode - ES6 Imports &amp;gt; ImportHandler" time="0.000015" file="test/codeBuilder/ImportHandler.test.ts" line="159" assertions="2" />
+      </testsuite>
+      <testsuite name="importToCode - CommonJS Requires" file="test/codeBuilder/ImportHandler.test.ts" line="175" tests="3" assertions="6" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should add new require to empty code" classname="importToCode - CommonJS Requires &amp;gt; ImportHandler" time="0.000012" file="test/codeBuilder/ImportHandler.test.ts" line="176" assertions="1" />
+        <testcase name="should add multiple requires from same file" classname="importToCode - CommonJS Requires &amp;gt; ImportHandler" time="0.000013" file="test/codeBuilder/ImportHandler.test.ts" line="188" assertions="2" />
+        <testcase name="should prepend requires to existing code" classname="importToCode - CommonJS Requires &amp;gt; ImportHandler" time="0.000016" file="test/codeBuilder/ImportHandler.test.ts" line="202" assertions="3" />
+      </testsuite>
+      <testsuite name="Edge Cases and Error Handling" file="test/codeBuilder/ImportHandler.test.ts" line="220" tests="4" assertions="5" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should handle type imports" classname="Edge Cases and Error Handling &amp;gt; ImportHandler" time="0.000028" file="test/codeBuilder/ImportHandler.test.ts" line="221" assertions="1" />
+        <testcase name="should handle multiline imports" classname="Edge Cases and Error Handling &amp;gt; ImportHandler" time="0.000041" file="test/codeBuilder/ImportHandler.test.ts" line="229" assertions="1" />
+        <testcase name="should update allImports when adding new imports" classname="Edge Cases and Error Handling &amp;gt; ImportHandler" time="0.000015" file="test/codeBuilder/ImportHandler.test.ts" line="243" assertions="1" />
+        <testcase name="should handle consecutive importToCode calls" classname="Edge Cases and Error Handling &amp;gt; ImportHandler" time="0.000019" file="test/codeBuilder/ImportHandler.test.ts" line="258" assertions="2" />
+      </testsuite>
+      <testsuite name="getImports getter" file="test/codeBuilder/ImportHandler.test.ts" line="282" tests="2" assertions="5" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should return all imports as array" classname="getImports getter &amp;gt; ImportHandler" time="0.000033" file="test/codeBuilder/ImportHandler.test.ts" line="283" assertions="2" />
+        <testcase name="should update after calling importToCode" classname="getImports getter &amp;gt; ImportHandler" time="0.000019" file="test/codeBuilder/ImportHandler.test.ts" line="296" assertions="3" />
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/codeBuilder/WebSocketHandler.test.ts" file="test/codeBuilder/WebSocketHandler.test.ts" tests="7" assertions="17" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="WebSocketHandler" file="test/codeBuilder/WebSocketHandler.test.ts" line="4" tests="7" assertions="17" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testcase name="should create WebSocket namespace with correct structure" classname="WebSocketHandler" time="0.000065" file="test/codeBuilder/WebSocketHandler.test.ts" line="5" assertions="4" />
+      <testcase name="should have all required lifecycle methods" classname="WebSocketHandler" time="0.000016" file="test/codeBuilder/WebSocketHandler.test.ts" line="15" assertions="3" />
+      <testcase name="should have minimal implementation in methods" classname="WebSocketHandler" time="0.000016" file="test/codeBuilder/WebSocketHandler.test.ts" line="24" assertions="3" />
+      <testcase name="should allow custom namespace names and paths" classname="WebSocketHandler" time="0.000011" file="test/codeBuilder/WebSocketHandler.test.ts" line="33" assertions="3" />
+      <testcase name="should not start with leading blank line when appended to empty code" classname="WebSocketHandler" time="0.000021" file="test/codeBuilder/WebSocketHandler.test.ts" line="42" assertions="1" />
+      <testcase name="should append to existing code" classname="WebSocketHandler" time="0.000013" file="test/codeBuilder/WebSocketHandler.test.ts" line="50" assertions="2" />
+      <testcase name="should return handler instance for chaining" classname="WebSocketHandler" time="0.000013" file="test/codeBuilder/WebSocketHandler.test.ts" line="59" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/codeBuilder/MiddlewareHandler.test.ts" file="test/codeBuilder/MiddlewareHandler.test.ts" tests="7" assertions="15" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="MiddlewareHandler" file="test/codeBuilder/MiddlewareHandler.test.ts" line="4" tests="7" assertions="15" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testsuite name="addMiddleware" file="test/codeBuilder/MiddlewareHandler.test.ts" line="5" tests="2" assertions="4" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should create middleware with correct structure" classname="addMiddleware &amp;gt; MiddlewareHandler" time="0.000051" file="test/codeBuilder/MiddlewareHandler.test.ts" line="6" assertions="2" />
+        <testcase name="should have space before opening brace" classname="addMiddleware &amp;gt; MiddlewareHandler" time="0.000025" file="test/codeBuilder/MiddlewareHandler.test.ts" line="14" assertions="2" />
+      </testsuite>
+      <testsuite name="addDefaultHandle" file="test/codeBuilder/MiddlewareHandler.test.ts" line="23" tests="5" assertions="11" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should use 2-space indentation, not tabs" classname="addDefaultHandle &amp;gt; MiddlewareHandler" time="0.000074" file="test/codeBuilder/MiddlewareHandler.test.ts" line="24" assertions="1" />
+        <testcase name="should use single quotes" classname="addDefaultHandle &amp;gt; MiddlewareHandler" time="0.000021" file="test/codeBuilder/MiddlewareHandler.test.ts" line="32" assertions="4" />
+        <testcase name="should have proper spacing in method signature" classname="addDefaultHandle &amp;gt; MiddlewareHandler" time="0.000011" file="test/codeBuilder/MiddlewareHandler.test.ts" line="43" assertions="2" />
+        <testcase name="should generate a handle that type-checks against both adapters" classname="addDefaultHandle &amp;gt; MiddlewareHandler" time="0.000013" file="test/codeBuilder/MiddlewareHandler.test.ts" line="52" assertions="3" />
+        <testcase name="should not have double newline before next()" classname="addDefaultHandle &amp;gt; MiddlewareHandler" time="0.000009" file="test/codeBuilder/MiddlewareHandler.test.ts" line="64" assertions="1" />
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/codeBuilder/ValidatorHandler.test.ts" file="test/codeBuilder/ValidatorHandler.test.ts" tests="5" assertions="37" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="ValidatorHandler" file="test/codeBuilder/ValidatorHandler.test.ts" line="4" tests="5" assertions="37" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testsuite name="addValidator" file="test/codeBuilder/ValidatorHandler.test.ts" line="5" tests="1" assertions="2" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should create validator with correct structure" classname="addValidator &amp;gt; ValidatorHandler" time="0.000049" file="test/codeBuilder/ValidatorHandler.test.ts" line="6" assertions="2" />
+      </testsuite>
+      <testsuite name="addExampleSchema" file="test/codeBuilder/ValidatorHandler.test.ts" line="15" tests="4" assertions="35" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should use 2-space indentation, not tabs" classname="addExampleSchema &amp;gt; ValidatorHandler" time="0.000076" file="test/codeBuilder/ValidatorHandler.test.ts" line="16" assertions="1" />
+        <testcase name="should contain json() method" classname="addExampleSchema &amp;gt; ValidatorHandler" time="0.000017" file="test/codeBuilder/ValidatorHandler.test.ts" line="24" assertions="3" />
+        <testcase name="should contain commented query and param methods" classname="addExampleSchema &amp;gt; ValidatorHandler" time="0.000011" file="test/codeBuilder/ValidatorHandler.test.ts" line="34" assertions="2" />
+        <testcase name="should use consistent 2-space indentation for all schema lines" classname="addExampleSchema &amp;gt; ValidatorHandler" time="0.000067" file="test/codeBuilder/ValidatorHandler.test.ts" line="43" assertions="29" />
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/codeBuilder/ServerConfigHandler.test.ts" file="test/codeBuilder/ServerConfigHandler.test.ts" tests="6" assertions="14" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="ServerConfigHandler" file="test/codeBuilder/ServerConfigHandler.test.ts" line="4" tests="6" assertions="14" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testcase name="should create config class with correct structure" classname="ServerConfigHandler" time="0.000056" file="test/codeBuilder/ServerConfigHandler.test.ts" line="5" assertions="5" />
+      <testcase name="should have minimal onError implementation" classname="ServerConfigHandler" time="0.000013" file="test/codeBuilder/ServerConfigHandler.test.ts" line="16" assertions="3" />
+      <testcase name="should allow custom class names" classname="ServerConfigHandler" time="0.000012" file="test/codeBuilder/ServerConfigHandler.test.ts" line="25" assertions="2" />
+      <testcase name="should not start with leading blank line when appended to empty code" classname="ServerConfigHandler" time="0.000009" file="test/codeBuilder/ServerConfigHandler.test.ts" line="33" assertions="1" />
+      <testcase name="should append to existing code" classname="ServerConfigHandler" time="0.000011" file="test/codeBuilder/ServerConfigHandler.test.ts" line="41" assertions="2" />
+      <testcase name="should return handler instance for chaining" classname="ServerConfigHandler" time="0.000008" file="test/codeBuilder/ServerConfigHandler.test.ts" line="50" assertions="1" />
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/codeBuilder/ControllerHandler.test.ts" file="test/codeBuilder/ControllerHandler.test.ts" tests="8" assertions="15" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="ControllerHandler" file="test/codeBuilder/ControllerHandler.test.ts" line="4" tests="8" assertions="15" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testsuite name="addController" file="test/codeBuilder/ControllerHandler.test.ts" line="5" tests="5" assertions="9" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should create controller with correct structure" classname="addController &amp;gt; ControllerHandler" time="0.000055" file="test/codeBuilder/ControllerHandler.test.ts" line="6" assertions="2" />
+        <testcase name="should create controller without path" classname="addController &amp;gt; ControllerHandler" time="0.000015" file="test/codeBuilder/ControllerHandler.test.ts" line="14" assertions="2" />
+        <testcase name="should use 2-space indentation, not tabs" classname="addController &amp;gt; ControllerHandler" time="0.00001" file="test/codeBuilder/ControllerHandler.test.ts" line="22" assertions="1" />
+        <testcase name="should have space before opening brace" classname="addController &amp;gt; ControllerHandler" time="0.000019" file="test/codeBuilder/ControllerHandler.test.ts" line="29" assertions="2" />
+        <testcase name="should not have extra space before export keyword" classname="addController &amp;gt; ControllerHandler" time="0.00001" file="test/codeBuilder/ControllerHandler.test.ts" line="37" assertions="2" />
+      </testsuite>
+      <testsuite name="addGetRouterToController" file="test/codeBuilder/ControllerHandler.test.ts" line="46" tests="3" assertions="6" failures="0" skipped="0" time="0" hostname="Duffy">
+        <testcase name="should use 2-space indentation, not tabs" classname="addGetRouterToController &amp;gt; ControllerHandler" time="0.000063" file="test/codeBuilder/ControllerHandler.test.ts" line="47" assertions="1" />
+        <testcase name="should use single quotes" classname="addGetRouterToController &amp;gt; ControllerHandler" time="0.000028" file="test/codeBuilder/ControllerHandler.test.ts" line="55" assertions="3" />
+        <testcase name="should have proper spacing in method signature" classname="addGetRouterToController &amp;gt; ControllerHandler" time="0.000013" file="test/codeBuilder/ControllerHandler.test.ts" line="65" assertions="2" />
+      </testsuite>
+    </testsuite>
+  </testsuite>
+  <testsuite name="test/init/init.test.ts" file="test/init/init.test.ts" tests="5" assertions="18" failures="0" skipped="0" time="0" hostname="Duffy">
+    <testsuite name="asena-cli init test" file="test/init/init.test.ts" line="7" tests="5" assertions="18" failures="0" skipped="0" time="0" hostname="Duffy">
+      <testcase name="should create asena-config.ts when it does not exist" classname="asena-cli init test" time="0.000566" file="test/init/init.test.ts" line="24" assertions="6" />
+      <testcase name="should log warning when asena-config.ts already exists" classname="asena-cli init test" time="0.000178" file="test/init/init.test.ts" line="67" assertions="2" />
+      <testcase name="should throw error if file write fails" classname="asena-cli init test" time="0.000279" file="test/init/init.test.ts" line="100" assertions="1" />
+      <testcase name="should create config with correct default content" classname="asena-cli init test" time="0.000252" file="test/init/init.test.ts" line="125" assertions="6" />
+      <testcase name="should return command instance with correct description" classname="asena-cli init test" time="0.000062" file="test/init/init.test.ts" line="156" assertions="3" />
+    </testsuite>
+  </testsuite>
+</testsuites>
