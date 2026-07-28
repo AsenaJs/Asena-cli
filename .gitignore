@@ -177,3 +177,6 @@ dist
 # Project notes and planning files
 CLAUDE.md
 *PLAN.md
+
+# Local release tooling - deliberately not committed before 1.0
+scripts/

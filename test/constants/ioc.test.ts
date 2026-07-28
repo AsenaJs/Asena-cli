@@ -19,16 +19,17 @@ describe('loadComponentConstants', () => {
   it('should have all required Symbol keys', async () => {
     const ComponentConstants = await loadComponentConstants();
 
-    // Check essential keys that CLI uses for component detection
+    // Check essential keys that CLI uses for component detection.
+    // TypeKey used to be asserted here; it was one of eight ComponentConstants entries with no
+    // writer and no reader anywhere, removed in @asenajs/asena 0.9.0. The CLI never used it -
+    // component detection goes through IOCObjectKey (see controllerHelper).
     expect(ComponentConstants.IOCObjectKey).toBeDefined();
     expect(ComponentConstants.NameKey).toBeDefined();
-    expect(ComponentConstants.TypeKey).toBeDefined();
     expect(ComponentConstants.ScopeKey).toBeDefined();
 
     // All should be Symbols
     expect(typeof ComponentConstants.IOCObjectKey).toBe('symbol');
     expect(typeof ComponentConstants.NameKey).toBe('symbol');
-    expect(typeof ComponentConstants.TypeKey).toBe('symbol');
     expect(typeof ComponentConstants.ScopeKey).toBe('symbol');
   });
 
