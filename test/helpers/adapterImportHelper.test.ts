@@ -6,6 +6,7 @@ import {
   getConfigImports,
   getWebSocketImports,
   getAdapterFunctionName,
+  getAdapterInstallPackages,
   getAdapterPackage,
 } from '../../lib/helpers/adapterImportHelper';
 
@@ -138,6 +139,27 @@ describe('adapterImportHelper', () => {
       const pkg = getAdapterPackage('ergenecore');
 
       expect(pkg).toBe('@asenajs/ergenecore');
+    });
+  });
+
+  // The adapters declare hono and zod as peers - they define the contract, they do not ship the
+  // library - so a scaffolded project has to install them itself. The exact key sets are asserted
+  // rather than just membership: giving both adapters the same peer list is the easy mistake, and
+  // ergenecore has no business installing hono.
+  describe('getAdapterInstallPackages', () => {
+    it('should install the hono adapter with hono and zod', () => {
+      expect(Object.keys(getAdapterInstallPackages('hono')).sort()).toEqual(['@asenajs/hono-adapter', 'hono', 'zod']);
+    });
+
+    it('should install the ergenecore adapter with zod but not hono', () => {
+      expect(Object.keys(getAdapterInstallPackages('ergenecore')).sort()).toEqual(['@asenajs/ergenecore', 'zod']);
+    });
+
+    // `latest` would resolve zod 5 the day it ships, which the adapters' `^4.3.6` peer range
+    // cannot satisfy - and an unsatisfiable peer range is what makes a resolver nest a second copy.
+    it('should pin zod to v4 rather than latest', () => {
+      expect(getAdapterInstallPackages('hono')['zod']).toBe('^4');
+      expect(getAdapterInstallPackages('ergenecore')['zod']).toBe('^4');
     });
   });
 });
