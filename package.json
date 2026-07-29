@@ -1,6 +1,6 @@
 {
   "name": "@asenajs/asena-cli",
-  "version": "0.8.0",
+  "version": "0.10.0",
   "author": "LibirSoft",
   "license": "MIT",
   "engines": {
@@ -24,7 +24,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "bun run lint && bun run format:check",
-    "check:fix": "bun run lint:fix && bun run format"
+    "check:fix": "bun run lint:fix && bun run format",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "bun run build && changeset publish"
   },
   "exports": {
     ".": {
@@ -37,7 +40,7 @@
     "url": "https://github.com/AsenaJs/Asena-cli"
   },
   "dependencies": {
-    "@asenajs/asena": "^0.9.0",
+    "@asenajs/asena": "^0.10.0",
     "@changesets/cli": "^2.30.0",
     "commander": "^12.1.0",
     "inquirer": "^12.11.1",
