@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { Create } from '../../lib/commands/Create';
+import { getAdapterInstallPackages } from '../../lib/helpers';
 
 describe('Create command CLI arguments', () => {
   it('should have correct command description', () => {
@@ -316,6 +317,12 @@ describe('Create command package.json generation', () => {
     expect(packageJson.dependencies['@asenajs/hono-adapter']).toBe('latest');
     expect(packageJson.dependencies['@asenajs/asena-logger']).toBe('latest');
 
+    // The adapter's peers. They must be written out rather than left to the package manager's
+    // auto-install: an undeclared peer survives only until the next clean install, and
+    // `asena generate validator` emits `import { z } from 'zod'` into this project.
+    expect(packageJson.dependencies['hono']).toBe('latest');
+    expect(packageJson.dependencies['zod']).toBe('^4');
+
     // Should have devDependencies
     expect(packageJson.devDependencies).toBeDefined();
     expect(packageJson.devDependencies['@types/bun']).toBe('latest');
@@ -359,5 +366,34 @@ describe('Create command package.json generation', () => {
 
     expect(packageJson.dependencies['@asenajs/ergenecore']).toBe('latest');
     expect(packageJson.dependencies['@asenajs/asena-logger']).toBeUndefined();
+
+    // Ergenecore peers zod but not hono. Asserting hono's *absence* is what catches the
+    // copy-paste error of giving both adapters the same peer list.
+    expect(packageJson.dependencies['zod']).toBe('^4');
+    expect(packageJson.dependencies['hono']).toBeUndefined();
+  });
+
+  // `installPreRequests` shells out to `bun add`, so it is not exercised by these tests - which
+  // means nothing would catch the two install paths drifting apart. This pins them to the same
+  // source of truth: whatever the skip-install path writes must be what the other path installs.
+  it('writes exactly the package set the bun add path installs, for both adapters', async () => {
+    for (const adapter of ['hono', 'ergenecore'] as const) {
+      const create = new Create();
+
+      (create as any).preference = {
+        projectName: 'TestProject',
+        adapter,
+        logger: false,
+        eslint: false,
+        prettier: false,
+      };
+
+      await (create as any).createPackageJson(tempDir, true);
+
+      const packageJson = JSON.parse(await Bun.file(join(tempDir, 'package.json')).text());
+      const written = Object.keys(packageJson.dependencies).filter((key) => key !== '@asenajs/asena');
+
+      expect(written.sort()).toEqual(Object.keys(getAdapterInstallPackages(adapter)).sort());
+    }
   });
 });

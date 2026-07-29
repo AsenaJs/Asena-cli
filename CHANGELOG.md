@@ -1,5 +1,27 @@
 # @asenajs/asena-cli
 
+## 0.10.0
+
+### Minor Changes
+
+- `asena create` installs the adapters' peer dependencies, and the core dependency moves to `^0.10.0`
+
+  Both adapters moved `hono` and `zod` into `peerDependencies` in their 3.0.0 release, because the
+  types cross their public API - hono's `Context` and `HTTPException`, zod's `ZodType`, are all in
+  the published `.d.ts`, so a project's `tsc` needs them installed even when its own code never
+  imports either. `zod` is also what `asena generate validator` emits; before the adapters made it
+  a peer, that import resolved only by hoisting out of their `dependencies`, which is to say by
+  accident.
+
+  A scaffolded project now gets them declared outright. `zod` is pinned to `^4` rather than
+  `latest`: the adapters' peer range is `^4.3.6`, so the day zod 5 ships, `latest` would resolve a
+  version their peer range cannot satisfy - and an unsatisfiable peer range is exactly what makes a
+  resolver nest a second copy. `hono` takes `latest`, because its peer range is deliberately
+  uncapped.
+
+  The version number skips 0.9.x. The CLI tracks `@asenajs/asena`'s version, and core released
+  0.10.0.
+
 ## 0.8.0
 
 ### Minor Changes

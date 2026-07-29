@@ -13,7 +13,7 @@ import {
   PRETTIER_INSTALLATIONS,
   TSCONFIG,
 } from '../constants';
-import { getAdapterFunctionName, getAdapterPackage, getControllerImports, getRootImports } from '../helpers';
+import { getAdapterFunctionName, getAdapterInstallPackages, getControllerImports, getRootImports } from '../helpers';
 import { ImportType } from '../types';
 import { Init } from './Init';
 import type { BaseCommand } from '../types/baseCommand';
@@ -202,11 +202,11 @@ export class Create implements BaseCommand {
     // When skip-install is set, write dependencies directly to package.json
     // so the user can run `bun install` later
     if (skipInstall) {
-      const adapterPackage = getAdapterPackage(this.preference.adapter);
-
       const dependencies: Record<string, string> = {
         '@asenajs/asena': 'latest',
-        [adapterPackage]: 'latest',
+        // The adapter and the peers it declares but does not provide - hono and zod. Written out
+        // rather than left to the package manager's auto-install, so they survive a clean install.
+        ...getAdapterInstallPackages(this.preference.adapter),
       };
 
       if (this.preference.logger) {
@@ -243,9 +243,14 @@ export class Create implements BaseCommand {
   }
 
   private async installPreRequests() {
-    const adapterPackage = getAdapterPackage(this.preference.adapter);
+    // The adapter plus its peers. `bun add` records them in the project's package.json, which the
+    // package manager's own peer auto-install would not - and an undeclared peer is a dependency
+    // that disappears on the next clean install.
+    const packages = Object.entries(getAdapterInstallPackages(this.preference.adapter)).map(
+      ([name, version]) => `${name}@${version}`,
+    );
 
-    await $`bun add @asenajs/asena ${adapterPackage}`.quiet();
+    await $`bun add @asenajs/asena ${packages}`.quiet();
 
     if (this.preference.logger) {
       await $`bun add @asenajs/asena-logger`.quiet();

@@ -13,6 +13,7 @@ import {
   ERGENECORE_VALIDATOR_IMPORTS,
   WEBSOCKET_IMPORTS,
   ADAPTER_PACKAGES,
+  ADAPTER_INSTALL_PACKAGES,
 } from '../constants/adapters';
 
 /**
@@ -84,4 +85,19 @@ export function getValidatorImports(adapter: AdapterType): ImportsByFiles {
  */
 export function getAdapterPackage(adapter: AdapterType): string {
   return ADAPTER_PACKAGES[adapter];
+}
+
+/**
+ * Get every package `asena create` must install for an adapter - the adapter and its peers.
+ *
+ * `hono` and `zod` are peer dependencies of the adapters, so a scaffolded project has to declare
+ * them itself. Relying on the package manager's peer auto-install would leave them out of the
+ * generated `package.json`, which is a phantom dependency by construction: it survives until the
+ * next clean install.
+ *
+ * @param adapter AdapterType ('hono' or 'ergenecore')
+ * @returns package name -> version spec
+ */
+export function getAdapterInstallPackages(adapter: AdapterType): Record<string, string> {
+  return ADAPTER_INSTALL_PACKAGES[adapter];
 }
