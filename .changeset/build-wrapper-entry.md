@@ -1,0 +1,7 @@
+---
+"@asenajs/asena-cli": minor
+---
+
+`asena build` no longer rewrites or executes the entry file. The build now generates a temporary wrapper entry (in the OS temp dir, outside your source folder) that imports every scanned component into `globalThis[Symbol.for('asena.buildComponents')]` before importing your entry, bundles that wrapper, and deletes the temporary files afterwards. This removes the old entry-formatting rules — exact call shape, no comments inside the options object, factory token appearing only once — and fixes the build executing the entry's module-level code at build time (#25).
+
+A hand-written `components:` array in the entry is now user-owned: it is left untouched and, when non-empty, wins over the build's component list. This requires `@asenajs/asena` >= 0.11.0 (the CLI now declares `^0.11.0`), which is the first version that reads the build component list from the global; on older cores such a bundle boots into the filesystem-scan fallback and dies in production with `No components or configuration found`. Component scanning now reports the export key of each class, dedupes classes re-exported through barrel files, skips leftover `*.asena.js` files from older CLI versions, and fails the build with the file name when a component file cannot be imported instead of silently dropping it. `Build.build()` returns the absolute output path (used by `asena dev start` instead of deriving it from the root file path), and `minify.keepNames` is forced to `true` when identifiers are minified, because component names are read at runtime.
