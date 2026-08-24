@@ -151,7 +151,22 @@ describe('doctor', () => {
       expect(result.ok).toBe(true);
     });
 
-    it('passes when keepNames sits inside the minify object - the shape asena init writes', async () => {
+    it('passes when identifiers are not minified - the shape asena init writes', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'asena-config.ts': asenaConfigFile({
+          minify: { whitespace: true, syntax: true, identifiers: false, keepNames: true },
+        }),
+        'src/index.ts': 'export default class Index {}\n',
+      });
+
+      const result = resultOf(await runDoctor(dir), 'asena-config');
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('fails when identifiers are minified, even with keepNames - Bun does not preserve class names', async () => {
       const dir = makeTmpDir();
 
       writeFiles(dir, {
@@ -163,42 +178,12 @@ describe('doctor', () => {
 
       const result = resultOf(await runDoctor(dir), 'asena-config');
 
-      expect(result.ok).toBe(true);
-    });
-
-    it('fails when keepNames is a sibling of minify - Bun reads it only inside the minify object', async () => {
-      const dir = makeTmpDir();
-
-      writeFiles(dir, {
-        'asena-config.ts': asenaConfigFile({
-          minify: { whitespace: true, syntax: true, identifiers: true },
-          keepNames: true,
-        }),
-        'src/index.ts': 'export default class Index {}\n',
-      });
-
-      const result = resultOf(await runDoctor(dir), 'asena-config');
-
-      expect(result.ok).toBe(false);
-      expect(result.hint).toContain('keepNames: true }');
-    });
-
-    it('fails when minify identifiers is enabled without keepNames', async () => {
-      const dir = makeTmpDir();
-
-      writeFiles(dir, {
-        'asena-config.ts': asenaConfigFile({ minify: { whitespace: true, syntax: true, identifiers: true } }),
-        'src/index.ts': 'export default class Index {}\n',
-      });
-
-      const result = resultOf(await runDoctor(dir), 'asena-config');
-
       expect(result.ok).toBe(false);
       expect(result.detail).toContain('runtime');
-      expect(result.hint).toContain('minify: { whitespace: true, syntax: true, identifiers: true, keepNames: true }');
+      expect(result.hint).toContain('identifiers: false');
     });
 
-    it('fails when minify is true without keepNames', async () => {
+    it('fails when minify is true', async () => {
       const dir = makeTmpDir();
 
       writeFiles(dir, {
@@ -209,7 +194,7 @@ describe('doctor', () => {
       const result = resultOf(await runDoctor(dir), 'asena-config');
 
       expect(result.ok).toBe(false);
-      expect(result.hint).toContain('keepNames');
+      expect(result.hint).toContain('identifiers: false');
     });
 
     it('fails when rootFile does not exist on disk', async () => {
