@@ -95,19 +95,20 @@ export class Build implements BaseCommand {
 
   /**
    * Component names are read at runtime (@Inject('UserService'),
-   * @Repository({ databaseService: 'MainDb' })), so minified identifiers must keep
-   * class names. Returns the replacement `minify` value, or undefined to keep the
-   * user's value as-is.
+   * @Repository({ databaseService: 'MainDb' })), so identifiers must not be minified.
+   * `keepNames` is not the answer: Bun's bundler (1.4.0) does not preserve class names
+   * under identifier minification even with it set, measured on a one-class entry.
+   * Returns the replacement `minify` value, or undefined to keep the user's value as-is.
    */
   private normalizeMinify(minify: BuildOptions['minify']): BuildOptions['minify'] | undefined {
     if (minify === true) {
-      return { whitespace: true, syntax: true, identifiers: true, keepNames: true };
+      return { whitespace: true, syntax: true, identifiers: false };
     }
 
-    if (typeof minify === 'object' && minify !== null && minify.identifiers === true && minify.keepNames !== true) {
-      console.log('[build] minify.keepNames forced to true: component names are read at runtime');
+    if (typeof minify === 'object' && minify !== null && minify.identifiers === true) {
+      console.log('[build] minify.identifiers disabled: component names are read at runtime');
 
-      return { ...minify, keepNames: true };
+      return { ...minify, identifiers: false };
     }
 
     return undefined;

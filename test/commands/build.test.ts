@@ -732,54 +732,44 @@ describe('Build', () => {
   });
 
   describe('normalizeMinify', () => {
-    it('should expand minify: true with keepNames enabled', () => {
+    it('should expand minify: true without identifier minification', () => {
       const build = new Build();
 
-      expect(build['normalizeMinify'](true)).toEqual({
-        whitespace: true,
-        syntax: true,
-        identifiers: true,
-        keepNames: true,
-      });
+      expect(build['normalizeMinify'](true)).toEqual({ whitespace: true, syntax: true, identifiers: false });
     });
 
-    it('should force keepNames when identifiers are minified and log one line', () => {
+    it('should disable identifier minification and log one line', () => {
       const build = new Build();
-      const originalLog = console.log;
       const logs: string[] = [];
+      const original = console.log;
 
-      console.log = (...args: unknown[]) => {
-        logs.push(args.map(String).join(' '));
+      console.log = (message: string) => {
+        logs.push(message);
       };
 
       let result: unknown;
 
       try {
-        result = build['normalizeMinify']({ identifiers: true });
+        result = build['normalizeMinify']({ identifiers: true, keepNames: true });
       } finally {
-        console.log = originalLog;
+        console.log = original;
       }
 
-      expect(result).toEqual({ identifiers: true, keepNames: true });
-      expect(logs).toEqual(['[build] minify.keepNames forced to true: component names are read at runtime']);
+      expect(result).toEqual({ identifiers: false, keepNames: true });
+      expect(logs).toEqual(['[build] minify.identifiers disabled: component names are read at runtime']);
     });
 
-    it('should leave minify objects without identifier minification untouched', () => {
+    it('should leave minify untouched when identifiers are not minified', () => {
       const build = new Build();
 
       expect(build['normalizeMinify']({ identifiers: false })).toBeUndefined();
+      expect(build['normalizeMinify']({ whitespace: true })).toBeUndefined();
     });
 
-    it('should leave undefined untouched', () => {
+    it('should leave an absent minify untouched', () => {
       const build = new Build();
 
       expect(build['normalizeMinify'](undefined)).toBeUndefined();
-    });
-
-    it('should leave minify untouched when keepNames is already true', () => {
-      const build = new Build();
-
-      expect(build['normalizeMinify']({ identifiers: true, keepNames: true })).toBeUndefined();
     });
   });
 });

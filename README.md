@@ -148,7 +148,7 @@ The Build command handles project deployment preparation.
 - **Import Management**: Detected components are handed to the server through the build component list. No need to add controllers manually to the root file
 - **Server Integration**: A hand-written `components:` array in the entry is user-owned — when present and non-empty it wins over the build's list
 
-> The entry file no longer has to follow any formatting rules: comments inside the `AsenaServerFactory.create({...})` options, a repeated factory token, or arbitrary code around the call are all fine. When `buildOptions.minify` minifies identifiers, `keepNames` is forced to `true`, because component names (e.g. `@Inject('UserService')`) are read at runtime.
+> The entry file no longer has to follow any formatting rules: comments inside the `AsenaServerFactory.create({...})` options, a repeated factory token, or arbitrary code around the call are all fine. When `buildOptions.minify` enables identifier minification, the build turns it off (`identifiers: false`): component names (e.g. `@Inject('UserService')`) are read at runtime, and Bun's bundler does not preserve class names under identifier minification even with `keepNames: true`.
 
 ### ```asena init```
 
