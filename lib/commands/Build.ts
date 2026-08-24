@@ -1,22 +1,14 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
-import { type BuildConfig, type BunPlugin, write } from 'bun';
+import { type BuildConfig, type BunPlugin } from 'bun';
 import { Command } from 'commander';
-import { AsenaServerHandler, ConfigHandler, ImportHandler } from '../codeBuilder';
-import {
-  changeFileExtensionToAsenaJs,
-  checkControllerExistence,
-  getControllers,
-  getImportType,
-  RegexHelper,
-  simplifyPath,
-} from '../helpers';
-import type { AsenaConfig, ControllerPath, ImportsByFiles } from '../types';
+import { ConfigHandler } from '../codeBuilder';
+import { checkControllerExistence, getControllers } from '../helpers';
+import type { AsenaConfig, BuildOptions, ControllerPath } from '../types';
 import type { BaseCommand } from '../types/baseCommand';
 
 export class Build implements BaseCommand {
-  private _buildFilePath = '';
-
   private configFile: AsenaConfig = { rootFile: '', sourceFolder: '' };
 
   public command() {
@@ -31,113 +23,105 @@ export class Build implements BaseCommand {
       });
   }
 
-  public async build() {
-    try {
-      this.configFile = (await new ConfigHandler().exec()).configFile;
-
-      this._buildFilePath = this.createBuildFilePath();
-
-      const { rootFileCode, injections } = await this.readAndPrepareCode();
-
-      const buildCode = await this.buildCode(rootFileCode, injections);
-
-      await write(this._buildFilePath, buildCode);
-
-      await this.executeBuild();
-
-      await this.copyIncludedAssets();
-
-      this.removeAsenaEntryFile();
-
-      console.log('Build completed successfully.');
-    } catch (e) {
-      this.removeAsenaEntryFile();
-
-      console.error('Build failed:', e);
-    }
-  }
-
-  private removeAsenaEntryFile = () => {
-    try {
-      fs.unlinkSync(path.normalize(this._buildFilePath));
-    } catch {
-      console.log('No asena entry file has found');
-    }
-  };
-
-  private async buildCode(rootFileCode: string, components: ControllerPath) {
-    const importType = await getImportType();
-
-    const { cleanedCode, asenaServerCodeBlock } = this.cleanCodeAndExtractServer(rootFileCode);
-
-    const importHandler = new ImportHandler(cleanedCode, importType);
-
-    const { imports, allComponents } = this.prepareImports(components);
-
-    const code = importHandler.importToCode(imports, importType);
-
-    const asenaServer = new AsenaServerHandler(asenaServerCodeBlock).addComponents(allComponents);
-
-    return code + asenaServer;
-  }
-
-  private cleanCodeAndExtractServer(rootFileCode: string) {
-    const cleanedCode = RegexHelper.removeAsenaServerFromCode(rootFileCode);
-
-    const asenaServerCodeBlock = RegexHelper.getAsenaServerCodeBlock(rootFileCode);
-
-    if (!asenaServerCodeBlock) {
-      throw new Error('No AsenaServer has found');
-    }
-
-    return { cleanedCode, asenaServerCodeBlock };
-  }
-
-  private async readAndPrepareCode() {
-    const rootFileCode = await Bun.file(this.configFile.rootFile).text();
-
-    await Bun.write(this._buildFilePath, RegexHelper.removeAsenaServerFromCode(rootFileCode));
+  /**
+   * Builds the project without touching the entry file: a temporary wrapper entry
+   * (outside sourceFolder) imports every scanned component into
+   * `globalThis[Symbol.for('asena.buildComponents')]` before importing the entry,
+   * and the bundler runs on that wrapper.
+   *
+   * @returns The absolute path of the bundled output file.
+   */
+  public async build(): Promise<string> {
+    this.configFile = (await new ConfigHandler().exec()).configFile;
 
     const controllers = await getControllers(this.configFile.rootFile, this.configFile.sourceFolder);
 
     if (!checkControllerExistence(controllers)) {
       console.error('\x1b[31m%s\x1b[0m', 'No components has found');
 
-      fs.unlinkSync(path.normalize(this._buildFilePath));
-
       process.exit(1);
     }
 
-    return { rootFileCode, injections: controllers };
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'asena-build-'));
+
+    try {
+      this.writeWrapperFiles(tmpDir, controllers);
+
+      await this.executeBuild(tmpDir);
+
+      await this.copyIncludedAssets();
+
+      console.log('Build completed successfully.');
+
+      return this.getOutputPath();
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   }
 
-  private prepareImports(components: ControllerPath) {
-    const imports: ImportsByFiles = {};
+  private writeWrapperFiles(tmpDir: string, controllers: ControllerPath) {
+    const imports: string[] = [];
+    const aliases: string[] = [];
 
-    let allComponents: string[] = [];
+    let index = 0;
 
-    for (const path of Object.keys(components)) {
-      if (!imports[path]) {
-        imports[path] = components[path].map((injection) => injection.name);
-      } else {
-        imports[path] = imports[path].concat(components[path].map((injection) => injection.name));
+    for (const [file, components] of Object.entries(controllers)) {
+      const sourcePath = path.resolve(process.cwd(), this.configFile.sourceFolder, file);
+
+      for (const { exportName } of components) {
+        const alias = `c${index++}`;
+
+        imports.push(`import { ${exportName} as ${alias} } from '${sourcePath}';`);
+        aliases.push(alias);
       }
-
-      allComponents = allComponents.concat(imports[path]);
     }
 
-    return { imports, allComponents };
+    fs.writeFileSync(
+      path.join(tmpDir, 'asena.components.js'),
+      `${imports.join('\n')}\n\nglobalThis[Symbol.for('asena.buildComponents')] = [${aliases.join(', ')}];\n`,
+    );
+
+    fs.writeFileSync(
+      path.join(tmpDir, 'index.asena.js'),
+      `import './asena.components.js';\nimport '${path.resolve(process.cwd(), this.configFile.rootFile)}';\n`,
+    );
   }
 
-  private async executeBuild() {
-    const buildResult = await this.buildWithBunAPI();
+  private getOutputPath(): string {
+    const outdir = this.configFile.buildOptions?.outdir || './out';
+
+    return path.resolve(process.cwd(), outdir, 'index.asena.js');
+  }
+
+  /**
+   * Component names are read at runtime (@Inject('UserService'),
+   * @Repository({ databaseService: 'MainDb' })), so minified identifiers must keep
+   * class names. Returns the replacement `minify` value, or undefined to keep the
+   * user's value as-is.
+   */
+  private normalizeMinify(minify: BuildOptions['minify']): BuildOptions['minify'] | undefined {
+    if (minify === true) {
+      return { whitespace: true, syntax: true, identifiers: true, keepNames: true };
+    }
+
+    if (typeof minify === 'object' && minify !== null && minify.identifiers === true && minify.keepNames !== true) {
+      console.log('[build] minify.keepNames forced to true: component names are read at runtime');
+
+      return { ...minify, keepNames: true };
+    }
+
+    return undefined;
+  }
+
+  private async executeBuild(tmpDir: string) {
+    const buildResult = await this.buildWithBunAPI(tmpDir);
 
     if (!buildResult.success) {
       throw new Error(JSON.stringify(buildResult.logs));
     }
   }
 
-  private buildWithBunAPI = async () => {
+  private buildWithBunAPI = async (tmpDir: string) => {
     const asenaFooter = `/*
  * ╔═══════════════════════════════════════╗
  * ║     ⚡ Built with Asena Framework      ║
@@ -147,23 +131,33 @@ export class Build implements BaseCommand {
 
     const { plugin: htmlPlugin, htmlImports } = this.createHTMLPlugin();
 
-    const defaultBuildConfig: BuildConfig = {
-      entrypoints: [this._buildFilePath],
-      outdir: './out',
-      target: 'bun',
-      footer: asenaFooter,
-      plugins: [htmlPlugin],
-    };
+    const entrypoint = path.join(tmpDir, 'index.asena.js');
 
-    const finalBuildConfig: BuildConfig = this.configFile.buildOptions
-      ? {
-          ...this.configFile.buildOptions,
-          entrypoints: [this._buildFilePath],
-          target: 'bun',
-          footer: asenaFooter,
-          plugins: [htmlPlugin],
-        }
-      : defaultBuildConfig;
+    // `root` is explicit so the output name never depends on Bun's inferred common ancestor.
+    let finalBuildConfig: BuildConfig;
+
+    if (this.configFile.buildOptions) {
+      const normalizedMinify = this.normalizeMinify(this.configFile.buildOptions.minify);
+
+      finalBuildConfig = {
+        ...this.configFile.buildOptions,
+        ...(normalizedMinify !== undefined ? { minify: normalizedMinify } : {}),
+        entrypoints: [entrypoint],
+        root: tmpDir,
+        target: 'bun',
+        footer: asenaFooter,
+        plugins: [htmlPlugin],
+      };
+    } else {
+      finalBuildConfig = {
+        entrypoints: [entrypoint],
+        root: tmpDir,
+        outdir: './out',
+        target: 'bun',
+        footer: asenaFooter,
+        plugins: [htmlPlugin],
+      };
+    }
 
     const result = await Bun.build(finalBuildConfig);
 
@@ -286,9 +280,5 @@ export class Build implements BaseCommand {
         fs.copyFileSync(srcEntry, destEntry);
       }
     }
-  }
-
-  private createBuildFilePath(): string {
-    return `${path.dirname(this.configFile.rootFile)}/${changeFileExtensionToAsenaJs(simplifyPath(this.configFile.rootFile))}`;
   }
 }
