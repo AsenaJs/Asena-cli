@@ -8,6 +8,10 @@ import { checkControllerExistence, getControllers } from '../helpers';
 import type { AsenaConfig, BuildOptions, ControllerPath } from '../types';
 import type { BaseCommand } from '../types/baseCommand';
 
+// Backslashes inside a quoted import specifier are escape sequences, so a Windows path
+// would be mangled; forward slashes resolve on every platform
+const toImportPath = (absolute: string): string => absolute.replace(/\\/g, '/');
+
 export class Build implements BaseCommand {
   private configFile: AsenaConfig = { rootFile: '', sourceFolder: '' };
 
@@ -66,7 +70,7 @@ export class Build implements BaseCommand {
     let index = 0;
 
     for (const [file, components] of Object.entries(controllers)) {
-      const sourcePath = path.resolve(process.cwd(), this.configFile.sourceFolder, file);
+      const sourcePath = toImportPath(path.resolve(process.cwd(), this.configFile.sourceFolder, file));
 
       for (const { exportName } of components) {
         const alias = `c${index++}`;
@@ -83,7 +87,7 @@ export class Build implements BaseCommand {
 
     fs.writeFileSync(
       path.join(tmpDir, 'index.asena.js'),
-      `import './asena.components.js';\nimport '${path.resolve(process.cwd(), this.configFile.rootFile)}';\n`,
+      `import './asena.components.js';\nimport '${toImportPath(path.resolve(process.cwd(), this.configFile.rootFile))}';\n`,
     );
   }
 
