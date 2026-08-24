@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { CheckResult } from '../../types';
+import { readInstalledVersion } from '../readInstalledVersion';
 
 export const PEER_RANGES_NAME = 'peer-ranges';
 
@@ -34,7 +35,7 @@ export const checkPeerRanges = async (cwd: string): Promise<CheckResult> => {
     return fail(`node_modules/${SCOPE_DIR} not found`, 'run `bun install` first');
   }
 
-  const coreVersion = readVersionOf(path.join(scopePath, 'asena'));
+  const coreVersion = readInstalledVersion(path.join(scopePath, 'asena'));
 
   if (!coreVersion) {
     return fail(`${CORE_PACKAGE} is not installed`, `bun add ${CORE_PACKAGE}`);
@@ -43,7 +44,7 @@ export const checkPeerRanges = async (cwd: string): Promise<CheckResult> => {
   const unsatisfied: string[] = [];
 
   for (const entry of fs.readdirSync(scopePath, { withFileTypes: true })) {
-    if (!entry.isDirectory() || entry.name === 'asena') {
+    if ((!entry.isDirectory() && !entry.isSymbolicLink()) || entry.name === 'asena') {
       continue;
     }
 
@@ -70,14 +71,4 @@ export const checkPeerRanges = async (cwd: string): Promise<CheckResult> => {
     ok: true,
     detail: `all @asenajs/* peer ranges are satisfied by ${CORE_PACKAGE}@${coreVersion}`,
   };
-};
-
-const readVersionOf = (pkgDir: string): string | null => {
-  try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf-8')) as { version?: string };
-
-    return pkg.version ?? null;
-  } catch {
-    return null;
-  }
 };

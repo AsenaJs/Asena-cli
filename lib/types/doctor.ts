@@ -19,10 +19,5 @@ export interface CheckResult {
 /** A doctor check: a pure async function of the project directory. */
 export type DoctorCheck = (cwd: string) => Promise<CheckResult>;
 
-/**
- * Locally computed view of the imported `asena-config.ts` default export.
- * `keepNames` is a top-level Bun build option the doctor needs to inspect.
- */
-export type DoctorAsenaConfig = AsenaConfig & {
-  buildOptions?: AsenaConfig['buildOptions'] & { keepNames?: boolean };
-};
+/** The imported `asena-config.ts` default export, as the doctor inspects it. */
+export type DoctorAsenaConfig = AsenaConfig;

@@ -151,7 +151,22 @@ describe('doctor', () => {
       expect(result.ok).toBe(true);
     });
 
-    it('passes when minify identifiers is enabled together with keepNames', async () => {
+    it('passes when keepNames sits inside the minify object - the shape asena init writes', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'asena-config.ts': asenaConfigFile({
+          minify: { whitespace: true, syntax: true, identifiers: true, keepNames: true },
+        }),
+        'src/index.ts': 'export default class Index {}\n',
+      });
+
+      const result = resultOf(await runDoctor(dir), 'asena-config');
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('fails when keepNames is a sibling of minify - Bun reads it only inside the minify object', async () => {
       const dir = makeTmpDir();
 
       writeFiles(dir, {
@@ -164,7 +179,8 @@ describe('doctor', () => {
 
       const result = resultOf(await runDoctor(dir), 'asena-config');
 
-      expect(result.ok).toBe(true);
+      expect(result.ok).toBe(false);
+      expect(result.hint).toContain('keepNames: true }');
     });
 
     it('fails when minify identifiers is enabled without keepNames', async () => {
@@ -329,6 +345,19 @@ describe('doctor', () => {
       expect(result.hint).toContain('bun update hono');
     });
 
+    it("finds a second copy inside Bun's isolated-linker store (node_modules/.bun)", async () => {
+      const dir = makeTmpDir();
+
+      fakePackage(dir, 'hono', '4.9.11');
+      fakePackage(path.join(dir, 'node_modules', '.bun', 'some-lib@1.0.0'), 'hono', '3.3.0');
+
+      const result = resultOf(await runDoctor(dir), 'duplicate-packages');
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain('3.3.0');
+      expect(result.detail).toContain(path.join('.bun', 'some-lib@1.0.0', 'node_modules', 'hono'));
+    });
+
     it('fails when node_modules does not exist', async () => {
       const dir = makeTmpDir();
 
@@ -368,6 +397,28 @@ describe('doctor', () => {
       expect(result.detail).toContain('@asenajs/hono-adapter');
       expect(result.detail).toContain('^0.11.0');
       expect(result.detail).toContain('0.10.2');
+    });
+
+    it('checks an adapter installed as a symlink (isolated linker, pnpm)', async () => {
+      const dir = makeTmpDir();
+
+      fakePackage(dir, '@asenajs/asena', '0.10.2');
+      writeFiles(dir, {
+        'store/hono-adapter/package.json': JSON.stringify({
+          name: '@asenajs/hono-adapter',
+          version: '0.11.0',
+          peerDependencies: { '@asenajs/asena': '^0.11.0' },
+        }),
+      });
+      fs.symlinkSync(
+        path.join(dir, 'store', 'hono-adapter'),
+        path.join(dir, 'node_modules', '@asenajs', 'hono-adapter'),
+      );
+
+      const result = resultOf(await runDoctor(dir), 'peer-ranges');
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain('^0.11.0');
     });
 
     it('fails when the core package is not installed', async () => {
