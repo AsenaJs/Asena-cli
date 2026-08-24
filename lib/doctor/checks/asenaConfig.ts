@@ -23,6 +23,13 @@ const minifiesIdentifiers = (config: DoctorAsenaConfig): boolean => {
   return minify === true || (typeof minify === 'object' && minify !== null && minify.identifiers === true);
 };
 
+// Bun reads keepNames only inside the minify object; `minify: true` has no place to put it
+const keepsNames = (config: DoctorAsenaConfig): boolean => {
+  const minify = config.buildOptions?.minify;
+
+  return typeof minify === 'object' && minify !== null && minify.keepNames === true;
+};
+
 export const checkAsenaConfig = async (cwd: string): Promise<CheckResult> => {
   const fail = (detail: string, hint?: string): CheckResult => ({ name: ASENA_CONFIG_NAME, ok: false, detail, hint });
 
@@ -67,7 +74,7 @@ export const checkAsenaConfig = async (cwd: string): Promise<CheckResult> => {
     }
   }
 
-  if (minifiesIdentifiers(config) && config.buildOptions?.keepNames !== true) {
+  if (minifiesIdentifiers(config) && !keepsNames(config)) {
     problems.push('minify drops component names that are read at runtime');
     hints = [...hints, `enable keepNames: ${KEEP_NAMES_HINT}`];
   }

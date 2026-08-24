@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { CheckResult } from '../../types';
+import { readInstalledVersion } from '../readInstalledVersion';
 
 export const DUPLICATE_PACKAGES_NAME = 'duplicate-packages';
 
@@ -10,21 +11,15 @@ const MAX_NODE_MODULES_DEPTH = 6;
 
 const SKIPPED_DIRS = ['.bin', '.cache'];
 
+const BUN_STORE_DIR = '.bun';
+
 interface InstalledPackage {
   name: string;
   version: string;
   path: string;
 }
 
-const readVersion = (pkgDir: string): string => {
-  try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf-8')) as { version?: string };
-
-    return pkg.version ?? 'unknown';
-  } catch {
-    return 'unknown';
-  }
-};
+const readVersion = (pkgDir: string): string => readInstalledVersion(pkgDir) ?? 'unknown';
 
 const visitPackage = (name: string, pkgDir: string, level: number, visited: Set<string>, found: InstalledPackage[]) => {
   if (TRACKED_PACKAGES.includes(name)) {
@@ -67,6 +62,19 @@ const collectTracked = (nmDir: string, level: number, visited: Set<string>, foun
     }
 
     if (!entry.isDirectory() && !entry.isSymbolicLink()) {
+      continue;
+    }
+
+    // Bun's isolated linker (and pnpm) keep the real packages in a store of
+    // `<name>@<version>/node_modules/<pkg>` directories and symlink the root entries to them -
+    // a second copy only ever lives in the store
+    if (entry.name === BUN_STORE_DIR) {
+      for (const store of listDir(path.join(nmDir, entry.name))) {
+        if (store.isDirectory() || store.isSymbolicLink()) {
+          collectTracked(path.join(nmDir, entry.name, store.name, 'node_modules'), level + 1, visited, found);
+        }
+      }
+
       continue;
     }
 

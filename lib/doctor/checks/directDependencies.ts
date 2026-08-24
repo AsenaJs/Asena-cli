@@ -1,5 +1,6 @@
 import path from 'node:path';
 import type { CheckResult } from '../../types';
+import { ADAPTER_PACKAGES, ADAPTER_PEER_PACKAGES } from '../../constants/adapters';
 
 export const DIRECT_DEPENDENCIES_NAME = 'direct-dependencies';
 
@@ -43,12 +44,13 @@ export const checkDirectDependencies = async (cwd: string): Promise<CheckResult>
 
   const required: string[] = ['@asenajs/asena', 'reflect-metadata'];
 
-  if (isListed(pkg, '@asenajs/hono-adapter')) {
-    required.push('hono', 'zod');
-  }
-
-  if (isListed(pkg, '@asenajs/ergenecore')) {
-    required.push('zod');
+  for (const [adapter, adapterPackage] of Object.entries(ADAPTER_PACKAGES) as [
+    keyof typeof ADAPTER_PACKAGES,
+    string,
+  ][]) {
+    if (isListed(pkg, adapterPackage)) {
+      required.push(...Object.keys(ADAPTER_PEER_PACKAGES[adapter]));
+    }
   }
 
   const missing = required.filter((name) => !pkg.dependencies?.[name]);
