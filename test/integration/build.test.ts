@@ -3,6 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { Build } from '../../lib/commands/Build';
+import { spawn } from 'bun';
 import { copySampleApp, findAsenaJsFiles, FIXTURE_DIR, listFilesRecursively } from '../utils/fixtureCopy';
 
 describe('Build integration (sample-app fixture)', () => {
@@ -64,6 +65,61 @@ describe('Build integration (sample-app fixture)', () => {
     } finally {
       process.chdir(originalCwd);
       fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+  it('boots the bundle from the build component list when the installed core supports it', async () => {
+    const registry = path.join(FIXTURE_DIR, 'node_modules', '@asenajs', 'asena', 'dist', 'lib', 'ioc', 'component');
+    const supportsBuildList =
+      fs.existsSync(registry) &&
+      fs
+        .readdirSync(registry)
+        .some((f) => fs.readFileSync(path.join(registry, f), 'utf-8').includes('asena.buildComponents'));
+
+    if (!supportsBuildList) {
+      console.log('skipped: the fixture core predates the build component list (asena.buildComponents)');
+
+      return;
+    }
+
+    const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'asena-build-boot-'));
+    const runDir = fs.mkdtempSync(path.join(os.tmpdir(), 'asena-build-run-'));
+
+    try {
+      copySampleApp(projectDir);
+
+      const entry = path.join(projectDir, 'src', 'index.ts');
+
+      fs.writeFileSync(entry, fs.readFileSync(entry, 'utf-8').replace('port: 3000', 'port: 0'));
+      process.chdir(projectDir);
+
+      const outputPath = await new Build().build();
+
+      // No src/, no asena-config: the only way to find TestController is the build list
+      fs.copyFileSync(outputPath, path.join(runDir, 'index.asena.js'));
+
+      const child = spawn(['bun', 'index.asena.js'], { cwd: runDir, stdout: 'pipe', stderr: 'pipe' });
+      let output = '';
+      const deadline = Date.now() + 15_000;
+      const reader = child.stdout.getReader();
+      const decoder = new TextDecoder();
+
+      try {
+        while (!output.includes('TestController') && Date.now() < deadline) {
+          const chunk = await Promise.race([reader.read(), Bun.sleep(250).then(() => null)]);
+
+          if (chunk?.value) output += decoder.decode(chunk.value);
+          if (chunk?.done) break;
+        }
+      } finally {
+        child.kill();
+        await child.exited;
+      }
+
+      expect(output).toContain('TestController');
+    } finally {
+      process.chdir(originalCwd);
+      fs.rmSync(projectDir, { recursive: true, force: true });
+      fs.rmSync(runDir, { recursive: true, force: true });
     }
   });
 });
