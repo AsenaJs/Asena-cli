@@ -1,16 +1,4 @@
 export class RegexHelper {
-  // Legacy patterns (v0.x) - kept for backward compatibility in detection
-  private static asenaServerRegex = /new\s+AsenaServer\s*\((?:[^()]*|\((?:[^()]*|\([^()]*\))*\))*\)/g;
-
-  private static asenaServerCodeBlockRegex =
-    /await\s+new\s+AsenaServer\([^)]*\)(?:\s*\.\w+\([^)]*\))*(?:\s*\.start\((true|false)?\))?;/;
-
-  // New patterns (v1.0.0+) - AsenaServerFactory API
-  private static asenaServerFactoryCodeBlockRegex =
-    /const\s+\w+\s*=\s*await\s+AsenaServerFactory\.create\s*\(\s*\{[\s\S]*?\}\s*\)\s*;[\s\S]*?await\s+\w+\.start\s*\(\s*\)\s*;/;
-
-  private static asenaServerFactoryCreateRegex = /await\s+AsenaServerFactory\.create\s*\(\s*\{[\s\S]*?\}\s*\)/;
-
   private static getImportLinesRegex =
     /import\s*(?:(?:type\s+)?[^'"{}\n]*(?:\{[^}]*\})?[^'";\n]*)(?:\s+from)?\s*['"][^'"]+['"];?/gms;
 
@@ -22,112 +10,9 @@ export class RegexHelper {
   private static getRequireFileRegex = /require\(['"]([^'"]+)['"]\)/g;
 
   private static getImportsRegex =
-    /import\s*(?:(?:type\s+)?(\w+)\s*(?:,\s*{\s*((?:type\s+)?[^}]+)\s*})?\s*from\s*['"]([^'"]+)['"]|(?:type\s+)?{\s*((?:type\s+)?[^}]+)\s*}\s*from\s*['"]([^'"]+)['"]|(?:type\s+)?\*\s*as\s*(\w+)\s*from\s*['"]([^'"]+)['"]|['"]([^'"]+)['"])/gms;
+    /import\s*(?:(?:type\s+)?(\w+)\s*(?:,\s*{\s*((?:type\s+)?[^}]+)\s*})?\s*from\s*['"]([^'"]+)['"]|(?:type\s+)?{\s*((?:type\s+)?[^}]+)\s*}\s*from\s*['"]([^'"]+)['"]|(?:type\s+)?\*\s+as\s*(\w+)\s*from\s*['"]([^'"]+)['"]|['"]([^'"]+)['"])/gms;
 
-  private static getRequiresRegex = /const\s+([\w]+|\{\s*[\w\s,]+\s*\})\s*=\s*require\(['"]([^'"]+)['"]\)/g;
-
-  // Legacy methods - now support both old and new patterns
-  public static getAsenaServerOffset = (code: string) => {
-    const regex = this.asenaServerRegex;
-    const match = regex.exec(code);
-
-    if (!match) {
-      return null;
-    }
-
-    return regex.lastIndex;
-  };
-
-  /**
-   * Removes AsenaServer initialization from code
-   * Supports both legacy (new AsenaServer) and new (AsenaServerFactory) patterns
-   */
-  public static removeAsenaServerFromCode = (code: string): string => {
-    // Try new pattern first
-    let cleaned = code.replace(this.asenaServerFactoryCodeBlockRegex, '');
-
-    // If nothing changed, try legacy pattern
-    if (cleaned === code) {
-      cleaned = code.replace(this.asenaServerCodeBlockRegex, '');
-    }
-
-    return cleaned;
-  };
-
-  /**
-   * Gets AsenaServer initialization code block
-   * Supports both legacy (new AsenaServer) and new (AsenaServerFactory) patterns
-   */
-  public static getAsenaServerCodeBlock(code: string) {
-    // Try new pattern first
-    const newPattern = this.asenaServerFactoryCodeBlockRegex.exec(code);
-
-    if (newPattern) return newPattern[0];
-
-    // Fallback to legacy pattern
-    const legacyPattern = this.asenaServerCodeBlockRegex.exec(code);
-
-    if (legacyPattern) return legacyPattern[0];
-
-    return null;
-  }
-
-  /**
-   * Gets AsenaServerFactory.create() call block
-   * Only works with new v1.0.0+ pattern
-   */
-  public static getAsenaServerFactoryCreateBlock(code: string) {
-    const match = this.asenaServerFactoryCreateRegex.exec(code);
-
-    return match ? match[0] : null;
-  }
-
-  /**
-   * Finds the position of the closing brace of the options object in AsenaServerFactory.create()
-   * Returns the index right before the closing brace where new properties can be inserted
-   */
-  public static getAsenaServerFactoryOptionsEnd(code: string): number | null {
-    const createMatch = this.asenaServerFactoryCreateRegex.exec(code);
-
-    if (!createMatch) return null;
-
-    const createBlock = createMatch[0];
-    const openBraceIndex = createBlock.indexOf('{');
-
-    if (openBraceIndex === -1) return null;
-
-    // Find matching closing brace
-    let depth = 0;
-
-    for (let i = openBraceIndex; i < createBlock.length; i++) {
-      if (createBlock[i] === '{') depth++;
-
-      if (createBlock[i] === '}') {
-        depth--;
-
-        if (depth === 0) {
-          // Return the global position in the original code
-          return createMatch.index + i;
-        }
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Removes the components field from AsenaServerFactory.create() options object if it exists
-   * Handles comma cleanup properly to maintain valid object syntax
-   */
-  public static removeComponentsFromOptions(code: string): string {
-    // Pattern to match the components field in the options object
-    // This handles both scenarios:
-    // 1. components: [...],  (has comma after)
-    // 2. , components: [...]  (has comma before)
-    const componentsFieldRegex = /,\s*components\s*:\s*\[[^\]]*\]|components\s*:\s*\[[^\]]*\]\s*,?/g;
-
-    return code.replace(componentsFieldRegex, '');
-  }
+  private static getRequiresRegex = /const\s+([\w]+|\{\s*[\w\s,]+\s*})\s*=\s*require\(['"]([^'"]+)['"]\)/g;
 
   public static getImportLines(code: string) {
     const regex = this.getImportLinesRegex;

@@ -1,7 +1,5 @@
 import { $ } from 'bun';
 import { Command } from 'commander';
-import { ConfigHandler } from '../codeBuilder';
-import { changeFileExtensionToAsenaJs, simplifyPath } from '../helpers';
 import { Build } from './Build';
 import type { BaseCommand } from '../types/baseCommand';
 
@@ -24,11 +22,7 @@ export class Dev implements BaseCommand {
   }
 
   private async exec() {
-    await new Build().build();
-
-    const configHandler = await new ConfigHandler().exec();
-
-    const buildFile = `${configHandler.outdir}/${changeFileExtensionToAsenaJs(simplifyPath(configHandler.rootFile))}`;
+    const buildFile = await new Build().build();
 
     await $`bun run ${buildFile}`;
   }

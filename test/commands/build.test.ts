@@ -1,7 +1,9 @@
 import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { Build } from '../../lib/commands/Build';
+import { findAsenaJsFiles, FIXTURE_DIR } from '../utils/fixtureCopy';
 
 const TMP_DIR = path.join(import.meta.dir, '../.tmp-build-test');
 
@@ -617,6 +619,167 @@ describe('Build', () => {
 
       expect(result1).toBe('import("./public/a.html")');
       expect(result2).toBe('import("./public/b.html")');
+    });
+  });
+
+  describe('writeWrapperFiles', () => {
+    it('should generate aliased imports, default export handling and the global assignment', () => {
+      const build = new Build();
+
+      build['configFile'] = {
+        rootFile: path.join(TMP_DIR, 'src/index.ts'),
+        sourceFolder: path.join(TMP_DIR, 'src'),
+      };
+
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'asena-wrapper-test-'));
+
+      try {
+        build['writeWrapperFiles'](tmpDir, {
+          'services/UserService.ts': [{ exportName: 'UserService', Class: class UserService {} }],
+          'DefaultComponent.ts': [{ exportName: 'default', Class: class DefaultComponent {} }],
+        });
+
+        const componentsCode = fs.readFileSync(path.join(tmpDir, 'asena.components.js'), 'utf-8');
+
+        expect(componentsCode).toContain(
+          `import { UserService as c0 } from '${path.resolve(TMP_DIR, 'src', 'services', 'UserService.ts')}';`,
+        );
+        expect(componentsCode).toContain(
+          `import { default as c1 } from '${path.resolve(TMP_DIR, 'src', 'DefaultComponent.ts')}';`,
+        );
+        expect(componentsCode).toContain(`globalThis[Symbol.for('asena.buildComponents')] = [c0, c1];`);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it('should import the components module before the entry in index.asena.js', () => {
+      const build = new Build();
+
+      build['configFile'] = {
+        rootFile: path.join(TMP_DIR, 'src/index.ts'),
+        sourceFolder: path.join(TMP_DIR, 'src'),
+      };
+
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'asena-wrapper-test-'));
+
+      try {
+        build['writeWrapperFiles'](tmpDir, {
+          'services/UserService.ts': [{ exportName: 'UserService', Class: class UserService {} }],
+        });
+
+        const entryCode = fs.readFileSync(path.join(tmpDir, 'index.asena.js'), 'utf-8');
+
+        expect(entryCode).toBe(
+          `import './asena.components.js';\nimport '${path.resolve(TMP_DIR, 'src', 'index.ts')}';\n`,
+        );
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('temp build directory', () => {
+    const originalCwd = process.cwd();
+    let build: Build;
+    let capturedTmp: string | undefined;
+
+    beforeEach(() => {
+      build = new Build();
+      setupTmpDir();
+      capturedTmp = undefined;
+    });
+
+    afterEach(() => {
+      process.chdir(originalCwd);
+      cleanupTmpDir();
+      fs.rmSync(path.join(FIXTURE_DIR, 'dist'), { recursive: true, force: true });
+    });
+
+    it('should live outside sourceFolder, be removed after a successful build, and return the output path', async () => {
+      process.chdir(FIXTURE_DIR);
+
+      build['executeBuild'] = async (tmpDir: string) => {
+        capturedTmp = tmpDir;
+      };
+
+      const outputPath = await build.build();
+
+      expect(path.isAbsolute(outputPath)).toBe(true);
+      expect(outputPath).toBe(path.join(FIXTURE_DIR, 'dist', 'index.asena.js'));
+
+      expect(capturedTmp).toBeDefined();
+      expect(capturedTmp!.startsWith(path.join(os.tmpdir(), 'asena-build-'))).toBe(true);
+      expect(fs.existsSync(capturedTmp!)).toBe(false);
+
+      expect(findAsenaJsFiles(path.join(FIXTURE_DIR, 'src'))).toEqual([]);
+    });
+
+    it('should be removed after a failed build and the error should propagate', async () => {
+      process.chdir(FIXTURE_DIR);
+
+      build['executeBuild'] = async (tmpDir: string) => {
+        capturedTmp = tmpDir;
+        throw new Error('simulated bundler failure');
+      };
+
+      await expect(build.build()).rejects.toThrow('simulated bundler failure');
+
+      expect(capturedTmp).toBeDefined();
+      expect(fs.existsSync(capturedTmp!)).toBe(false);
+      expect(findAsenaJsFiles(path.join(FIXTURE_DIR, 'src'))).toEqual([]);
+    });
+  });
+
+  describe('normalizeMinify', () => {
+    it('should expand minify: true with keepNames enabled', () => {
+      const build = new Build();
+
+      expect(build['normalizeMinify'](true)).toEqual({
+        whitespace: true,
+        syntax: true,
+        identifiers: true,
+        keepNames: true,
+      });
+    });
+
+    it('should force keepNames when identifiers are minified and log one line', () => {
+      const build = new Build();
+      const originalLog = console.log;
+      const logs: string[] = [];
+
+      console.log = (...args: unknown[]) => {
+        logs.push(args.map(String).join(' '));
+      };
+
+      let result: unknown;
+
+      try {
+        result = build['normalizeMinify']({ identifiers: true });
+      } finally {
+        console.log = originalLog;
+      }
+
+      expect(result).toEqual({ identifiers: true, keepNames: true });
+      expect(logs).toEqual(['[build] minify.keepNames forced to true: component names are read at runtime']);
+    });
+
+    it('should leave minify objects without identifier minification untouched', () => {
+      const build = new Build();
+
+      expect(build['normalizeMinify']({ identifiers: false })).toBeUndefined();
+    });
+
+    it('should leave undefined untouched', () => {
+      const build = new Build();
+
+      expect(build['normalizeMinify'](undefined)).toBeUndefined();
+    });
+
+    it('should leave minify untouched when keepNames is already true', () => {
+      const build = new Build();
+
+      expect(build['normalizeMinify']({ identifiers: true, keepNames: true })).toBeUndefined();
     });
   });
 });
