@@ -5,7 +5,7 @@ import type { CheckResult, DoctorAsenaConfig } from '../../types';
 
 export const ASENA_CONFIG_NAME = 'asena-config';
 
-const KEEP_NAMES_HINT = 'minify: { whitespace: true, syntax: true, identifiers: true, keepNames: true }';
+const MINIFY_HINT = 'minify: { whitespace: true, syntax: true, identifiers: false }';
 
 const locateConfigFile = (cwd: string): string | null => {
   for (const file of getAllFiles(cwd)) {
@@ -17,17 +17,12 @@ const locateConfigFile = (cwd: string): string | null => {
   return null;
 };
 
+// Component names are read at runtime, and Bun's bundler does not preserve class names under
+// identifier minification even with keepNames set - measured on Bun 1.4.0
 const minifiesIdentifiers = (config: DoctorAsenaConfig): boolean => {
   const minify = config.buildOptions?.minify;
 
   return minify === true || (typeof minify === 'object' && minify !== null && minify.identifiers === true);
-};
-
-// Bun reads keepNames only inside the minify object; `minify: true` has no place to put it
-const keepsNames = (config: DoctorAsenaConfig): boolean => {
-  const minify = config.buildOptions?.minify;
-
-  return typeof minify === 'object' && minify !== null && minify.keepNames === true;
 };
 
 export const checkAsenaConfig = async (cwd: string): Promise<CheckResult> => {
@@ -74,9 +69,11 @@ export const checkAsenaConfig = async (cwd: string): Promise<CheckResult> => {
     }
   }
 
-  if (minifiesIdentifiers(config) && !keepsNames(config)) {
-    problems.push('minify drops component names that are read at runtime');
-    hints = [...hints, `enable keepNames: ${KEEP_NAMES_HINT}`];
+  if (minifiesIdentifiers(config)) {
+    problems.push(
+      'minify.identifiers drops component names that are read at runtime (keepNames does not preserve them)',
+    );
+    hints = [...hints, `disable identifier minification: ${MINIFY_HINT}`];
   }
 
   if (problems.length > 0) {
