@@ -73,6 +73,7 @@ describe('Build integration (sample-app fixture)', () => {
       fs.existsSync(registry) &&
       fs
         .readdirSync(registry)
+        .filter((f) => f.endsWith('.js'))
         .some((f) => fs.readFileSync(path.join(registry, f), 'utf-8').includes('asena.buildComponents'));
 
     if (!supportsBuildList) {
