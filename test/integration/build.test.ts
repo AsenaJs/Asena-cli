@@ -105,22 +105,29 @@ describe('Build integration (sample-app fixture)', () => {
       const decoder = new TextDecoder();
 
       try {
-        while (!output.includes('TestController') && Date.now() < deadline) {
+        while (!/Server running at http:\/\/localhost:\d+/.test(output) && Date.now() < deadline) {
           const chunk = await Promise.race([reader.read(), Bun.sleep(250).then(() => null)]);
 
           if (chunk?.value) output += decoder.decode(chunk.value);
           if (chunk?.done) break;
         }
+
+        const port = output.match(/Server running at http:\/\/localhost:(\d+)/)?.[1];
+
+        expect(port).toBeDefined();
+
+        const response = await fetch(`http://localhost:${port}/test`);
+
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual({ message: 'test controller' });
       } finally {
         child.kill();
         await child.exited;
       }
-
-      expect(output).toContain('TestController');
     } finally {
       process.chdir(originalCwd);
       fs.rmSync(projectDir, { recursive: true, force: true });
       fs.rmSync(runDir, { recursive: true, force: true });
     }
-  });
+  }, 20_000);
 });

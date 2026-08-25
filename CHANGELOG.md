@@ -1,5 +1,17 @@
 # @asenajs/asena-cli
 
+## 0.11.0
+
+### Minor Changes
+
+- 1ac0115: `asena build` no longer rewrites or executes the entry file. The build now generates a temporary wrapper entry (in the OS temp dir, outside your source folder) that imports every scanned component into `globalThis[Symbol.for('asena.buildComponents')]` before importing your entry, bundles that wrapper, and deletes the temporary files afterwards. This removes the old entry-formatting rules — exact call shape, no comments inside the options object, factory token appearing only once — and fixes the build executing the entry's module-level code at build time (#25).
+
+  A hand-written `components:` array in the entry is now user-owned: it is left untouched and, when non-empty, wins over the build's component list. This requires `@asenajs/asena` >= 0.11.0 (the CLI now declares `^0.11.0`), which is the first version that reads the build component list from the global; on older cores such a bundle boots into the filesystem-scan fallback and dies in production with `No components or configuration found`. Component scanning now reports the export key of each class, dedupes classes re-exported through barrel files, skips leftover `*.asena.js` files from older CLI versions, and fails the build with the file name when a component file cannot be imported instead of silently dropping it. `Build.build()` returns the absolute output path (used by `asena dev start` instead of deriving it from the root file path), and `minify.identifiers` is forced to `false` when a config enables it, because component names are read at runtime and Bun's bundler does not preserve class names under identifier minification even with `keepNames: true`.
+
+- 3c68263: Add `asena doctor`, a read-only diagnostic command that checks the current project for common static mistakes the other commands do not catch: missing decorator flags in `tsconfig.json`, a missing or broken `asena-config.ts` (including `minify.identifiers` enabled - Bun's bundler does not preserve class names under identifier minification even with `keepNames`, and component names are read at runtime), `hono`/`zod`/`@asenajs/asena`/`reflect-metadata` missing as direct dependencies, duplicate installed copies of `@asenajs/asena`/`hono`/`zod` that break `instanceof` and the `HttpException` brand, and installed `@asenajs/*` packages whose peer range for `@asenajs/asena` is not satisfied by the installed core version.
+
+  Each check prints one line (`✓` or `✗` with a hint on failure); `--json` prints the result array instead. The command exits with code `1` when any check fails and `0` otherwise, so it can be used in CI. Checks never modify the project.
+
 ## 0.10.0
 
 ### Minor Changes

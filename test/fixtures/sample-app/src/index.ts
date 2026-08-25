@@ -1,10 +1,11 @@
 import { AsenaServerFactory } from '@asenajs/asena';
-import { HonoAdapter } from '@asenajs/hono-adapter';
+import { createHonoAdapter } from '@asenajs/hono-adapter';
 
-const adapter = new HonoAdapter();
+const [adapter, logger] = createHonoAdapter(console);
 
 const server = await AsenaServerFactory.create({
-  adapter: adapter,
+  adapter,
+  logger,
   port: 3000,
 });
 
