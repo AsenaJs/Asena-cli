@@ -5,7 +5,7 @@
     "": {
       "name": "@asenajs/asena-cli",
       "dependencies": {
-        "@asenajs/asena": "^0.10.0",
+        "@asenajs/asena": "^0.11.0",
         "@changesets/cli": "^2.30.0",
         "commander": "^12.1.0",
         "inquirer": "^12.11.1",
@@ -30,7 +30,7 @@
     },
   },
   "packages": {
-    "@asenajs/asena": ["@asenajs/asena@0.10.0", "", { "dependencies": { "reflect-metadata": "^0.2.2" } }, "sha512-9UIjCWQARpWV5UWthaMPBVstN2/VTysGLSGV44MO8qeN6PSPhIa92jNgbMeVru1/d0MtJWiPjZnYV2g2ky8OeQ=="],
+    "@asenajs/asena": ["@asenajs/asena@0.11.0", "", { "dependencies": { "reflect-metadata": "^0.2.2" } }, "sha512-ilDbpmqDooqpU8lTz7VfLMFZ/ngjsNslG73gf7V1sdtW/V3AjxvtTAsF6KntM/DmtVC42ZN4lCMYjFlBzdm+bw=="],
 
     "@babel/runtime": ["@babel/runtime@7.29.2", "", {}, "sha512-JiDShH45zKHWyGe4ZNVRrCjBz8Nh9TMmZG1kh4QTK8hCBTWBi8Da+i7s1fJw7/lYpM4ccepSNfqzZ/QvABBi5g=="],
 

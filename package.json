@@ -4,7 +4,7 @@
   "author": "LibirSoft",
   "license": "MIT",
   "engines": {
-    "bun": ">=1.3.12"
+    "bun": ">=1.4.0"
   },
   "bin": {
     "asena": "./dist/bin/asena.js"
