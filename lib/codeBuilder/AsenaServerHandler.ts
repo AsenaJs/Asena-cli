@@ -1,5 +1,3 @@
-import { RegexHelper } from '../helpers';
-
 export class AsenaServerHandler {
   private _asenaServer: string;
 
@@ -24,38 +22,6 @@ const server = await AsenaServerFactory.create({
 await server.start();`;
 
     return this;
-  }
-
-  /**
-   * Adds components array to the AsenaServerFactory.create() options object
-   * Replaces existing components field if present
-   * @param components - Array of component class names
-   */
-  public addComponents(components: string[]) {
-    const createCallMatch = RegexHelper.getAsenaServerFactoryCreateBlock(this._asenaServer);
-
-    if (!createCallMatch) throw Error('No AsenaServerFactory.create() call found');
-
-    // Remove existing components field if present
-    this._asenaServer = RegexHelper.removeComponentsFromOptions(this._asenaServer);
-
-    const componentsString = components.join(', ');
-
-    // Find the closing brace of the options object
-    const optionsEndIndex = RegexHelper.getAsenaServerFactoryOptionsEnd(this._asenaServer);
-
-    if (!optionsEndIndex) throw Error('Could not find options object end');
-
-    // Insert components array before the closing brace
-    // Check if we need to add a comma after the last property
-    const beforeClosing = this._asenaServer.substring(0, optionsEndIndex).trimEnd();
-    const needsComma = !beforeClosing.endsWith(',');
-
-    this._asenaServer = `${beforeClosing}${needsComma ? ',' : ''}
-  components: [${componentsString}]
-${this._asenaServer.substring(optionsEndIndex)}`;
-
-    return this._asenaServer;
   }
 
   public get asenaServer() {

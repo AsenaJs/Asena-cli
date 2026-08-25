@@ -2,7 +2,7 @@ import path from 'path';
 import { getMetadata } from 'reflect-metadata/no-conflict';
 import { getAllFiles } from './fileHelper';
 import { loadComponentConstants } from '../constants';
-import type { Class, ControllerPath } from '../types';
+import type { Class, ComponentExport, ControllerPath } from '../types';
 
 export const checkControllerExistence = (injections: ControllerPath) => {
   return Object.values(injections).some((paths) => paths.length > 0);
@@ -15,47 +15,54 @@ export const getControllers = async (rootFile: string, sourceFolder: string) => 
 
   const files = getAllFiles(sourceFolder);
 
+  const normalizedRootFile = path.normalize(rootFile);
+  const sourcePrefix = path.normalize(sourceFolder).replace(/\\/g, '/');
+
+  const seenClasses = new Set<Class>();
   const components: ControllerPath = {};
 
   for (const file of files) {
-    const relative = path.relative(file, rootFile);
-
-    if (relative === '' && file === path.normalize(rootFile)) {
+    if (file === normalizedRootFile || file.endsWith('.asena.js')) {
       continue;
     }
 
     if (file.endsWith('.ts') || file.endsWith('.js')) {
-      let fileContent: any;
+      let fileContent: Record<string, unknown>;
 
       try {
         fileContent = await import(path.join(process.cwd(), file));
-      } catch {
-        continue;
+      } catch (e) {
+        throw new Error(`Failed to import ${file}: ${e instanceof Error ? e.message : String(e)}`);
       }
 
       let filePath = file.replace(/\\+/g, '/');
 
-      if (filePath.startsWith(sourceFolder)) {
-        filePath = filePath.slice(sourceFolder.length + 1);
+      if (filePath.startsWith(`${sourcePrefix}/`)) {
+        filePath = filePath.slice(sourcePrefix.length + 1);
       }
 
-      components[filePath] = Object.values(fileContent);
+      const exports: ComponentExport[] = [];
+
+      for (const [exportName, value] of Object.entries(fileContent)) {
+        const isComponent = (() => {
+          try {
+            return !!getMetadata(ComponentConstants.IOCObjectKey, value as object);
+          } catch {
+            return false;
+          }
+        })();
+
+        if (isComponent && !seenClasses.has(value as Class)) {
+          seenClasses.add(value as Class);
+          exports.push({ exportName, Class: value as Class });
+        }
+      }
+
+      if (exports.length > 0) {
+        components[filePath] = exports;
+      }
     }
   }
 
-  const injectionsByFile: ControllerPath = {};
-
-  for (const file of Object.keys(components)) {
-    injectionsByFile[file] = Object.values(components[file])
-      .flat()
-      .filter((c) => {
-        try {
-          return !!getMetadata(ComponentConstants.IOCObjectKey, c as any);
-        } catch {
-          return false;
-        }
-      }) as Class[];
-  }
-
-  return injectionsByFile;
+  return components;
 };

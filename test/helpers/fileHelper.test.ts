@@ -1,13 +1,7 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import {
-  changeFileExtensionToAsenaJs,
-  getAllFiles,
-  getFileExtension,
-  removeExtension,
-  simplifyPath,
-} from '../../lib/helpers';
+import { getAllFiles, getFileExtension, removeExtension } from '../../lib/helpers';
 
 const TEST_DIR = path.join(import.meta.dir, '__test_temp__');
 
@@ -70,68 +64,6 @@ describe('fileHelper', () => {
       expect(removeExtension('src/index.ts')).toBe('src/index');
 
       expect(removeExtension('/path/to/file.js')).toBe('/path/to/file');
-    });
-  });
-
-  describe('simplifyPath', () => {
-    it('should simplify path with 2 parts', () => {
-      expect(simplifyPath('/index')).toBe('/index');
-
-      expect(simplifyPath('/user')).toBe('/user');
-    });
-
-    it('should simplify path with more than 2 parts', () => {
-      expect(simplifyPath('/src/index.ts')).toBe('src/index.ts');
-
-      expect(simplifyPath('/src/controllers/UserController.ts')).toBe('src/controllers/UserController.ts');
-    });
-
-    it('should return original path if less than 2 parts', () => {
-      expect(simplifyPath('index')).toBe('index');
-
-      expect(simplifyPath('')).toBe('');
-    });
-
-    it('should handle complex paths', () => {
-      expect(simplifyPath('/home/user/project/src/index.ts')).toBe('home/user/project/src/index.ts');
-    });
-  });
-
-  describe('changeFileExtensionToAsenaJs', () => {
-    it('should change .ts to .asena.js', () => {
-      const result = changeFileExtensionToAsenaJs('index.ts');
-
-      expect(result).toContain('index.asena.js');
-    });
-
-    it('should change .js to .asena.js', () => {
-      const result = changeFileExtensionToAsenaJs('index.js');
-
-      expect(result).toContain('index.asena.js');
-    });
-
-    it('should handle files with multiple dots', () => {
-      const result = changeFileExtensionToAsenaJs('user.controller.ts');
-
-      expect(result).toContain('user.controller.asena.js');
-    });
-
-    it('should handle full paths', () => {
-      const result = changeFileExtensionToAsenaJs('src/controllers/UserController.ts');
-
-      expect(result).toContain('UserController.asena.js');
-
-      expect(result).toContain('controllers');
-    });
-
-    it('should preserve directory structure', () => {
-      const input = path.join('src', 'app', 'index.ts');
-      const result = changeFileExtensionToAsenaJs(input);
-      const parsed = path.parse(result);
-
-      expect(parsed.ext).toBe('.js');
-
-      expect(parsed.name).toContain('.asena');
     });
   });
 

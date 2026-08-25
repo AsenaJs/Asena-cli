@@ -6,8 +6,8 @@ describe('controllerHelper', () => {
   describe('checkControllerExistence', () => {
     it('should return true when components exist', () => {
       const mockComponents: ControllerPath = {
-        'controllers/UserController.ts': [class UserController {}],
-        'services/UserService.ts': [class UserService {}],
+        'controllers/UserController.ts': [{ exportName: 'UserController', Class: class UserController {} }],
+        'services/UserService.ts': [{ exportName: 'UserService', Class: class UserService {} }],
       };
 
       const result = checkControllerExistence(mockComponents);
@@ -29,7 +29,7 @@ describe('controllerHelper', () => {
     it('should return true when at least one file has components', () => {
       const mockComponents: ControllerPath = {
         'controllers/UserController.ts': [],
-        'services/UserService.ts': [class UserService {}],
+        'services/UserService.ts': [{ exportName: 'UserService', Class: class UserService {} }],
       };
 
       const result = checkControllerExistence(mockComponents);

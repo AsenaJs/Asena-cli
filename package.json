@@ -40,7 +40,7 @@
     "url": "https://github.com/AsenaJs/Asena-cli"
   },
   "dependencies": {
-    "@asenajs/asena": "^0.10.0",
+    "@asenajs/asena": "^0.11.0",
     "@changesets/cli": "^2.30.0",
     "commander": "^12.1.0",
     "inquirer": "^12.11.1",

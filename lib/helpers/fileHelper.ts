@@ -44,25 +44,3 @@ export const removeExtension = (fileName: string): string => {
 
   return fileName.substring(0, lastDotIndex);
 };
-
-export const simplifyPath = (path: string): string => {
-  const parts = path.split('/');
-
-  if (parts.length === 2) {
-    return `/${parts[1]}`;
-  }
-
-  if (parts.length > 2) {
-    return parts.slice(1).join('/');
-  }
-
-  return path;
-};
-
-export const changeFileExtensionToAsenaJs = (file: string) => {
-  return path.format({
-    ...path.parse(file),
-    base: undefined,
-    ext: '.asena.js',
-  });
-};

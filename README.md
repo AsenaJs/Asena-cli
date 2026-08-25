@@ -144,9 +144,11 @@ The Build command handles project deployment preparation.
 #### Features
 
 - **Configuration Processing**: Reads and processes the Asena configuration file
-- **Code Generation**: Creates a temporary build file that combines all controllers and components
-- **Import Management**: Handles import statements and organizes them based on the project structure. No need to add controllers manually to root file
-- **Server Integration**: Processes the AsenaServer configuration and integrates components
+- **Wrapper Entry**: Bundles through a temporary wrapper file created outside your source folder — your entry file is never rewritten, and its module-level code is not executed at build time
+- **Import Management**: Detected components are handed to the server through the build component list. No need to add controllers manually to the root file
+- **Server Integration**: A hand-written `components:` array in the entry is user-owned — when present and non-empty it wins over the build's list
+
+> The entry file no longer has to follow any formatting rules: comments inside the `AsenaServerFactory.create({...})` options, a repeated factory token, or arbitrary code around the call are all fine. When `buildOptions.minify` enables identifier minification, the build turns it off (`identifiers: false`): component names (e.g. `@Inject('UserService')`) are read at runtime, and Bun's bundler does not preserve class names under identifier minification even with `keepNames: true`.
 
 ### ```asena init```
 
