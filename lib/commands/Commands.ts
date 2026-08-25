@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { Build } from './Build';
 import { Create } from './Create';
 import { Dev } from './Dev';
+import { Doctor } from './Doctor';
 import { Generate } from './Generate';
 import { Init } from './Init';
 
@@ -22,6 +23,8 @@ export class Commands {
     this.program.addCommand(new Init().command());
 
     this.program.addCommand(new Generate().command());
+
+    this.program.addCommand(new Doctor().command());
   }
 
   public parse(argv: string[]) {
