@@ -464,7 +464,7 @@ describe('doctor', () => {
 
         console.log = originalLog;
 
-        process.exitCode = savedExitCode;
+        process.exitCode = savedExitCode ?? 0;
       }
 
       return { lines: captured, exitCode };
