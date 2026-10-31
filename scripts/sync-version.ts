@@ -1,8 +1,7 @@
 #!/usr/bin/env bun
 
 /**
- * PrePublish script to sync version across the codebase
- * This ensures version consistency before publishing to npm
+ * Runs after `changeset version` so the Version PR carries the synced files
  */
 
 import { join } from 'path';
