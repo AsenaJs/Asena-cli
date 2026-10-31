@@ -18,7 +18,7 @@
     "clean": "rm -rf dist",
     "test": "bun test",
     "pre-release": "bun update && bun run build",
-    "prepublishOnly": "bun scripts/sync-version.ts && bun run build",
+    "prepublishOnly": "bun run build",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -26,7 +26,7 @@
     "check": "bun run lint && bun run format:check",
     "check:fix": "bun run lint:fix && bun run format",
     "changeset": "changeset",
-    "version": "changeset version",
+    "version": "changeset version && bun scripts/sync-version.ts",
     "release": "bun run build && changeset publish"
   },
   "exports": {
