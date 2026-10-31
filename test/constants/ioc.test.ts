@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'bun:test';
 import { loadComponentConstants } from '../../lib/constants/ioc';
+import { FIXTURE_DIR } from '../utils/fixtureCopy';
 
 /**
  * Tests for loading ComponentConstants from user's @asenajs/asena installation
  * This ensures Symbol consistency between CLI and framework
  */
 describe('loadComponentConstants', () => {
-  it('should load ComponentConstants from current project', async () => {
-    // Load from current project's node_modules
-    const ComponentConstants = await loadComponentConstants();
+  it('should load ComponentConstants from the project-installed @asenajs/asena', async () => {
+    const ComponentConstants = await loadComponentConstants(FIXTURE_DIR);
 
     // Verify it's an object with expected Symbol properties
     expect(ComponentConstants).toBeDefined();
@@ -17,7 +17,7 @@ describe('loadComponentConstants', () => {
   });
 
   it('should have all required Symbol keys', async () => {
-    const ComponentConstants = await loadComponentConstants();
+    const ComponentConstants = await loadComponentConstants(FIXTURE_DIR);
 
     // Check essential keys that CLI uses for component detection.
     // TypeKey used to be asserted here; it was one of eight ComponentConstants entries with no
@@ -35,8 +35,8 @@ describe('loadComponentConstants', () => {
 
   it('should load the same Symbol instance on multiple calls', async () => {
     // Load twice
-    const constants1 = await loadComponentConstants();
-    const constants2 = await loadComponentConstants();
+    const constants1 = await loadComponentConstants(FIXTURE_DIR);
+    const constants2 = await loadComponentConstants(FIXTURE_DIR);
 
     // Symbol instances should be the same (same reference)
     expect(constants1.IOCObjectKey).toBe(constants2.IOCObjectKey);
