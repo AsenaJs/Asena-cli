@@ -9,7 +9,6 @@ import { join } from 'path';
 const ROOT_DIR = join(import.meta.dir, '..');
 const PACKAGE_JSON_PATH = join(ROOT_DIR, 'package.json');
 const COMMANDS_TS_PATH = join(ROOT_DIR, 'lib/commands/Commands.ts');
-const README_PATH = join(ROOT_DIR, 'README.md');
 
 interface PackageJson {
   version: string;
@@ -49,29 +48,6 @@ async function updateCommandsVersion(version: string): Promise<void> {
 }
 
 /**
- * Updates version badge in README.md
- */
-async function updateReadmeVersion(version: string): Promise<void> {
-  const content = await Bun.file(README_PATH).text();
-
-  // Replace version badge
-  const updatedContent = content.replace(
-    /\[!\[Version\]\(https:\/\/img\.shields\.io\/badge\/version-[\d.]+-blue\.svg\)\]/,
-    `[![Version](https://img.shields.io/badge/version-${version}-blue.svg)]`,
-  );
-
-  if (content === updatedContent) {
-    console.warn('⚠️  No version badge found to update in README.md');
-
-    return;
-  }
-
-  await Bun.write(README_PATH, updatedContent);
-
-  console.log(`✅ Updated README.md version badge to ${version}`);
-}
-
-/**
  * Main execution
  */
 async function main() {
@@ -83,8 +59,6 @@ async function main() {
     console.log(`📦 Current version: ${version}\n`);
 
     await updateCommandsVersion(version);
-
-    await updateReadmeVersion(version);
 
     console.log('\n✨ Version sync completed successfully!');
   } catch (error) {
