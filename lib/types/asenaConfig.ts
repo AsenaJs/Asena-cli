@@ -22,7 +22,7 @@
  * @see {@link https://bun.sh/docs/bundler Bun Bundler Documentation}
  */
 export type BuildOptions = Partial<
-  Pick<Bun.BuildConfig, 'outdir' | 'sourcemap' | 'minify' | 'external' | 'format' | 'drop'>
+  Pick<Bun.BuildConfig, 'outdir' | 'sourcemap' | 'minify' | 'external' | 'format' | 'drop' | 'splitting'>
 >;
 
 /**
