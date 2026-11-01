@@ -67,7 +67,7 @@ export const readSourceFiles = (cwd: string): SourceFile[] =>
 
 export const lineOf = (code: string, offset: number): number => code.slice(0, offset).split('\n').length;
 
-const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+export const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 
 export interface ImportedName {
   /** The name the module exports. */

@@ -576,6 +576,102 @@ describe('doctor', () => {
     });
   });
 
+  describe('auth-better-auth-dep', () => {
+    const BETTER_AUTH_PROVIDER = [
+      "import { BetterAuth, BetterAuthService } from '@asenajs/asena-auth';",
+      "import { auth } from './lib/auth';",
+      '',
+      '@BetterAuth(() => ({ auth }))',
+      'export class AppAuth extends BetterAuthService {}',
+      '',
+    ].join('\n');
+
+    it('passes when Better Auth is not used', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({}),
+        'src/AppAuth.ts': "import { Auth } from '@asenajs/asena-auth';\n",
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-better-auth-dep');
+
+      expect(result.ok).toBe(true);
+      expect(result.detail).toContain('not used');
+    });
+
+    it('passes when better-auth is declared and installed', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({ 'better-auth': '^1.3.0' }),
+        'src/AppAuth.ts': BETTER_AUTH_PROVIDER,
+      });
+      fakePackage(dir, 'better-auth', '1.3.4');
+
+      const result = resultOf(await runDoctor(dir), 'auth-better-auth-dep');
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('fails when @BetterAuth is used and better-auth is neither declared nor installed', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({ '@asenajs/asena-auth': '^1.0.0' }),
+        'src/AppAuth.ts': BETTER_AUTH_PROVIDER,
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-better-auth-dep');
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain('src/AppAuth.ts:1');
+      expect(result.hint).toBe('bun add better-auth');
+    });
+
+    it('fails when better-auth is declared but not installed', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({ 'better-auth': '^1.3.0' }),
+        'src/AppAuth.ts': BETTER_AUTH_PROVIDER,
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-better-auth-dep');
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain('not installed');
+      expect(result.hint).toBe('bun install');
+    });
+
+    it('fails when only BetterAuthController is imported', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({}),
+        'src/AuthRoutes.ts': "import { BetterAuthController } from '@asenajs/asena-auth';\n",
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-better-auth-dep');
+
+      expect(result.ok).toBe(false);
+    });
+
+    it('ignores a commented-out import and a @BetterAuth decorator not from @asenajs/asena-auth', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({}),
+        'src/a.ts': `/* ${BETTER_AUTH_PROVIDER} */\n// ${BETTER_AUTH_PROVIDER.split('\n')[0]}\n`,
+        'src/b.ts': "import { BetterAuth } from './my-decorators';\n@BetterAuth()\nexport class X {}\n",
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-better-auth-dep');
+
+      expect(result.ok).toBe(true);
+    });
+  });
+
   describe('exitCodeFor', () => {
     const result = (ok: boolean): CheckResult => ({ name: 'x', ok, detail: ok ? 'fine' : 'broken' });
 
