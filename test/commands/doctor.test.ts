@@ -90,7 +90,7 @@ const resultOf = (results: CheckResult[], name: string): CheckResult => {
 };
 
 describe('doctor', () => {
-  it('runs the five checks in the declared order', async () => {
+  it('runs every declared check in the declared order', async () => {
     const dir = makeTmpDir();
 
     writeValidProject(dir);
@@ -417,6 +417,162 @@ describe('doctor', () => {
 
       expect(result.ok).toBe(false);
       expect(result.detail).toContain('@asenajs/asena');
+    });
+  });
+
+  describe('auth-enforcement', () => {
+    const PROTECTED_CONTROLLER = [
+      "import { Protected } from '@asenajs/asena/auth';",
+      "import { Controller } from '@asenajs/asena/decorators';",
+      '',
+      '@Protected()',
+      "@Controller('/admin')",
+      'export class AdminController {}',
+      '',
+    ].join('\n');
+
+    const SERVER_WITH_GUARD = [
+      "import { authComponents } from '@asenajs/asena-auth';",
+      'await AsenaServerFactory.create({ adapter, logger, imports: [...authComponents] });',
+      '',
+    ].join('\n');
+
+    it('passes when no auth marker is imported', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({}),
+        'src/index.ts': "import { Public } from '@asenajs/asena/auth';\n",
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-enforcement');
+
+      expect(result.ok).toBe(true);
+      expect(result.detail).toContain('no @Protected/@Roles');
+    });
+
+    it('passes when markers are used and authComponents is imported from @asenajs/asena-auth', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({ '@asenajs/asena-auth': '^1.0.0' }),
+        'src/AdminController.ts': PROTECTED_CONTROLLER,
+        'src/index.ts': SERVER_WITH_GUARD,
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-enforcement');
+
+      expect(result.ok).toBe(true);
+      expect(result.detail).toContain('src/index.ts');
+    });
+
+    it('passes when the guard is imported under an alias as AuthGuard', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({ '@asenajs/asena-auth': '^1.0.0' }),
+        'src/AdminController.ts': PROTECTED_CONTROLLER.replace('{ Protected }', '{ Roles as R, Public }'),
+        'src/index.ts': "import { AuthGuard as Guard } from '@asenajs/asena-auth';\n",
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-enforcement');
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('fails when markers are used and @asenajs/asena-auth is not a dependency - routes are served open', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({ '@asenajs/asena': '^0.12.0' }),
+        'src/AdminController.ts': PROTECTED_CONTROLLER,
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-enforcement');
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain('src/AdminController.ts:1');
+      expect(result.detail).toContain('served open');
+      expect(result.hint).toContain('bun add @asenajs/asena-auth');
+      expect(result.hint).toContain('imports: [...authComponents]');
+    });
+
+    it('fails when the dependency is installed but neither authComponents nor AuthGuard is imported', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({ '@asenajs/asena-auth': '^1.0.0' }),
+        'src/AdminController.ts': PROTECTED_CONTROLLER,
+        'src/AppAuth.ts': "import { Auth, AsenaAuthService, AuthGuardMiddleware } from '@asenajs/asena-auth';\n",
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-enforcement');
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain('@asenajs/asena-auth is a dependency');
+      expect(result.hint).toContain('imports: [...authComponents]');
+      expect(result.hint).not.toContain('bun add');
+    });
+
+    it('fails when a custom AUTH_PROVIDER_KEY provider is registered but the guard is not', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({}),
+        'src/AdminController.ts': PROTECTED_CONTROLLER,
+        'src/MyProvider.ts': [
+          "import { AUTH_PROVIDER_KEY } from '@asenajs/asena/auth';",
+          '@Implements(AUTH_PROVIDER_KEY)',
+          'export class MyProvider {}',
+          '',
+        ].join('\n'),
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-enforcement');
+
+      expect(result.ok).toBe(false);
+    });
+
+    it('ignores marker imports inside line and block comments', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({}),
+        'src/a.ts': "// import { Protected } from '@asenajs/asena/auth';\n",
+        'src/b.ts': "/*\nimport { Roles } from '@asenajs/asena/auth';\n*/\nconst url = 'http://x'; // ok\n",
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-enforcement');
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('does not count a commented-out guard import as wiring', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({ '@asenajs/asena-auth': '^1.0.0' }),
+        'src/AdminController.ts': PROTECTED_CONTROLLER,
+        'src/index.ts': `// ${SERVER_WITH_GUARD}`,
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-enforcement');
+
+      expect(result.ok).toBe(false);
+    });
+
+    it('skips dist and node_modules', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({}),
+        'dist/AdminController.js': PROTECTED_CONTROLLER,
+        'node_modules/some-lib/index.ts': PROTECTED_CONTROLLER,
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-enforcement');
+
+      expect(result.ok).toBe(true);
     });
   });
 

@@ -1,11 +1,13 @@
 import type { CheckResult, DoctorCheck } from '../types';
 import { ASENA_CONFIG_NAME, checkAsenaConfig } from './checks/asenaConfig';
+import { AUTH_ENFORCEMENT_NAME, checkAuthEnforcement } from './checks/authEnforcement';
 import { DIRECT_DEPENDENCIES_NAME, checkDirectDependencies } from './checks/directDependencies';
 import { DUPLICATE_PACKAGES_NAME, checkDuplicatePackages } from './checks/duplicatePackages';
 import { PEER_RANGES_NAME, checkPeerRanges } from './checks/peerRanges';
 import { TSCONFIG_DECORATORS_NAME, checkTsconfigDecorators } from './checks/tsConfigDecorators';
 
 export { checkAsenaConfig, ASENA_CONFIG_NAME } from './checks/asenaConfig';
+export { checkAuthEnforcement, AUTH_ENFORCEMENT_NAME } from './checks/authEnforcement';
 export { checkDirectDependencies, DIRECT_DEPENDENCIES_NAME } from './checks/directDependencies';
 export { checkDuplicatePackages, DUPLICATE_PACKAGES_NAME } from './checks/duplicatePackages';
 export { checkPeerRanges, PEER_RANGES_NAME } from './checks/peerRanges';
@@ -18,6 +20,7 @@ export const DOCTOR_CHECKS: { name: string; run: DoctorCheck }[] = [
   { name: DIRECT_DEPENDENCIES_NAME, run: checkDirectDependencies },
   { name: DUPLICATE_PACKAGES_NAME, run: checkDuplicatePackages },
   { name: PEER_RANGES_NAME, run: checkPeerRanges },
+  { name: AUTH_ENFORCEMENT_NAME, run: checkAuthEnforcement },
 ];
 
 /** Runs every check against `cwd`. Checks report failures; they never throw. */
