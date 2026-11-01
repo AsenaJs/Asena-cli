@@ -1,6 +1,7 @@
 import type { CheckResult, DoctorCheck } from '../types';
 import { ASENA_CONFIG_NAME, checkAsenaConfig } from './checks/asenaConfig';
 import { AUTH_BETTER_AUTH_DEP_NAME, checkAuthBetterAuthDep } from './checks/authBetterAuthDep';
+import { AUTH_COOKIE_NAME, checkAuthCookie } from './checks/authCookie';
 import { AUTH_ENFORCEMENT_NAME, checkAuthEnforcement } from './checks/authEnforcement';
 import { DIRECT_DEPENDENCIES_NAME, checkDirectDependencies } from './checks/directDependencies';
 import { DUPLICATE_PACKAGES_NAME, checkDuplicatePackages } from './checks/duplicatePackages';
@@ -9,6 +10,7 @@ import { TSCONFIG_DECORATORS_NAME, checkTsconfigDecorators } from './checks/tsCo
 
 export { checkAsenaConfig, ASENA_CONFIG_NAME } from './checks/asenaConfig';
 export { checkAuthBetterAuthDep, AUTH_BETTER_AUTH_DEP_NAME } from './checks/authBetterAuthDep';
+export { checkAuthCookie, AUTH_COOKIE_NAME } from './checks/authCookie';
 export { checkAuthEnforcement, AUTH_ENFORCEMENT_NAME } from './checks/authEnforcement';
 export { checkDirectDependencies, DIRECT_DEPENDENCIES_NAME } from './checks/directDependencies';
 export { checkDuplicatePackages, DUPLICATE_PACKAGES_NAME } from './checks/duplicatePackages';
@@ -24,6 +26,7 @@ export const DOCTOR_CHECKS: { name: string; run: DoctorCheck }[] = [
   { name: PEER_RANGES_NAME, run: checkPeerRanges },
   { name: AUTH_ENFORCEMENT_NAME, run: checkAuthEnforcement },
   { name: AUTH_BETTER_AUTH_DEP_NAME, run: checkAuthBetterAuthDep },
+  { name: AUTH_COOKIE_NAME, run: checkAuthCookie },
 ];
 
 /** Runs every check against `cwd`. Checks report failures; they never throw. */

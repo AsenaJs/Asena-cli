@@ -672,6 +672,117 @@ describe('doctor', () => {
     });
   });
 
+  describe('auth-cookie', () => {
+    const authProvider = (options: string) =>
+      [
+        "import { Auth, AsenaAuthService } from '@asenajs/asena-auth';",
+        '',
+        `@Auth(${options})`,
+        'export class AppAuth extends AsenaAuthService {}',
+        '',
+      ].join('\n');
+
+    const cookieResult = async (options: string): Promise<CheckResult> => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, { 'src/AppAuth.ts': authProvider(options) });
+
+      return resultOf(await runDoctor(dir), 'auth-cookie');
+    };
+
+    it('passes when no @Auth provider is declared', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, { 'src/index.ts': 'export {};\n' });
+
+      const result = resultOf(await runDoctor(dir), 'auth-cookie');
+
+      expect(result.ok).toBe(true);
+      expect(result.detail).toContain('no @Auth');
+    });
+
+    it('passes a __Host- cookie that relies on the secure defaults (secure: true, path: /)', async () => {
+      const result = await cookieResult("{ cookie: { name: '__Host-sid', sameSite: 'strict' } }");
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('passes sameSite none with the default secure flag', async () => {
+      const result = await cookieResult("{ cookie: { sameSite: 'none' } }");
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('fails a __Host- cookie with a domain, naming file:line', async () => {
+      const result = await cookieResult("{ cookie: { name: '__Host-sid', domain: 'example.com' } }");
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain('src/AppAuth.ts:3');
+      expect(result.detail).toContain('domain');
+      expect(result.hint).toContain('domain');
+    });
+
+    it('fails a __Host- cookie with a path other than /', async () => {
+      const result = await cookieResult("{ cookie: { name: '__Host-sid', path: '/api' } }");
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain("path '/api'");
+    });
+
+    it('fails a __Host- cookie with secure: false', async () => {
+      const result = await cookieResult("{ cookie: { name: '__Host-sid', secure: false } }");
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain('secure: false');
+    });
+
+    it('fails a __Secure- cookie with secure: false', async () => {
+      const result = await cookieResult('{ cookie: { name: "__Secure-sid", secure: false } }');
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain('__Secure-');
+    });
+
+    it('fails sameSite none with secure: false, also inside the thunk form', async () => {
+      const result = await cookieResult("() => ({ sessionTtl: 60, cookie: { sameSite: 'none', secure: false } })");
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain("sameSite 'none'");
+    });
+
+    it('skips non-literal values and cookie objects with a spread', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'src/A.ts': authProvider("{ cookie: { name: process.env.COOKIE, domain: process.env.DOMAIN, path: '/' } }"),
+        'src/B.ts': authProvider("{ cookie: { ...base, sameSite: 'none', secure: false } }"),
+        'src/C.ts': authProvider('{ cookie: cookieOptions }'),
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-cookie');
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('ignores a commented-out provider and an @Auth not imported from @asenajs/asena-auth', async () => {
+      const dir = makeTmpDir();
+      const broken = authProvider("{ cookie: { name: '__Host-sid', domain: 'example.com' } }");
+
+      writeFiles(dir, {
+        'src/A.ts': `/*\n${broken}*/\n`,
+        'src/B.ts': broken
+          .split('\n')
+          .map((line) => `// ${line}`)
+          .join('\n'),
+        'src/C.ts': broken.replace("'@asenajs/asena-auth'", "'./my-auth'"),
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-cookie');
+
+      expect(result.ok).toBe(true);
+    });
+  });
+
   describe('exitCodeFor', () => {
     const result = (ok: boolean): CheckResult => ({ name: 'x', ok, detail: ok ? 'fine' : 'broken' });
 
