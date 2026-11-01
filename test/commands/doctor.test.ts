@@ -90,7 +90,7 @@ const resultOf = (results: CheckResult[], name: string): CheckResult => {
 };
 
 describe('doctor', () => {
-  it('runs the five checks in the declared order', async () => {
+  it('runs every declared check in the declared order', async () => {
     const dir = makeTmpDir();
 
     writeValidProject(dir);
@@ -417,6 +417,369 @@ describe('doctor', () => {
 
       expect(result.ok).toBe(false);
       expect(result.detail).toContain('@asenajs/asena');
+    });
+  });
+
+  describe('auth-enforcement', () => {
+    const PROTECTED_CONTROLLER = [
+      "import { Protected } from '@asenajs/asena/auth';",
+      "import { Controller } from '@asenajs/asena/decorators';",
+      '',
+      '@Protected()',
+      "@Controller('/admin')",
+      'export class AdminController {}',
+      '',
+    ].join('\n');
+
+    const SERVER_WITH_GUARD = [
+      "import { authComponents } from '@asenajs/asena-auth';",
+      'await AsenaServerFactory.create({ adapter, logger, imports: [...authComponents] });',
+      '',
+    ].join('\n');
+
+    it('passes when no auth marker is imported', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({}),
+        'src/index.ts': "import { Public } from '@asenajs/asena/auth';\n",
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-enforcement');
+
+      expect(result.ok).toBe(true);
+      expect(result.detail).toContain('no @Protected/@Roles');
+    });
+
+    it('passes when markers are used and authComponents is imported from @asenajs/asena-auth', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({ '@asenajs/asena-auth': '^1.0.0' }),
+        'src/AdminController.ts': PROTECTED_CONTROLLER,
+        'src/index.ts': SERVER_WITH_GUARD,
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-enforcement');
+
+      expect(result.ok).toBe(true);
+      expect(result.detail).toContain('src/index.ts');
+    });
+
+    it('passes when the guard is imported under an alias as AuthGuard', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({ '@asenajs/asena-auth': '^1.0.0' }),
+        'src/AdminController.ts': PROTECTED_CONTROLLER.replace('{ Protected }', '{ Roles as R, Public }'),
+        'src/index.ts': "import { AuthGuard as Guard } from '@asenajs/asena-auth';\n",
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-enforcement');
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('fails when markers are used and @asenajs/asena-auth is not a dependency - routes are served open', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({ '@asenajs/asena': '^0.12.0' }),
+        'src/AdminController.ts': PROTECTED_CONTROLLER,
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-enforcement');
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain('src/AdminController.ts:1');
+      expect(result.detail).toContain('served open');
+      expect(result.hint).toContain('bun add @asenajs/asena-auth');
+      expect(result.hint).toContain('imports: [...authComponents]');
+    });
+
+    it('fails when the dependency is installed but neither authComponents nor AuthGuard is imported', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({ '@asenajs/asena-auth': '^1.0.0' }),
+        'src/AdminController.ts': PROTECTED_CONTROLLER,
+        'src/AppAuth.ts': "import { Auth, AsenaAuthService, AuthGuardMiddleware } from '@asenajs/asena-auth';\n",
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-enforcement');
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain('@asenajs/asena-auth is a dependency');
+      expect(result.hint).toContain('imports: [...authComponents]');
+      expect(result.hint).not.toContain('bun add');
+    });
+
+    it('fails when a custom AUTH_PROVIDER_KEY provider is registered but the guard is not', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({}),
+        'src/AdminController.ts': PROTECTED_CONTROLLER,
+        'src/MyProvider.ts': [
+          "import { AUTH_PROVIDER_KEY } from '@asenajs/asena/auth';",
+          '@Implements(AUTH_PROVIDER_KEY)',
+          'export class MyProvider {}',
+          '',
+        ].join('\n'),
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-enforcement');
+
+      expect(result.ok).toBe(false);
+    });
+
+    it('ignores marker imports inside line and block comments', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({}),
+        'src/a.ts': "// import { Protected } from '@asenajs/asena/auth';\n",
+        'src/b.ts': "/*\nimport { Roles } from '@asenajs/asena/auth';\n*/\nconst url = 'http://x'; // ok\n",
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-enforcement');
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('does not count a commented-out guard import as wiring', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({ '@asenajs/asena-auth': '^1.0.0' }),
+        'src/AdminController.ts': PROTECTED_CONTROLLER,
+        'src/index.ts': `// ${SERVER_WITH_GUARD}`,
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-enforcement');
+
+      expect(result.ok).toBe(false);
+    });
+
+    it('skips dist and node_modules', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({}),
+        'dist/AdminController.js': PROTECTED_CONTROLLER,
+        'node_modules/some-lib/index.ts': PROTECTED_CONTROLLER,
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-enforcement');
+
+      expect(result.ok).toBe(true);
+    });
+  });
+
+  describe('auth-better-auth-dep', () => {
+    const BETTER_AUTH_PROVIDER = [
+      "import { BetterAuth, BetterAuthService } from '@asenajs/asena-auth';",
+      "import { auth } from './lib/auth';",
+      '',
+      '@BetterAuth(() => ({ auth }))',
+      'export class AppAuth extends BetterAuthService {}',
+      '',
+    ].join('\n');
+
+    it('passes when Better Auth is not used', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({}),
+        'src/AppAuth.ts': "import { Auth } from '@asenajs/asena-auth';\n",
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-better-auth-dep');
+
+      expect(result.ok).toBe(true);
+      expect(result.detail).toContain('not used');
+    });
+
+    it('passes when better-auth is declared and installed', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({ 'better-auth': '^1.3.0' }),
+        'src/AppAuth.ts': BETTER_AUTH_PROVIDER,
+      });
+      fakePackage(dir, 'better-auth', '1.3.4');
+
+      const result = resultOf(await runDoctor(dir), 'auth-better-auth-dep');
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('fails when @BetterAuth is used and better-auth is neither declared nor installed', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({ '@asenajs/asena-auth': '^1.0.0' }),
+        'src/AppAuth.ts': BETTER_AUTH_PROVIDER,
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-better-auth-dep');
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain('src/AppAuth.ts:1');
+      expect(result.hint).toBe('bun add better-auth');
+    });
+
+    it('fails when better-auth is declared but not installed', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({ 'better-auth': '^1.3.0' }),
+        'src/AppAuth.ts': BETTER_AUTH_PROVIDER,
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-better-auth-dep');
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain('not installed');
+      expect(result.hint).toBe('bun install');
+    });
+
+    it('fails when only BetterAuthController is imported', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({}),
+        'src/AuthRoutes.ts': "import { BetterAuthController } from '@asenajs/asena-auth';\n",
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-better-auth-dep');
+
+      expect(result.ok).toBe(false);
+    });
+
+    it('ignores a commented-out import and a @BetterAuth decorator not from @asenajs/asena-auth', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'package.json': packageJsonFile({}),
+        'src/a.ts': `/* ${BETTER_AUTH_PROVIDER} */\n// ${BETTER_AUTH_PROVIDER.split('\n')[0]}\n`,
+        'src/b.ts': "import { BetterAuth } from './my-decorators';\n@BetterAuth()\nexport class X {}\n",
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-better-auth-dep');
+
+      expect(result.ok).toBe(true);
+    });
+  });
+
+  describe('auth-cookie', () => {
+    const authProvider = (options: string) =>
+      [
+        "import { Auth, AsenaAuthService } from '@asenajs/asena-auth';",
+        '',
+        `@Auth(${options})`,
+        'export class AppAuth extends AsenaAuthService {}',
+        '',
+      ].join('\n');
+
+    const cookieResult = async (options: string): Promise<CheckResult> => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, { 'src/AppAuth.ts': authProvider(options) });
+
+      return resultOf(await runDoctor(dir), 'auth-cookie');
+    };
+
+    it('passes when no @Auth provider is declared', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, { 'src/index.ts': 'export {};\n' });
+
+      const result = resultOf(await runDoctor(dir), 'auth-cookie');
+
+      expect(result.ok).toBe(true);
+      expect(result.detail).toContain('no @Auth');
+    });
+
+    it('passes a __Host- cookie that relies on the secure defaults (secure: true, path: /)', async () => {
+      const result = await cookieResult("{ cookie: { name: '__Host-sid', sameSite: 'strict' } }");
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('passes sameSite none with the default secure flag', async () => {
+      const result = await cookieResult("{ cookie: { sameSite: 'none' } }");
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('fails a __Host- cookie with a domain, naming file:line', async () => {
+      const result = await cookieResult("{ cookie: { name: '__Host-sid', domain: 'example.com' } }");
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain('src/AppAuth.ts:3');
+      expect(result.detail).toContain('domain');
+      expect(result.hint).toContain('domain');
+    });
+
+    it('fails a __Host- cookie with a path other than /', async () => {
+      const result = await cookieResult("{ cookie: { name: '__Host-sid', path: '/api' } }");
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain("path '/api'");
+    });
+
+    it('fails a __Host- cookie with secure: false', async () => {
+      const result = await cookieResult("{ cookie: { name: '__Host-sid', secure: false } }");
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain('secure: false');
+    });
+
+    it('fails a __Secure- cookie with secure: false', async () => {
+      const result = await cookieResult('{ cookie: { name: "__Secure-sid", secure: false } }');
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain('__Secure-');
+    });
+
+    it('fails sameSite none with secure: false, also inside the thunk form', async () => {
+      const result = await cookieResult("() => ({ sessionTtl: 60, cookie: { sameSite: 'none', secure: false } })");
+
+      expect(result.ok).toBe(false);
+      expect(result.detail).toContain("sameSite 'none'");
+    });
+
+    it('skips non-literal values and cookie objects with a spread', async () => {
+      const dir = makeTmpDir();
+
+      writeFiles(dir, {
+        'src/A.ts': authProvider("{ cookie: { name: process.env.COOKIE, domain: process.env.DOMAIN, path: '/' } }"),
+        'src/B.ts': authProvider("{ cookie: { ...base, sameSite: 'none', secure: false } }"),
+        'src/C.ts': authProvider('{ cookie: cookieOptions }'),
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-cookie');
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('ignores a commented-out provider and an @Auth not imported from @asenajs/asena-auth', async () => {
+      const dir = makeTmpDir();
+      const broken = authProvider("{ cookie: { name: '__Host-sid', domain: 'example.com' } }");
+
+      writeFiles(dir, {
+        'src/A.ts': `/*\n${broken}*/\n`,
+        'src/B.ts': broken
+          .split('\n')
+          .map((line) => `// ${line}`)
+          .join('\n'),
+        'src/C.ts': broken.replace("'@asenajs/asena-auth'", "'./my-auth'"),
+      });
+
+      const result = resultOf(await runDoctor(dir), 'auth-cookie');
+
+      expect(result.ok).toBe(true);
     });
   });
 
