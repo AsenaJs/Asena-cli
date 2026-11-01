@@ -1,5 +1,11 @@
 # @asenajs/asena-cli
 
+## 0.11.2
+
+### Patch Changes
+
+- 35c73c5: Accept `splitting` in `buildOptions`. The build already passed it to `Bun.build`, but the config type rejected it.
+
 ## 0.11.1
 
 ### Patch Changes
