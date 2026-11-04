@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { Build } from './Build';
+import { Console } from './Console';
 import { Create } from './Create';
 import { Dev } from './Dev';
 import { Doctor } from './Doctor';
@@ -19,6 +20,8 @@ export class Commands {
     this.program.addCommand(new Build().command());
 
     this.program.addCommand(new Dev().command());
+
+    this.program.addCommand(new Console().command());
 
     this.program.addCommand(new Init().command());
 
