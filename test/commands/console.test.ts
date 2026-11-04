@@ -34,7 +34,7 @@ const writeProject = (root: string, coreVersion = '0.13.0') => {
       exports: { './devtools': './devtools.js' },
     }),
     'node_modules/@asenajs/asena/devtools.js': [
-      'export function createDevtoolsAgent(context) {',
+      'export function attachDevtoolsAgent(context) {',
       "  const onMessage = (message) => { if (message?.type === 'command') process.send({ v: 1, type: 'commandResult', payload: { id: message.payload.id, ok: true } }); };",
       "  process.on('message', onMessage);",
       `  process.send({ v: 1, type: 'hello', payload: { coreVersion: '${coreVersion}', adapter: context.adapter, port: context.port, pid: process.pid } });`,

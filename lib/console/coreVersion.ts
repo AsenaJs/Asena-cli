@@ -6,7 +6,7 @@ export const CONSOLE_CORE_RANGE = '>=0.13.0-0 <0.14.0';
 export const DEVTOOLS_SUBPATH = '@asenajs/asena/devtools';
 
 /** The named export of `@asenajs/asena/devtools` the wrapper installs as the hook. */
-export const DEVTOOLS_AGENT_EXPORT = 'createDevtoolsAgent';
+export const DEVTOOLS_AGENT_EXPORT = 'attachDevtoolsAgent';
 
 /** The absolute path of the project's devtools agent module, or null when its core does not ship one. */
 export const resolveDevtoolsAgent = (root: string): string | null => {

@@ -31,7 +31,7 @@ describe('console wrapper', () => {
   };
 
   it('imports the components, then the devtools prelude, then the entry, all by absolute path', () => {
-    const agentPath = writeAgent('export const createDevtoolsAgent = () => {};\n');
+    const agentPath = writeAgent('export const attachDevtoolsAgent = () => {};\n');
 
     const entry = writeConsoleWrapper(wrapperDir, {
       root: project,
@@ -54,7 +54,7 @@ describe('console wrapper', () => {
       ].join('\n'),
     );
     expect(prelude).toContain(`import * as devtools from '${toImportPath(agentPath)}';`);
-    expect(prelude).toContain(`globalThis[Symbol.for('asena.devtools')] = devtools.createDevtoolsAgent;`);
+    expect(prelude).toContain(`globalThis[Symbol.for('asena.devtools')] = devtools.attachDevtoolsAgent;`);
     expect(components).toContain(`from '${toImportPath(path.join(project, 'src', 'ItemService.ts'))}'`);
 
     for (const source of [entrySource, prelude, components]) {
@@ -95,10 +95,10 @@ describe('console wrapper', () => {
   };
 
   it('sets the hook to the agent factory before the entry runs', async () => {
-    const { output, code } = await runWrapper('export function createDevtoolsAgent() {}\n');
+    const { output, code } = await runWrapper('export function attachDevtoolsAgent() {}\n');
 
     expect(code).toBe(0);
-    expect(output).toEqual({ hook: 'function', name: 'createDevtoolsAgent' });
+    expect(output).toEqual({ hook: 'function', name: 'attachDevtoolsAgent' });
   });
 
   it('warns and leaves the hook unset when the agent module has no factory export', async () => {
@@ -106,7 +106,7 @@ describe('console wrapper', () => {
 
     expect(code).toBe(0);
     expect(output.hook).toBe('undefined');
-    expect(stderr).toContain('has no createDevtoolsAgent export');
+    expect(stderr).toContain('has no attachDevtoolsAgent export');
   });
 
   it('runs bun with the project tsconfig as an override when the project has one', () => {
