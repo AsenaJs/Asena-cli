@@ -85,6 +85,26 @@ export const ERGENECORE_VALIDATOR_IMPORTS: ImportsByFiles = {
 };
 
 /**
+ * Hono Adapter imports for exception handler files
+ */
+export const HONO_EXCEPTION_HANDLER_IMPORTS: ImportsByFiles = {
+  '@asenajs/asena/decorators': ['ExceptionHandler'],
+  '@asenajs/asena/exception': ['Catch', 'type ExceptionContext'],
+  '@asenajs/asena/adapter': ['isHttpException'],
+  '@asenajs/hono-adapter': ['type Context'],
+};
+
+/**
+ * Ergenecore Adapter imports for exception handler files
+ */
+export const ERGENECORE_EXCEPTION_HANDLER_IMPORTS: ImportsByFiles = {
+  '@asenajs/asena/decorators': ['ExceptionHandler'],
+  '@asenajs/asena/exception': ['Catch', 'type ExceptionContext'],
+  '@asenajs/asena/adapter': ['isHttpException'],
+  '@asenajs/ergenecore': ['type Context'],
+};
+
+/**
  * WebSocket namespace imports (adapter-agnostic)
  */
 export const WEBSOCKET_IMPORTS: ImportsByFiles = {

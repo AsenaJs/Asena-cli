@@ -16,6 +16,7 @@ const DEFAULT_SUFFIXES: Record<ComponentType, string> = {
   validator: 'Validator',
   config: 'Config',
   websocket: 'Namespace',
+  exceptionHandler: 'ExceptionHandler',
 };
 
 /**

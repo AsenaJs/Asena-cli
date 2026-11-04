@@ -1,6 +1,7 @@
 export * from './AsenaServerHandler';
 export * from './ControllerHandler';
 export * from './ConfigHandler';
+export * from './ExceptionHandlerHandler';
 export * from './ImportHandler';
 export * from './AsenaLoggerCreator';
 export * from './MiddlewareHandler';

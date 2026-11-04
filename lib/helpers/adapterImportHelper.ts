@@ -11,6 +11,8 @@ import {
   ERGENECORE_MIDDLEWARE_IMPORTS,
   ERGENECORE_CONFIG_IMPORTS,
   ERGENECORE_VALIDATOR_IMPORTS,
+  HONO_EXCEPTION_HANDLER_IMPORTS,
+  ERGENECORE_EXCEPTION_HANDLER_IMPORTS,
   WEBSOCKET_IMPORTS,
   ADAPTER_PACKAGES,
   ADAPTER_INSTALL_PACKAGES,
@@ -59,6 +61,15 @@ export function getAdapterFunctionName(adapter: AdapterType): string {
  */
 export function getConfigImports(adapter: AdapterType): ImportsByFiles {
   return adapter === 'hono' ? HONO_CONFIG_IMPORTS : ERGENECORE_CONFIG_IMPORTS;
+}
+
+/**
+ * Get exception handler imports for the specified adapter
+ * @param adapter AdapterType ('hono' or 'ergenecore')
+ * @returns ImportsByFiles for exception handler files
+ */
+export function getExceptionHandlerImports(adapter: AdapterType): ImportsByFiles {
+  return adapter === 'hono' ? HONO_EXCEPTION_HANDLER_IMPORTS : ERGENECORE_EXCEPTION_HANDLER_IMPORTS;
 }
 
 /**

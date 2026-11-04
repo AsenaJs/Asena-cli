@@ -52,6 +52,10 @@ export const CONFIG_SCHEMA = {
               type: ['boolean', 'string'],
               description: 'WebSocket suffix (true = "Namespace", false = none, string = custom)',
             },
+            exceptionHandler: {
+              type: ['boolean', 'string'],
+              description: 'Exception handler suffix (true = "ExceptionHandler", false = none, string = custom)',
+            },
           },
           additionalProperties: false,
         },

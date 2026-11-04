@@ -4,6 +4,7 @@ import {
   getControllerImports,
   getMiddlewareImports,
   getConfigImports,
+  getExceptionHandlerImports,
   getWebSocketImports,
   getAdapterFunctionName,
   getAdapterInstallPackages,
@@ -93,6 +94,28 @@ describe('adapterImportHelper', () => {
       expect(imports).toEqual({
         '@asenajs/asena/decorators': ['Config'],
         '@asenajs/ergenecore': ['ConfigService'],
+      });
+    });
+  });
+
+  // Every name the exception-handler template references, and nothing else: a missing one fails to
+  // compile, an extra one fails the generated project's no-unused-vars rule.
+  describe('getExceptionHandlerImports', () => {
+    it('should return Hono exception handler imports for hono adapter', () => {
+      expect(getExceptionHandlerImports('hono')).toEqual({
+        '@asenajs/asena/decorators': ['ExceptionHandler'],
+        '@asenajs/asena/exception': ['Catch', 'type ExceptionContext'],
+        '@asenajs/asena/adapter': ['isHttpException'],
+        '@asenajs/hono-adapter': ['type Context'],
+      });
+    });
+
+    it('should return Ergenecore exception handler imports for ergenecore adapter', () => {
+      expect(getExceptionHandlerImports('ergenecore')).toEqual({
+        '@asenajs/asena/decorators': ['ExceptionHandler'],
+        '@asenajs/asena/exception': ['Catch', 'type ExceptionContext'],
+        '@asenajs/asena/adapter': ['isHttpException'],
+        '@asenajs/ergenecore': ['type Context'],
       });
     });
   });

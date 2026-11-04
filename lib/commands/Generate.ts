@@ -5,6 +5,7 @@ import inquirer from 'inquirer';
 import {
   ConfigHandler,
   ControllerHandler,
+  ExceptionHandlerHandler,
   ImportHandler,
   MiddlewareHandler,
   ServerConfigHandler,
@@ -17,6 +18,7 @@ import {
   getAdapterConfig,
   getConfigImports,
   getControllerImports,
+  getExceptionHandlerImports,
   getImportType,
   getMiddlewareImports,
   getValidatorImports,
@@ -87,6 +89,18 @@ export class Generate implements BaseCommand {
       .action(async () => {
         try {
           await this.addConfig();
+        } catch (error) {
+          console.error('Build failed: ', error);
+        }
+      });
+
+    generate
+      .command('exception-handler')
+      .alias('eh')
+      .description('Generates exception handler')
+      .action(async () => {
+        try {
+          await this.addExceptionHandler();
         } catch (error) {
           console.error('Build failed: ', error);
         }
@@ -167,6 +181,22 @@ export class Generate implements BaseCommand {
       new ServerConfigHandler('').addConfigClass(configName).code;
 
     await this.generate(configCode, 'config', configName);
+  }
+
+  private async addExceptionHandler() {
+    const baseName = convertToPascalCase(removeExtension((await this.askQuestions('exception handler')).elementName));
+    const suffix = await resolveSuffix('exceptionHandler');
+    const exceptionHandlerName = baseName + suffix;
+
+    const importType = await getImportType();
+    const adapter = await getAdapterConfig();
+    const exceptionHandlerImports = getExceptionHandlerImports(adapter);
+
+    const exceptionHandlerCode =
+      new ImportHandler('', importType).importToCode(exceptionHandlerImports, importType) +
+      new ExceptionHandlerHandler('').addExceptionHandler(exceptionHandlerName).code;
+
+    await this.generate(exceptionHandlerCode, 'exceptions', exceptionHandlerName);
   }
 
   private async addWebSocket() {
