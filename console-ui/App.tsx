@@ -59,7 +59,7 @@ export const Shell = ({ state, token, initialView }: ShellProps) => {
   const [focusedRoute, setFocusedRoute] = useState<string | null>(null);
 
   useEffect(() => {
-    const onHashChange = () => setView(viewFromHash(location.hash));
+    const onHashChange = () => setView((current) => viewFromHash(location.hash, current));
 
     window.addEventListener('hashchange', onHashChange);
 

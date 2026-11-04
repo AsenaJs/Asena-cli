@@ -84,4 +84,9 @@ describe('viewFromHash', () => {
     expect(viewFromHash('#/nope')).toBe('graph');
     expect(viewFromHash('')).toBe('graph');
   });
+
+  test('an in-page anchor such as the skip link keeps the current panel', () => {
+    expect(viewFromHash('#main', 'endpoints')).toBe('endpoints');
+    expect(viewFromHash('#/runtime', 'endpoints')).toBe('runtime');
+  });
 });

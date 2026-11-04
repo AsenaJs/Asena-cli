@@ -12,4 +12,6 @@ export type ViewId = (typeof VIEWS)[number]['id'];
 
 export const viewHash = (view: ViewId): string => `#/${view}`;
 
-export const viewFromHash = (hash: string): ViewId => VIEWS.find((view) => viewHash(view.id) === hash)?.id ?? 'graph';
+/** The view a `#/<view>` hash names; any other hash (an in-page anchor) leaves `current` in place. */
+export const viewFromHash = (hash: string, current: ViewId = 'graph'): ViewId =>
+  VIEWS.find((view) => viewHash(view.id) === hash)?.id ?? current;
