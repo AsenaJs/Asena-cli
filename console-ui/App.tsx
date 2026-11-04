@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { GraphPanel } from './graph/GraphPanel';
+import { RuntimePanel } from './runtime/RuntimePanel';
 import { Placeholder, StaleNotice, WaitingForSnapshot } from './shell/Placeholder';
 import { StatusBar } from './shell/StatusBar';
 import { type ThemeChoice, useTheme } from './shell/theme';
@@ -35,6 +36,8 @@ const Panel = ({ view, state, theme, onOpenRoute }: PanelProps) => {
       ) : (
         <WaitingForSnapshot title={title} />
       );
+    case 'runtime':
+      return <RuntimePanel state={state} />;
     default:
       return <Placeholder title={title} />;
   }
