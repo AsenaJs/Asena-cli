@@ -6,3 +6,4 @@ export * from './tsConfigHelper';
 export * from './variableNameHelper';
 export * from './adapterConfigHelper';
 export * from './adapterImportHelper';
+export * from './wrapperHelper';

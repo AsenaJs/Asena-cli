@@ -4,13 +4,9 @@ import path from 'path';
 import { type BuildConfig, type BunPlugin } from 'bun';
 import { Command } from 'commander';
 import { ConfigHandler } from '../codeBuilder';
-import { checkControllerExistence, getControllers } from '../helpers';
+import { checkControllerExistence, getControllers, writeWrapperFiles } from '../helpers';
 import type { AsenaConfig, BuildOptions, ControllerPath } from '../types';
 import type { BaseCommand } from '../types/baseCommand';
-
-// Backslashes inside a quoted import specifier are escape sequences, so a Windows path
-// would be mangled; forward slashes resolve on every platform
-const toImportPath = (absolute: string): string => absolute.replace(/\\/g, '/');
 
 export class Build implements BaseCommand {
   private configFile: AsenaConfig = { rootFile: '', sourceFolder: '' };
@@ -64,31 +60,12 @@ export class Build implements BaseCommand {
   }
 
   private writeWrapperFiles(tmpDir: string, controllers: ControllerPath) {
-    const imports: string[] = [];
-    const aliases: string[] = [];
-
-    let index = 0;
-
-    for (const [file, components] of Object.entries(controllers)) {
-      const sourcePath = toImportPath(path.resolve(process.cwd(), this.configFile.sourceFolder, file));
-
-      for (const { exportName } of components) {
-        const alias = `c${index++}`;
-
-        imports.push(`import { ${exportName} as ${alias} } from '${sourcePath}';`);
-        aliases.push(alias);
-      }
-    }
-
-    fs.writeFileSync(
-      path.join(tmpDir, 'asena.components.js'),
-      `${imports.join('\n')}\n\nglobalThis[Symbol.for('asena.buildComponents')] = [${aliases.join(', ')}];\n`,
-    );
-
-    fs.writeFileSync(
-      path.join(tmpDir, 'index.asena.js'),
-      `import './asena.components.js';\nimport '${toImportPath(path.resolve(process.cwd(), this.configFile.rootFile))}';\n`,
-    );
+    writeWrapperFiles(tmpDir, {
+      root: process.cwd(),
+      sourceFolder: this.configFile.sourceFolder,
+      rootFile: this.configFile.rootFile,
+      controllers,
+    });
   }
 
   private getOutputPath(): string {
