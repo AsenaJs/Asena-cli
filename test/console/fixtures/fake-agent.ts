@@ -1,0 +1,77 @@
+// Stands in for an app with the devtools agent attached, driven by the FAKE_* environment variables.
+import snapshot from './snapshot.json';
+
+const send = (type: string, payload: unknown) => process.send?.({ v: 1, type, payload });
+
+const port = process.env['FAKE_APP_PORT'] ? Number(process.env['FAKE_APP_PORT']) : null;
+
+const server =
+  port === null
+    ? null
+    : Bun.serve({
+        hostname: '127.0.0.1',
+        port,
+        fetch: async (request) => {
+          const url = new URL(request.url);
+
+          return Response.json(
+            {
+              method: request.method,
+              path: url.pathname,
+              query: Object.fromEntries(url.searchParams),
+              header: request.headers.get('x-probe'),
+              host: request.headers.get('host'),
+              body: await request.text(),
+            },
+            { status: 201, headers: { 'x-from': 'fake-app' } },
+          );
+        },
+      });
+
+process.on('SIGTERM', () => {
+  if (process.env['FAKE_IGNORE_SIGTERM'] === '1') {
+    console.log('fake app ignores SIGTERM');
+
+    return;
+  }
+
+  console.log('fake app stopping');
+  server?.stop(true);
+  process.exit(0);
+});
+
+process.on('message', (message: { type?: string; payload?: Record<string, unknown> }) => {
+  if (message?.type !== 'command' || !message.payload) return;
+
+  const command = message.payload;
+
+  if (command['command'] === 'runSchedule' && command['name'] === 'crash') {
+    console.error('fake app crashing on demand');
+    process.exit(3);
+  }
+
+  if (command['command'] === 'emitEvent' && command['event'] === 'flood') {
+    const lines = Number(process.env['FAKE_FLOOD_LINES'] ?? 10);
+
+    console.log(Array.from({ length: lines }, (_, i) => `flood ${i}`).join('\n'));
+  }
+
+  send('commandResult', { id: command['id'], ok: true, result: { echo: command } });
+});
+
+if (process.env['FAKE_SEND_INVALID'] === '1') {
+  process.send?.({ v: 2, type: 'hello', payload: {} });
+}
+
+console.log(`fake app up pid=${process.pid}`);
+
+await Bun.sleep(Number(process.env['FAKE_HELLO_DELAY_MS'] ?? 0));
+
+send('hello', {
+  coreVersion: process.env['FAKE_CORE_VERSION'] ?? '0.13.0',
+  adapter: server ? 'Fake' : null,
+  port: server ? server.port : null,
+  pid: process.pid,
+});
+
+send('snapshot', snapshot);
