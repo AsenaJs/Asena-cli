@@ -79,9 +79,10 @@ describe('adapterImportHelper', () => {
 
       expect(imports['@asenajs/asena/decorators']).toContain('Config');
 
-      expect(imports['@asenajs/hono-adapter']).toContain('ConfigService');
-
-      expect(imports['@asenajs/hono-adapter']).toContain('type Context');
+      expect(imports).toEqual({
+        '@asenajs/asena/decorators': ['Config'],
+        '@asenajs/hono-adapter': ['ConfigService'],
+      });
     });
 
     it('should return Ergenecore config imports for ergenecore adapter', () => {
@@ -89,9 +90,10 @@ describe('adapterImportHelper', () => {
 
       expect(imports['@asenajs/asena/decorators']).toContain('Config');
 
-      expect(imports['@asenajs/ergenecore']).toContain('ConfigService');
-
-      expect(imports['@asenajs/ergenecore']).toContain('type Context');
+      expect(imports).toEqual({
+        '@asenajs/asena/decorators': ['Config'],
+        '@asenajs/ergenecore': ['ConfigService'],
+      });
     });
   });
 

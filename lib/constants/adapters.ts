@@ -55,7 +55,7 @@ export const ERGENECORE_MIDDLEWARE_IMPORTS: ImportsByFiles = {
  */
 export const HONO_CONFIG_IMPORTS: ImportsByFiles = {
   '@asenajs/asena/decorators': ['Config'],
-  '@asenajs/hono-adapter': ['ConfigService', 'type Context'],
+  '@asenajs/hono-adapter': ['ConfigService'],
 };
 
 /**
@@ -63,7 +63,7 @@ export const HONO_CONFIG_IMPORTS: ImportsByFiles = {
  */
 export const ERGENECORE_CONFIG_IMPORTS: ImportsByFiles = {
   '@asenajs/asena/decorators': ['Config'],
-  '@asenajs/ergenecore': ['ConfigService', 'type Context'],
+  '@asenajs/ergenecore': ['ConfigService'],
 };
 
 /**

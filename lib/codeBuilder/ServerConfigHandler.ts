@@ -9,12 +9,6 @@ export class ServerConfigHandler {
     const configClass = `\n@Config()
 export class ${className} extends ConfigService {
 
-  public onError(error: Error, context: Context): Response | Promise<Response> {
-    console.error('Error:', error.message);
-
-    return context.send({ error: error.message }, 500);
-  }
-
 }`;
 
     this._code = this._code + configClass;
