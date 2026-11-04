@@ -245,3 +245,324 @@ h3 {
 [data-tone='error'] > .status-dot {
   background: var(--error);
 }
+
+.stale-notice {
+  margin: 0;
+  padding: 6px 16px;
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--border);
+  color: var(--warn);
+}
+
+.plain-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.plain-list li {
+  padding: 2px 0;
+}
+
+.link-button {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  text-decoration: underline;
+  text-align: left;
+}
+
+.data-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.data-table th,
+.data-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 4px 6px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.details-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.details-list dt {
+  color: var(--fg-muted);
+}
+
+.details-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+:root {
+  --kind-CONTROLLER: #0969da;
+  --kind-SERVICE: #1a7f37;
+  --kind-COMPONENT: #57606a;
+  --kind-MIDDLEWARE: #9a6700;
+  --kind-WEBSOCKET: #8250df;
+  --kind-MESSAGE_CONTROLLER: #bf3989;
+  --kind-EVENT: #bc4c00;
+  --kind-SCHEDULE: #0a7a83;
+  --kind-EXCEPTION_HANDLER: #cf222e;
+  --kind-CONFIG: #4d2d00;
+  --kind-POST_PROCESSOR: #6639ba;
+  --kind-FRONTEND_CONTROLLER: #116329;
+  --kind-CORE: #8c959f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --kind-CONTROLLER: #4493f8;
+    --kind-SERVICE: #3fb950;
+    --kind-COMPONENT: #9198a1;
+    --kind-MIDDLEWARE: #d29922;
+    --kind-WEBSOCKET: #ab7df8;
+    --kind-MESSAGE_CONTROLLER: #f778ba;
+    --kind-EVENT: #f0883e;
+    --kind-SCHEDULE: #39c5cf;
+    --kind-EXCEPTION_HANDLER: #f85149;
+    --kind-CONFIG: #e3b341;
+    --kind-POST_PROCESSOR: #d2a8ff;
+    --kind-FRONTEND_CONTROLLER: #7ee787;
+    --kind-CORE: #6e7681;
+  }
+}
+
+:root[data-theme='dark'] {
+  --kind-CONTROLLER: #4493f8;
+  --kind-SERVICE: #3fb950;
+  --kind-COMPONENT: #9198a1;
+  --kind-MIDDLEWARE: #d29922;
+  --kind-WEBSOCKET: #ab7df8;
+  --kind-MESSAGE_CONTROLLER: #f778ba;
+  --kind-EVENT: #f0883e;
+  --kind-SCHEDULE: #39c5cf;
+  --kind-EXCEPTION_HANDLER: #f85149;
+  --kind-CONFIG: #e3b341;
+  --kind-POST_PROCESSOR: #d2a8ff;
+  --kind-FRONTEND_CONTROLLER: #7ee787;
+  --kind-CORE: #6e7681;
+}
+
+[data-kind='CONTROLLER'] {
+  --kind: var(--kind-CONTROLLER);
+}
+[data-kind='SERVICE'] {
+  --kind: var(--kind-SERVICE);
+}
+[data-kind='COMPONENT'] {
+  --kind: var(--kind-COMPONENT);
+}
+[data-kind='MIDDLEWARE'] {
+  --kind: var(--kind-MIDDLEWARE);
+}
+[data-kind='WEBSOCKET'] {
+  --kind: var(--kind-WEBSOCKET);
+}
+[data-kind='MESSAGE_CONTROLLER'] {
+  --kind: var(--kind-MESSAGE_CONTROLLER);
+}
+[data-kind='EVENT'] {
+  --kind: var(--kind-EVENT);
+}
+[data-kind='SCHEDULE'] {
+  --kind: var(--kind-SCHEDULE);
+}
+[data-kind='EXCEPTION_HANDLER'] {
+  --kind: var(--kind-EXCEPTION_HANDLER);
+}
+[data-kind='CONFIG'] {
+  --kind: var(--kind-CONFIG);
+}
+[data-kind='POST_PROCESSOR'] {
+  --kind: var(--kind-POST_PROCESSOR);
+}
+[data-kind='FRONTEND_CONTROLLER'] {
+  --kind: var(--kind-FRONTEND_CONTROLLER);
+}
+[data-kind='CORE'] {
+  --kind: var(--kind-CORE);
+}
+
+.kind-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--kind);
+  color: var(--kind);
+  font-size: 12px;
+}
+
+.graph-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 8px;
+}
+
+.graph-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.graph-toolbar h2 {
+  margin: 0;
+}
+
+.kind-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.kind-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.kind-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--kind);
+}
+
+.edge-legend {
+  display: flex;
+  gap: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.edge-legend li::before {
+  content: '';
+  display: inline-block;
+  width: 24px;
+  margin-right: 6px;
+  vertical-align: middle;
+  border-top: 2px solid var(--fg-muted);
+}
+
+.edge-legend [data-edge='soft']::before {
+  border-top-style: dashed;
+}
+
+.edge-legend [data-edge='strategy']::before {
+  border-top: 4px double var(--fg-muted);
+}
+
+.edge-legend [data-edge='validator']::before {
+  border-top-style: dotted;
+  border-top-color: var(--kind-MIDDLEWARE);
+}
+
+.edge-legend [data-edge='global-middleware']::before {
+  border-top-style: dashed;
+  border-top-color: var(--kind-CONFIG);
+}
+
+.graph-body {
+  display: flex;
+  flex: 1;
+  min-height: 420px;
+  gap: 12px;
+}
+
+.graph-canvas {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.graph-node {
+  width: 200px;
+  height: 52px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-left: 5px solid var(--kind);
+  border-radius: 6px;
+  background: var(--bg-raised);
+  color: var(--fg);
+}
+
+.graph-node[data-matched='true'] {
+  box-shadow: 0 0 0 3px var(--accent);
+}
+
+.react-flow__node.selected .graph-node {
+  border-color: var(--kind);
+  box-shadow: 0 0 0 2px var(--kind);
+}
+
+.graph-node-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graph-node-kind {
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.graph-edge-soft .react-flow__edge-path {
+  stroke-dasharray: 6 4;
+}
+
+.graph-edge-strategy .react-flow__edge-path {
+  stroke-width: 3;
+}
+
+.graph-edge-validator .react-flow__edge-path {
+  stroke-dasharray: 2 4;
+  stroke: var(--kind-MIDDLEWARE);
+}
+
+.graph-edge-global-middleware .react-flow__edge-path {
+  stroke-dasharray: 8 4 2 4;
+  stroke: var(--kind-CONFIG);
+}
+
+.graph-details {
+  width: 340px;
+  flex-shrink: 0;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--bg-raised);
+}
+
+.graph-details-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.graph-details-header h2 {
+  overflow-wrap: anywhere;
+}

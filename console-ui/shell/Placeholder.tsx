@@ -5,6 +5,12 @@ export const Placeholder = ({ title }: { title: string }) => (
   </section>
 );
 
+export const StaleNotice = ({ gen }: { gen: number | null }) => (
+  <p className="stale-notice" role="note">
+    Showing what generation {gen ?? '?'} reported. The current app process has not reported yet.
+  </p>
+);
+
 export const WaitingForSnapshot = ({ title }: { title: string }) => (
   <section className="panel panel-placeholder" aria-labelledby="waiting-title">
     <h2 id="waiting-title">{title}</h2>

@@ -36,6 +36,19 @@ describe('console UI shell', () => {
     expect(html).toContain('This panel is not built yet.');
   });
 
+  test('the graph waits for a snapshot, and says so when the one it shows is from an earlier child', () => {
+    const waiting = renderToStaticMarkup(<Shell state={initialConsoleState} token="t" initialView="graph" />);
+    const respawned = consoleReducer(running, {
+      kind: 'message',
+      message: { v: 1, type: 'child', gen: 2, state: 'starting' },
+    });
+    const stale = renderToStaticMarkup(<Shell state={respawned} token="t" initialView="graph" />);
+
+    expect(waiting).toContain('Waiting for the app to report its components');
+    expect(stale).toContain('Showing what generation 1 reported');
+    expect(stale).toContain('Component graph');
+  });
+
   test('the status bar shows the connection, the child and the app', () => {
     const html = renderToStaticMarkup(<Shell state={running} token="t" initialView="requests" />);
 

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Placeholder } from './shell/Placeholder';
+import { GraphPanel } from './graph/GraphPanel';
+import { Placeholder, StaleNotice, WaitingForSnapshot } from './shell/Placeholder';
 import { StatusBar } from './shell/StatusBar';
 import { type ThemeChoice, useTheme } from './shell/theme';
 import { VIEWS, type ViewId, viewFromHash, viewHash } from './shell/views';
-import type { ConsoleState } from './state/store';
+import { type ConsoleState, isSnapshotStale } from './state/store';
 import { useConsole } from './state/useConsole';
 
 export interface ShellProps {
@@ -14,13 +15,35 @@ export interface ShellProps {
 
 const currentHash = () => (typeof location === 'undefined' ? '' : location.hash);
 
-const Panel = ({ view }: { view: ViewId }) => (
-  <Placeholder title={VIEWS.find((entry) => entry.id === view)?.label ?? view} />
-);
+interface PanelProps {
+  view: ViewId;
+  state: ConsoleState;
+  theme: ThemeChoice;
+  onOpenRoute: (key: string) => void;
+}
+
+const Panel = ({ view, state, theme, onOpenRoute }: PanelProps) => {
+  const title = VIEWS.find((entry) => entry.id === view)?.label ?? view;
+
+  switch (view) {
+    case 'graph':
+      return state.snapshot ? (
+        <>
+          {isSnapshotStale(state) ? <StaleNotice gen={state.snapshotGen} /> : null}
+          <GraphPanel snapshot={state.snapshot} theme={theme} onOpenRoute={onOpenRoute} />
+        </>
+      ) : (
+        <WaitingForSnapshot title={title} />
+      );
+    default:
+      return <Placeholder title={title} />;
+  }
+};
 
 export const Shell = ({ state, token, initialView }: ShellProps) => {
   const [view, setView] = useState<ViewId>(() => initialView ?? viewFromHash(currentHash()));
   const [theme, setTheme] = useTheme();
+  const [, setFocusedRoute] = useState<string | null>(null);
 
   useEffect(() => {
     const onHashChange = () => setView(viewFromHash(location.hash));
@@ -29,6 +52,12 @@ export const Shell = ({ state, token, initialView }: ShellProps) => {
 
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
+
+  const openRoute = (key: string) => {
+    setFocusedRoute(key);
+    setView('endpoints');
+    location.hash = viewHash('endpoints');
+  };
 
   return (
     <div className="shell">
@@ -60,7 +89,7 @@ export const Shell = ({ state, token, initialView }: ShellProps) => {
         </label>
       </header>
       <main id="main" className="shell-main" tabIndex={-1}>
-        <Panel view={view} />
+        <Panel view={view} state={state} theme={theme} onOpenRoute={openRoute} />
       </main>
       <StatusBar state={state} token={token} />
     </div>
