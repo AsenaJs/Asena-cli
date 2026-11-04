@@ -1,0 +1,414 @@
+import { describe, expect, test } from 'bun:test';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { type ConsoleHttpRequest, isConsoleHttpRequest } from '../../../lib/console/hostProtocol';
+import type { DevtoolsHello, DevtoolsRoute, DevtoolsSnapshot } from '../../../lib/console/protocol';
+import { EndpointsPanel, groupByController } from '../../../console-ui/endpoints/EndpointsPanel';
+import {
+  addToHistory,
+  HISTORY_BODY_LIMIT,
+  HISTORY_KEY,
+  HISTORY_LIMIT,
+  type HistoryEntry,
+  loadHistory,
+  saveHistory,
+} from '../../../console-ui/endpoints/history';
+import { type FetchLike, sendHttp } from '../../../console-ui/endpoints/http';
+import {
+  buildRequest,
+  draftFor,
+  fillPath,
+  jsonProblem,
+  pathParams,
+  prettyBody,
+  repeatedKeys,
+  requestUrl,
+} from '../../../console-ui/endpoints/requestBuilder';
+import { ResponseView, RouteTester } from '../../../console-ui/endpoints/RouteTester';
+import {
+  describeIncoming,
+  encodeOutgoing,
+  WebSocketTester,
+  wsAppUrl,
+} from '../../../console-ui/endpoints/WebSocketTester';
+import type { StorageLike } from '../../../console-ui/state/storage';
+import snapshotJson from '../fixtures/snapshot.json';
+
+const snapshot = snapshotJson as unknown as DevtoolsSnapshot;
+const hello: DevtoolsHello = { coreVersion: '0.13.0', adapter: 'Ergenecore', port: 3000, pid: 1 };
+const routeAt = (method: string, path: string): DevtoolsRoute =>
+  snapshot.routes.find((route) => route.httpMethod === method && route.path === path)!;
+const create = routeAt('POST', '/items/');
+const find = routeAt('GET', '/items/:id');
+const rename = routeAt('PUT', '/items/:id/name');
+const images = routeAt('GET', '/items/images/*');
+
+class MemoryStorage implements StorageLike {
+  readonly items = new Map<string, string>();
+  failWrites = false;
+
+  getItem(key: string) {
+    return this.items.get(key) ?? null;
+  }
+
+  setItem(key: string, value: string) {
+    if (this.failWrites) throw new DOMException('quota', 'QuotaExceededError');
+
+    this.items.set(key, value);
+  }
+}
+
+const entry = (at: number, body = '{}'): HistoryEntry => ({
+  at,
+  draft: draftFor(find),
+  request: { method: 'GET', path: '/items/1', query: {}, headers: {}, body: '' },
+  outcome: { ok: true, response: { status: 200, headers: {}, body, durationMs: 1 } },
+});
+
+describe('path parameters', () => {
+  test('come from the :segments of the route path, and * is an optional wildcard', () => {
+    expect(pathParams(find.path)).toEqual([{ name: 'id', optional: false, wildcard: false }]);
+    expect(pathParams(images.path)).toEqual([{ name: '*', optional: true, wildcard: true }]);
+    expect(pathParams('/a/:year{[0-9]+}/:slug?')).toEqual([
+      { name: 'year', optional: false, wildcard: false },
+      { name: 'slug', optional: true, wildcard: false },
+    ]);
+    expect(pathParams(create.path)).toEqual([]);
+  });
+
+  test('are percent-encoded when filled in, so a value cannot add a segment or a query', () => {
+    expect(fillPath(rename.path, { id: 'a b/../c?x=1' })).toEqual({
+      path: '/items/a%20b%2F..%2Fc%3Fx%3D1/name',
+      missing: [],
+    });
+  });
+
+  test('the wildcard keeps its slashes and encodes each segment', () => {
+    expect(fillPath(images.path, { '*': 'red lamp/front.png' }).path).toBe('/items/images/red%20lamp/front.png');
+    expect(fillPath(images.path, {}).path).toBe('/items/images/');
+  });
+
+  test('a missing required parameter is reported; an empty optional one drops its segment', () => {
+    expect(fillPath(rename.path, { id: '' })).toEqual({ path: '/items/:id/name', missing: ['id'] });
+    expect(fillPath('/a/:slug?', {}).path).toBe('/a');
+  });
+});
+
+describe('buildRequest', () => {
+  test('a route with a body schema starts with an empty JSON body; one without starts empty', () => {
+    expect(draftFor(create).body).toBe('{}');
+    expect(draftFor(rename).body).toBe('{}');
+    expect(draftFor(find).body).toBe('');
+    expect(draftFor(find).params).toEqual({ id: '' });
+  });
+
+  test('builds what POST /api/http accepts, with a JSON content type for a body', () => {
+    const built = buildRequest(create, { ...draftFor(create), body: '{"name":"lamp"}' });
+
+    expect(built).toEqual({
+      ok: true,
+      request: {
+        method: 'POST',
+        path: '/items/',
+        query: {},
+        headers: { 'content-type': 'application/json' },
+        body: '{"name":"lamp"}',
+      },
+    });
+    expect(built.ok && isConsoleHttpRequest(built.request)).toBe(true);
+  });
+
+  test('keeps a content type the developer set, in any case', () => {
+    const built = buildRequest(create, {
+      ...draftFor(create),
+      headers: [{ key: 'Content-Type', value: 'text/plain' }],
+      body: 'x',
+    });
+
+    expect(built.ok && built.request.headers).toEqual({ 'Content-Type': 'text/plain' });
+  });
+
+  test('drops blank query and header names, trims names and keeps values as typed', () => {
+    const built = buildRequest(find, {
+      ...draftFor(find),
+      params: { id: '7' },
+      query: [
+        { key: ' q ', value: 'red lamp & co' },
+        { key: '', value: 'ignored' },
+      ],
+      headers: [{ key: 'x-trace', value: ' a ' }],
+    });
+
+    expect(built.ok && built.request).toEqual({
+      method: 'GET',
+      path: '/items/7',
+      query: { q: 'red lamp & co' },
+      headers: { 'x-trace': ' a ' },
+      body: '',
+    });
+  });
+
+  test('a GET or HEAD sends no body even when the draft has one', () => {
+    const built = buildRequest(find, { ...draftFor(find), params: { id: '1' }, body: '{"x":1}' });
+
+    expect(built.ok && built.request.body).toBe('');
+    expect(built.ok && built.request.headers).toEqual({});
+  });
+
+  test('refuses to build while a required path parameter is empty', () => {
+    expect(buildRequest(rename, draftFor(rename))).toEqual({ ok: false, missing: ['id'] });
+  });
+
+  test('an ALL route sends the method the developer picked', () => {
+    const all: DevtoolsRoute = { ...find, httpMethod: 'ALL' };
+    const built = buildRequest(all, { ...draftFor(all), method: 'DELETE', params: { id: '1' } });
+
+    expect(draftFor(all).method).toBe('GET');
+    expect(built.ok && built.request.method).toBe('DELETE');
+  });
+});
+
+describe('query encoding and display helpers', () => {
+  test('the displayed URL encodes the query the way a form does', () => {
+    expect(requestUrl({ path: '/items/7', query: { q: 'red lamp & co', 'a/b': 'é' } })).toBe(
+      '/items/7?q=red+lamp+%26+co&a%2Fb=%C3%A9',
+    );
+    expect(requestUrl({ path: '/items/', query: {} })).toBe('/items/');
+  });
+
+  test('repeated keys are reported, since only the last value travels', () => {
+    expect(
+      repeatedKeys([
+        { key: 'tag', value: 'a' },
+        { key: ' tag', value: 'b' },
+        { key: 'x', value: '1' },
+      ]),
+    ).toEqual(['tag']);
+  });
+
+  test('JSON problems and pretty bodies', () => {
+    expect(jsonProblem('')).toBeNull();
+    expect(jsonProblem('{"a":1}')).toBeNull();
+    expect(jsonProblem('{a:1}')).not.toBeNull();
+    expect(prettyBody('{"a":[1]}')).toBe('{\n  "a": [\n    1\n  ]\n}');
+    expect(prettyBody('<p>hi</p>')).toBe('<p>hi</p>');
+  });
+});
+
+describe('sendHttp', () => {
+  const request: ConsoleHttpRequest = { method: 'GET', path: '/items/1', query: {}, headers: {}, body: '' };
+  const answering =
+    (status: number, body: string, calls: { url: string; body: string }[] = []): FetchLike =>
+    async (url, init) => {
+      calls.push({ url, body: init.body });
+
+      return { ok: status >= 200 && status < 300, status, text: async () => body };
+    };
+
+  test('posts the request to the host proxy with the token and returns its answer', async () => {
+    const calls: { url: string; body: string }[] = [];
+    const response = { status: 200, headers: { 'content-type': 'application/json' }, body: '{}', durationMs: 2 };
+    const outcome = await sendHttp(request, 'a+b', answering(200, JSON.stringify(response), calls));
+
+    expect(calls).toEqual([{ url: '/api/http?t=a%2Bb', body: JSON.stringify(request) }]);
+    expect(outcome).toEqual({ ok: true, response });
+  });
+
+  test('reports the 502 reason when no child is running', async () => {
+    expect(await sendHttp(request, 't', answering(502, '{"reason":"the app is not running"}'))).toEqual({
+      ok: false,
+      reason: 'The console host answered 502: the app is not running',
+    });
+  });
+
+  test('reports a refused token, an unreachable host and a malformed answer', async () => {
+    expect(await sendHttp(request, 't', answering(403, 'Forbidden'))).toEqual({
+      ok: false,
+      reason: 'The console host answered 403',
+    });
+    expect(
+      await sendHttp(request, 't', async () => {
+        throw new TypeError('Failed to fetch');
+      }),
+    ).toEqual({ ok: false, reason: 'Could not reach the console host: Failed to fetch' });
+    expect((await sendHttp(request, 't', answering(200, '{"status":"x"}'))).ok).toBe(false);
+  });
+});
+
+describe('request history', () => {
+  test('keeps the newest entries first, at most the limit per route', () => {
+    let history = {};
+
+    for (let i = 0; i < HISTORY_LIMIT + 3; i++) history = addToHistory(history, 'GET /items/:id', entry(i));
+
+    const kept = (history as Record<string, HistoryEntry[]>)['GET /items/:id']!;
+
+    expect(kept).toHaveLength(HISTORY_LIMIT);
+    expect(kept[0]?.at).toBe(HISTORY_LIMIT + 2);
+  });
+
+  test('cuts a long response body and marks the entry', () => {
+    const history = addToHistory({}, 'k', entry(1, 'x'.repeat(HISTORY_BODY_LIMIT + 10)));
+    const stored = history['k']![0]!;
+
+    expect(stored.truncated).toBe(true);
+    expect(stored.outcome.ok && stored.outcome.response.body.length).toBe(HISTORY_BODY_LIMIT);
+  });
+
+  test('round-trips through storage', () => {
+    const storage = new MemoryStorage();
+    const history = addToHistory({}, 'GET /items/:id', entry(5));
+
+    expect(saveHistory(storage, history)).toBe(true);
+    expect(loadHistory(storage)).toEqual(history);
+  });
+
+  test('survives storage that throws, holds garbage or is missing', () => {
+    const failing = new MemoryStorage();
+
+    failing.failWrites = true;
+    expect(saveHistory(failing, { k: [entry(1)] })).toBe(false);
+    expect(saveHistory(null, { k: [entry(1)] })).toBe(false);
+
+    const throwing: StorageLike = {
+      getItem: () => {
+        throw new DOMException('denied', 'SecurityError');
+      },
+      setItem: () => {},
+    };
+
+    expect(loadHistory(throwing)).toEqual({});
+    expect(loadHistory(null)).toEqual({});
+
+    const garbage = new MemoryStorage();
+
+    garbage.items.set(HISTORY_KEY, '{not json');
+    expect(loadHistory(garbage)).toEqual({});
+    garbage.items.set(HISTORY_KEY, JSON.stringify({ k: [{ at: 'x' }, entry(2)], other: 'nope' }));
+    expect(loadHistory(garbage)).toEqual({ k: [entry(2)] });
+  });
+});
+
+describe('WebSocket tester helpers', () => {
+  test('connects to the app port on 127.0.0.1 at the namespace path', () => {
+    expect(wsAppUrl(3000, 'ws/items')).toBe('ws://127.0.0.1:3000/ws/items');
+    expect(wsAppUrl(3000, '/chat')).toBe('ws://127.0.0.1:3000/chat');
+  });
+
+  test('sends text as typed and JSON compacted, refusing JSON that does not parse', () => {
+    expect(encodeOutgoing(' hi ', 'text')).toEqual({ ok: true, data: ' hi ' });
+    expect(encodeOutgoing('{ "a": 1 }', 'json')).toEqual({ ok: true, data: '{"a":1}' });
+    expect(encodeOutgoing('{a}', 'json').ok).toBe(false);
+  });
+
+  test('describes binary frames by size', () => {
+    expect(describeIncoming('hello')).toBe('hello');
+    expect(describeIncoming(new ArrayBuffer(4))).toBe('[binary, 4 bytes]');
+    expect(describeIncoming(new Blob(['abc']))).toBe('[binary, 3 bytes]');
+  });
+});
+
+describe('endpoints panel rendering', () => {
+  const panel = (props: Partial<Parameters<typeof EndpointsPanel>[0]> = {}) =>
+    renderToStaticMarkup(
+      <EndpointsPanel
+        snapshot={snapshot}
+        hello={hello}
+        token="t"
+        focusedRoute={null}
+        storage={new MemoryStorage()}
+        {...props}
+      />,
+    );
+
+  test('groups the routes by controller', () => {
+    expect(groupByController(snapshot.routes).map(([controller, routes]) => [controller, routes.length])).toEqual([
+      ['ItemController', 4],
+    ]);
+  });
+
+  test('lists every route, opens the first one and offers to send it', () => {
+    const html = panel();
+
+    for (const route of snapshot.routes) expect(html).toContain(route.path);
+
+    expect(html).toContain('HTTP routes (4)');
+    expect(html).toContain('WebSockets (1)');
+    expect(html).toContain('ItemController.create');
+    expect(html).toContain('validator CreateItemValidator');
+    expect(html).toMatch(/<textarea[^>]*>\{\}<\/textarea>/);
+    expect(html).not.toMatch(/<button type="submit" class="primary" disabled/);
+  });
+
+  test('opens the route the graph linked to, with its path parameter', () => {
+    const html = panel({ focusedRoute: 'PUT /items/:id/name' });
+
+    expect(html).toContain('ItemController.rename');
+    expect(html).toContain('contract RenameItemContext');
+    expect(html).toContain('Fill in :id');
+  });
+
+  test('says why it cannot send without a running app or a token', () => {
+    expect(panel({ hello: null })).toContain('Waiting for the app to start');
+    expect(panel({ token: null })).toContain('No session token');
+    expect(panel({ hello: { ...hello, adapter: null, port: null } })).toContain('runs headless');
+    expect(panel({ hello: null })).toMatch(/<button type="submit" class="primary" disabled/);
+  });
+
+  test('shows the stored history of the route', () => {
+    const storage = new MemoryStorage();
+
+    saveHistory(
+      storage,
+      addToHistory({}, 'POST /items/', { ...entry(1), request: { ...entry(1).request, path: '/items/' } }),
+    );
+
+    const html = panel({ storage });
+
+    expect(html).toContain('History');
+    expect(html).toContain('Clear history');
+  });
+
+  test('a GET route has no body to edit', () => {
+    const html = renderToStaticMarkup(
+      <RouteTester
+        route={find}
+        history={[]}
+        send={null}
+        blockedReason={null}
+        onRecord={() => {}}
+        onClearHistory={() => {}}
+      />,
+    );
+
+    expect(html).toContain('GET sends no body');
+    expect(html).toMatch(/<textarea[^>]*disabled/);
+  });
+
+  test('a response shows status, duration, headers and the body pretty-printed', () => {
+    const html = renderToStaticMarkup(
+      <ResponseView
+        outcome={{
+          ok: true,
+          response: { status: 409, headers: { 'x-app': 'items' }, body: '{"error":"taken"}', durationMs: 2.25 },
+        }}
+      />,
+    );
+
+    expect(html).toContain('>409<');
+    expect(html).toContain('data-tone="warn"');
+    expect(html).toContain('2.3 ms');
+    expect(html).toContain('x-app');
+    expect(html).toContain('{\n  &quot;error&quot;: &quot;taken&quot;\n}');
+    expect(renderToStaticMarkup(<ResponseView outcome={{ ok: false, reason: 'down' }} />)).toContain('role="alert"');
+  });
+
+  test('the WebSocket tester targets the app port, or says there is none', () => {
+    const ready = renderToStaticMarkup(<WebSocketTester namespace="ws/items" component="ItemFeed" port={3000} />);
+    const headless = renderToStaticMarkup(<WebSocketTester namespace="ws/items" component="ItemFeed" port={null} />);
+
+    expect(ready).toContain('ws://127.0.0.1:3000/ws/items');
+    expect(ready).toContain('ItemFeed');
+    expect(headless).toContain('The app has no HTTP port yet');
+    expect(headless).toMatch(/<button type="button" class="primary" disabled/);
+  });
+});
