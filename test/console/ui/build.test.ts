@@ -39,6 +39,13 @@ describe('console UI build', () => {
     expect(references.every((reference) => reference?.startsWith('/assets/'))).toBe(true);
   });
 
+  test('loads nothing from the network, so the console works offline', async () => {
+    const texts = await Promise.all(outputs.map((output) => readFile(output, 'utf8')));
+    const remote = /(?:@import\s*(?:url\(\s*)?['"]?|url\(\s*['"]?|import\(\s*['"]|src=["']|href=["'])(?:https?:)?\/\//i;
+
+    expect(texts.filter((text) => remote.test(text))).toEqual([]);
+  });
+
   test('bundles React for production', async () => {
     const script = outputs.find((output) => output.endsWith('.js'));
     const source = await readFile(script ?? '', 'utf8');
