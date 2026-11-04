@@ -203,15 +203,28 @@ export const isConsoleBrowserMessage = (value: unknown): value is ConsoleBrowser
   isCommand(value['command']);
 
 // A second `/` or `\` makes the path protocol-relative under `new URL(path, base)`, i.e. another host.
+// The URL parser drops tab, LF and CR first, so control characters are rejected before that check.
 const APP_PATH = /^\/(?![/\\])/;
+
+const hasControlCharacter = (value: string): boolean => {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+
+    if (code < 0x20 || code === 0x7f) return true;
+  }
+
+  return false;
+};
+
+const isAppPath = (value: unknown): value is string =>
+  isString(value) && !hasControlCharacter(value) && APP_PATH.test(value);
 
 /** The host's input check on the `POST /api/http` body. */
 export const isConsoleHttpRequest = (value: unknown): value is ConsoleHttpRequest =>
   isObject(value) &&
   isString(value['method']) &&
   /^[A-Za-z]+$/.test(value['method']) &&
-  isString(value['path']) &&
-  APP_PATH.test(value['path']) &&
+  isAppPath(value['path']) &&
   isStringRecord(value['query']) &&
   isStringRecord(value['headers']) &&
   isString(value['body']);

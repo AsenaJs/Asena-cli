@@ -387,6 +387,20 @@ describe('isConsoleHttpRequest', () => {
   test.each([
     ['a protocol-relative path', { ...request, path: '//example.org/items' }],
     ['a backslash path the URL parser reads as protocol-relative', { ...request, path: '/\\example.org/items' }],
+    [
+      'a path the URL parser reads as protocol-relative once a tab is removed',
+      { ...request, path: '/\t/example.org/x' },
+    ],
+    [
+      'a path the URL parser reads as protocol-relative once a newline is removed',
+      { ...request, path: '/\n/example.org/x' },
+    ],
+    [
+      'a path the URL parser reads as protocol-relative once a CR is removed',
+      { ...request, path: '/\r/example.org/x' },
+    ],
+    ['a path with a NUL byte', { ...request, path: '/items\u0000' }],
+    ['a path with a DEL byte', { ...request, path: '/items\u007f' }],
     ['an absolute URL', { ...request, path: 'http://example.org/items' }],
     ['a relative path', { ...request, path: 'items' }],
     ['a method with a line break', { ...request, method: 'GET\r\nX-Injected: 1' }],
