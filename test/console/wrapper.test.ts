@@ -37,7 +37,7 @@ describe('console wrapper', () => {
       root: project,
       sourceFolder: 'src',
       rootFile: 'src/index.ts',
-      controllers: { 'ItemService.ts': [{ exportName: 'ItemService', Class: class ItemService {} }] },
+      controllers: { 'ItemService.ts': [{ exportName: 'ItemService' }] },
       agentPath,
     });
 

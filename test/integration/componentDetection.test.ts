@@ -171,21 +171,6 @@ describe('Component Detection Integration', () => {
       expect(allComponents.filter((c) => c.Class.name === 'TestService')).toHaveLength(1);
     });
 
-    it('should see an export added to an already scanned file when the rescan is fresh', async () => {
-      await getControllers(rootFile, srcDir);
-
-      fs.appendFileSync(
-        path.join('src', 'services', 'TestService.ts'),
-        "\n@Service('ExtraService')\nexport class ExtraService {}\n",
-      );
-
-      const stale = await getControllers(rootFile, srcDir);
-      const fresh = await getControllers(rootFile, srcDir, { fresh: true });
-
-      expect(stale['services/TestService.ts'].map((c) => c.exportName)).toEqual(['TestService']);
-      expect(fresh['services/TestService.ts'].map((c) => c.exportName).sort()).toEqual(['ExtraService', 'TestService']);
-    });
-
     it('should rethrow import failures with the file name', async () => {
       fs.writeFileSync(path.join('src', 'broken.ts'), "throw new Error('kaboom in component file');\n");
 

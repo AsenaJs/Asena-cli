@@ -1,6 +1,9 @@
 import fs from 'fs';
 import path from 'path';
-import type { ControllerPath } from '../types';
+import type { ComponentExport } from '../types';
+
+/** Component export names by file, the file relative to the source folder. */
+export type ComponentExports = Record<string, Pick<ComponentExport, 'exportName'>[]>;
 
 // Backslashes inside a quoted import specifier are escape sequences, so a Windows path
 // would be mangled; forward slashes resolve on every platform
@@ -11,7 +14,7 @@ export interface WrapperOptions {
   root: string;
   sourceFolder: string;
   rootFile: string;
-  controllers: ControllerPath;
+  controllers: ComponentExports;
   /** Extra modules written next to the wrapper, file name -> source, imported in order before the entry. */
   preludes?: Record<string, string>;
 }

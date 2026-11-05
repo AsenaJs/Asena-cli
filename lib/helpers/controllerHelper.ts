@@ -1,4 +1,3 @@
-import fs from 'fs';
 import path from 'path';
 import { getMetadata } from 'reflect-metadata/no-conflict';
 import { getAllFiles } from './fileHelper';
@@ -9,15 +8,7 @@ export const checkControllerExistence = (injections: ControllerPath) => {
   return Object.values(injections).some((paths) => paths.length > 0);
 };
 
-export interface ScanOptions {
-  /** Re-imports every file changed since this process last imported it, instead of reusing the module cache. */
-  fresh?: boolean;
-}
-
-const importSpecifier = (absolute: string, fresh: boolean): string =>
-  fresh ? `${absolute}?mtime=${fs.statSync(absolute).mtimeMs}` : absolute;
-
-export const getControllers = async (rootFile: string, sourceFolder: string, options: ScanOptions = {}) => {
+export const getControllers = async (rootFile: string, sourceFolder: string) => {
   // Load ComponentConstants from user's project node_modules
   // This ensures we use the same Symbol instances as the decorators
   const ComponentConstants = await loadComponentConstants();
@@ -39,7 +30,7 @@ export const getControllers = async (rootFile: string, sourceFolder: string, opt
       let fileContent: Record<string, unknown>;
 
       try {
-        fileContent = await import(importSpecifier(path.join(process.cwd(), file), options.fresh === true));
+        fileContent = await import(path.join(process.cwd(), file));
       } catch (e) {
         throw new Error(`Failed to import ${file}: ${e instanceof Error ? e.message : String(e)}`);
       }

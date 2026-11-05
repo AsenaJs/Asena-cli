@@ -22,7 +22,7 @@ describe('writeWrapperFiles', () => {
       root,
       sourceFolder: 'src',
       rootFile: 'src/index.ts',
-      controllers: { 'ItemService.ts': [{ exportName: 'ItemService', Class: class ItemService {} }] },
+      controllers: { 'ItemService.ts': [{ exportName: 'ItemService' }] },
     });
 
     expect(entry).toBe(path.join(dir, 'index.asena.js'));

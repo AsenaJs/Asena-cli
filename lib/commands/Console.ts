@@ -6,9 +6,9 @@ import { ConfigHandler } from '../codeBuilder';
 import { consoleUiDir, openBrowser } from '../console/browser';
 import { ConsoleHost } from '../console/ConsoleHost';
 import { CONSOLE_MIN_CORE_VERSION, DEVTOOLS_SUBPATH, resolveDevtoolsAgent } from '../console/coreVersion';
+import { scanComponents } from '../console/scan';
 import { appCommand, writeConsoleWrapper } from '../console/wrapper';
 import { readInstalledVersion } from '../doctor/readInstalledVersion';
-import { getControllers } from '../helpers';
 import type { AsenaConfig } from '../types';
 import type { BaseCommand } from '../types/baseCommand';
 
@@ -93,7 +93,11 @@ export class Console implements BaseCommand {
         cwd: root,
         echo: true,
         prepare: async () => {
-          const controllers = await getControllers(config.rootFile, config.sourceFolder, { fresh: true });
+          const controllers = await scanComponents({
+            root,
+            sourceFolder: config.sourceFolder,
+            rootFile: config.rootFile,
+          });
           const entry = writeConsoleWrapper(wrapperDir, {
             root,
             sourceFolder: config.sourceFolder,
