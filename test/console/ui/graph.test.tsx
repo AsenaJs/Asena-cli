@@ -10,7 +10,7 @@ import {
   type GraphNodeKind,
   routesOf,
 } from '../../../console-ui/graph/buildGraph';
-import { GraphPanel } from '../../../console-ui/graph/GraphPanel';
+import { GraphPanel, toFlowEdges, toFlowNodes } from '../../../console-ui/graph/GraphPanel';
 import { Inspector } from '../../../console-ui/graph/Inspector';
 import { laneOf, nodeMeta } from '../../../console-ui/graph/lanes';
 import {
@@ -295,6 +295,43 @@ const inspect = (source: DevtoolsSnapshot, name: string) => {
     />,
   );
 };
+
+describe('graph selection and filter on the canvas', () => {
+  const graph = buildFullGraph(snapshot);
+  const layout = gridLayout(graph);
+  const all = new Set(graph.nodes.map((node) => node.id));
+  const controller = componentNodeId('ItemController');
+  const state = (edges: ReturnType<typeof toFlowEdges>, id: string) => {
+    const data = edges.find((edge) => edge.id === id)!.data!;
+
+    return data.dim ? 'dim' : data.active ? 'active' : 'idle';
+  };
+  const injectId = graph.edges.find((edge) => edge.kind === 'inject')!.id;
+  const strategyId = graph.edges.find((edge) => edge.kind === 'strategy')!.id;
+
+  test('only the edges that touch the selected node are active', () => {
+    const edges = toFlowEdges(graph, layout, all, controller);
+
+    expect(state(edges, injectId)).toBe('active');
+    expect(state(edges, strategyId)).toBe('idle');
+    expect(state(toFlowEdges(graph, layout, all, null), injectId)).toBe('idle');
+  });
+
+  test('a filtered-out node is dimmed, not removed, and so are its edges', () => {
+    const visible = new Set([...all].filter((id) => id !== componentNodeId('ItemService')));
+    const nodes = toFlowNodes(snapshot, graph, layout, visible, controller);
+    const service = nodes.find((node) => node.id === componentNodeId('ItemService'));
+
+    expect(nodes.filter((node) => node.type === 'component')).toHaveLength(graph.nodes.length);
+    expect(service?.type === 'component' && service.data.dim).toBe(true);
+    expect(state(toFlowEdges(graph, layout, visible, controller), injectId)).toBe('dim');
+    expect(nodes.filter((node) => node.type === 'lane').map((node) => node.data.label)).toEqual([
+      'Entry points',
+      'Services & middleware',
+      'Data & errors',
+    ]);
+  });
+});
 
 describe('graph panel rendering', () => {
   test('renders the search, one chip per present type, the canvas, the legend and the inspector', () => {

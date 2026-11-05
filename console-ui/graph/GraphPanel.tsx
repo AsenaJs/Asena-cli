@@ -46,7 +46,7 @@ const layoutBounds = (layout: GraphLayout) => {
   return { x, y, width: right - x, height: bottom - y };
 };
 
-const toFlowNodes = (
+export const toFlowNodes = (
   snapshot: DevtoolsSnapshot,
   graph: Graph,
   layout: GraphLayout,
@@ -81,7 +81,7 @@ const toFlowNodes = (
   ];
 };
 
-const toFlowEdges = (
+export const toFlowEdges = (
   graph: Graph,
   layout: GraphLayout,
   visible: ReadonlySet<string>,
