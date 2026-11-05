@@ -35,13 +35,18 @@ export interface ConsoleState {
   /** Every generation's output, oldest first, so a crash's stderr stays visible after a respawn. */
   logs: LogEntry[];
   requests: DevtoolsRequestRecord[];
+  /** The results of the commands this page sent, by id. */
   commandResults: Record<string, DevtoolsCommandResult>;
+  /** The ids this page sent that have no result yet. */
+  pendingCommands: string[];
   /** The app's time zone; `null` until the host's replay has arrived. */
   timeZone: string | null;
 }
 
 export type ConsoleAction =
-  { kind: 'connection'; status: ConnectionStatus } | { kind: 'message'; message: ConsoleHostMessage };
+  | { kind: 'connection'; status: ConnectionStatus }
+  | { kind: 'message'; message: ConsoleHostMessage }
+  | { kind: 'commandSent'; id: string };
 
 export const initialConsoleState: ConsoleState = {
   connection: 'connecting',
@@ -54,8 +59,19 @@ export const initialConsoleState: ConsoleState = {
   logs: [],
   requests: [],
   commandResults: {},
+  pendingCommands: [],
   timeZone: null,
 };
+
+/** Settles a command this page sent; a result for any other id, e.g. another tab's, is dropped. */
+const settleCommand = (state: ConsoleState, result: DevtoolsCommandResult): ConsoleState =>
+  state.pendingCommands.includes(result.id)
+    ? {
+        ...state,
+        commandResults: { ...state.commandResults, [result.id]: result },
+        pendingCommands: state.pendingCommands.filter((id) => id !== result.id),
+      }
+    : state;
 
 const keepLast = <T>(items: T[], limit: number): T[] => (items.length > limit ? items.slice(-limit) : items);
 
@@ -103,7 +119,7 @@ const applyAgentMessage = (state: ConsoleState, message: DevtoolsAgentMessage): 
     case 'request':
       return { ...state, requests: append(state.requests, message.payload, CONSOLE_REPLAY_LIMITS.requests) };
     case 'commandResult':
-      return { ...state, commandResults: { ...state.commandResults, [message.payload.id]: message.payload } };
+      return settleCommand(state, message.payload);
   }
 };
 
@@ -123,7 +139,7 @@ const applyChild = (state: ConsoleState, status: ConsoleChildStatus): ConsoleSta
 const applyMessage = (state: ConsoleState, message: ConsoleHostMessage): ConsoleState => {
   switch (message.type) {
     case 'snapshotState':
-      return {
+      return message.commandResults.reduce(settleCommand, {
         ...state,
         child: childStatus(message.child),
         runs: keepLast(message.runs, CONSOLE_REPLAY_LIMITS.runs),
@@ -134,7 +150,7 @@ const applyMessage = (state: ConsoleState, message: ConsoleHostMessage): Console
         logs: keepLast(message.logs, CONSOLE_REPLAY_LIMITS.logs).map(logEntry),
         requests: keepLast(message.requests, CONSOLE_REPLAY_LIMITS.requests),
         timeZone: message.timeZone,
-      };
+      });
     case 'agent':
       return applyAgentMessage(state, message.message);
     case 'log':
@@ -145,9 +161,14 @@ const applyMessage = (state: ConsoleState, message: ConsoleHostMessage): Console
 };
 
 export const consoleReducer = (state: ConsoleState, action: ConsoleAction): ConsoleState => {
-  if (action.kind === 'connection') return { ...state, connection: action.status };
-
-  return applyMessage(state, action.message);
+  switch (action.kind) {
+    case 'connection':
+      return { ...state, connection: action.status };
+    case 'commandSent':
+      return { ...state, pendingCommands: [...state.pendingCommands, action.id] };
+    case 'message':
+      return applyMessage(state, action.message);
+  }
 };
 
 /** Whether the snapshot on screen belongs to a child that is no longer the current one. */

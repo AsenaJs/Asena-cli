@@ -25,6 +25,13 @@ const isAgent =
   (message: ConsoleHostMessage): boolean =>
     message.type === 'agent' && message.message.type === type;
 
+const isResult =
+  (id: string) =>
+  (message: ConsoleHostMessage): boolean =>
+    message.type === 'agent' &&
+    message.message.type === 'commandResult' &&
+    (message.message.payload as { id: string }).id === id;
+
 const isLog =
   (text: string) =>
   (message: ConsoleHostMessage): boolean =>
@@ -170,9 +177,15 @@ describe('ConsoleHost with a fake agent child', () => {
     expect(replay.child).toMatchObject({ gen: 1, state: 'exited', code: 3 });
     expect(replay.logs.some((line) => line.stream === 'stderr' && line.line.includes('crashing on demand'))).toBe(true);
 
+    expect(((await client.waitFor(isResult('c-1'))) as Message<'agent'>).message.payload).toEqual({
+      id: 'c-1',
+      ok: false,
+      error: { name: 'ConsoleHostError', message: 'The app exited before it answered' },
+    });
+
     client.send({ v: 1, type: 'command', command: { id: 'c-2', command: 'emitEvent', event: 'x' } });
 
-    const refused = (await client.waitFor(isAgent('commandResult'))) as Message<'agent'>;
+    const refused = (await client.waitFor(isResult('c-2'))) as Message<'agent'>;
 
     expect(refused.message.payload).toEqual({
       id: 'c-2',
@@ -180,6 +193,48 @@ describe('ConsoleHost with a fake agent child', () => {
       error: { name: 'ConsoleHostError', message: 'No app is running' },
     });
     expect(host.supervisor.generation).toBe(1);
+  });
+
+  it('replays the recent command results to a browser that connects later', async () => {
+    await startHost();
+    const client = await connect();
+
+    await client.waitFor(isChild('running', 1));
+
+    for (let i = 0; i <= CONSOLE_REPLAY_LIMITS.commandResults; i++) {
+      client.send({ v: 1, type: 'command', command: { id: `c-${i}`, command: 'emitEvent', event: 'x' } });
+    }
+
+    await client.waitFor(isResult(`c-${CONSOLE_REPLAY_LIMITS.commandResults}`));
+
+    const replay = await (await connect()).replay();
+    const ids = replay.commandResults.map((result) => result.id);
+
+    expect(ids).toHaveLength(CONSOLE_REPLAY_LIMITS.commandResults);
+    expect(ids[0]).toBe('c-1');
+    expect(ids.at(-1)).toBe(`c-${CONSOLE_REPLAY_LIMITS.commandResults}`);
+    expect(replay.commandResults.at(-1)).toMatchObject({ ok: true });
+  });
+
+  it('fails a command the app had not answered when it restarts, and replays that failure', async () => {
+    const { host } = await startHost();
+    const client = await connect();
+
+    await client.waitFor(isChild('running', 1));
+
+    client.send({ v: 1, type: 'command', command: { id: 'c-1', command: 'runSchedule', name: 'hang' } });
+    await Bun.sleep(50);
+    await host.restart();
+
+    const failed = (await client.waitFor(isResult('c-1'))) as Message<'agent'>;
+
+    expect(failed.message.payload).toEqual({
+      id: 'c-1',
+      ok: false,
+      error: { name: 'ConsoleHostError', message: 'The app restarted before it answered' },
+    });
+    expect(client.indexOf(isResult('c-1'))).toBeLessThan(client.indexOf(isChild('starting', 2)));
+    expect((await (await connect()).replay()).commandResults).toEqual([failed.message.payload as never]);
   });
 
   it('respawns the child with the next generation when a watched file changes', async () => {

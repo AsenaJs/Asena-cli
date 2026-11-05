@@ -3,6 +3,7 @@
     "v": 1,
     "type": "snapshotState",
     "timeZone": "Europe/Istanbul",
+    "commandResults": [],
     "child": {
       "gen": 1,
       "state": "running",

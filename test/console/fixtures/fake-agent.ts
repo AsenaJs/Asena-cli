@@ -52,6 +52,8 @@ process.on('message', (message: { type?: string; payload?: Record<string, unknow
     process.exit(3);
   }
 
+  if (command['command'] === 'runSchedule' && command['name'] === 'hang') return;
+
   if (command['command'] === 'emitEvent' && command['event'] === 'flood') {
     const lines = Number(process.env['FAKE_FLOOD_LINES'] ?? 10);
 

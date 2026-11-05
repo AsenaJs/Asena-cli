@@ -33,7 +33,13 @@ export const useConsole = (): ConsoleConnection => {
     };
   }, [token]);
 
-  const send = useCallback((message: ConsoleBrowserMessage) => client.current?.send(message) ?? false, []);
+  const send = useCallback((message: ConsoleBrowserMessage) => {
+    const went = client.current?.send(message) ?? false;
+
+    if (went && message.type === 'command') dispatch({ kind: 'commandSent', id: message.command.id });
+
+    return went;
+  }, []);
 
   return { state, token, send };
 };

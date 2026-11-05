@@ -22,6 +22,7 @@ import {
 import { proxyHttpRequest } from './httpProxy';
 import {
   type DevtoolsAgentMessage,
+  type DevtoolsCommandResult,
   type DevtoolsHello,
   type DevtoolsMetrics,
   type DevtoolsRequestRecord,
@@ -62,6 +63,12 @@ const PAGE_HEADERS = { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-refer
 const json = (status: number, body: unknown): Response => Response.json(body, { status, headers: PAGE_HEADERS });
 
 const proxyError = (status: number, reason: string): Response => json(status, { reason } satisfies ConsoleHttpError);
+
+const hostFailure = (id: string, message: string): DevtoolsCommandResult => ({
+  id,
+  ok: false,
+  error: { name: 'ConsoleHostError', message },
+});
 
 const listAssets = (uiDir: string | null | undefined): Map<string, string> => {
   const assets = new Map<string, string>();
@@ -108,6 +115,11 @@ export class ConsoleHost {
   private readonly logs = new ReplayBuffer<ConsoleLogLine>(CONSOLE_REPLAY_LIMITS.logs);
 
   private readonly requests = new ReplayBuffer<DevtoolsRequestRecord>(CONSOLE_REPLAY_LIMITS.requests);
+
+  private readonly commandResults = new ReplayBuffer<DevtoolsCommandResult>(CONSOLE_REPLAY_LIMITS.commandResults);
+
+  /** The generation each forwarded command went to, until its result arrives. */
+  private readonly pendingCommands = new Map<string, number>();
 
   private readonly warnedInvalid = new Set<number>();
 
@@ -195,6 +207,7 @@ export class ConsoleHost {
       metrics: this.metrics.toArray(),
       logs: this.logs.toArray(),
       requests: this.requests.toArray(),
+      commandResults: this.commandResults.toArray(),
       timeZone: this.options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
   }
@@ -210,6 +223,12 @@ export class ConsoleHost {
   private onStatus(reported: ConsoleChildStatus): void {
     const at = Date.now();
     let status: ConsoleChildStatus = { ...reported, at };
+
+    if (status.state === 'exited') {
+      const restarted = this.child.gen === status.gen && this.child.state === 'restarting';
+
+      this.failPendingCommands(status.gen, `The app ${restarted ? 'restarted' : 'exited'} before it answered`);
+    }
 
     // A failed start reports only `exited` for its generation, so the boundary is the generation, not `starting`.
     if (status.gen !== this.child.gen) {
@@ -271,6 +290,10 @@ export class ConsoleHost {
       case 'request':
         this.requests.push(message.payload);
         break;
+      case 'commandResult':
+        this.pendingCommands.delete(message.payload.id);
+        this.commandResults.push(message.payload);
+        break;
       default:
         break;
     }
@@ -319,17 +342,36 @@ export class ConsoleHost {
       return;
     }
 
-    if (this.supervisor.send(hostMessage('command', message.command))) return;
+    if (this.supervisor.send(hostMessage('command', message.command))) {
+      this.pendingCommands.set(message.command.id, this.supervisor.generation);
 
-    const failed = agentMessage('commandResult', {
-      id: message.command.id,
-      ok: false,
-      error: { name: 'ConsoleHostError', message: 'No app is running' },
-    });
+      return;
+    }
 
+    const failed = hostFailure(message.command.id, 'No app is running');
+
+    this.commandResults.push(failed);
     ws.send(
-      JSON.stringify({ v: CONSOLE_PROTOCOL_VERSION, type: 'agent', message: failed } satisfies ConsoleHostMessage),
+      JSON.stringify({
+        v: CONSOLE_PROTOCOL_VERSION,
+        type: 'agent',
+        message: agentMessage('commandResult', failed),
+      } satisfies ConsoleHostMessage),
     );
+  }
+
+  /** Settles the commands a child of `gen` or older will never answer, since its process is gone. */
+  private failPendingCommands(gen: number, reason: string): void {
+    for (const [id, sentTo] of this.pendingCommands) {
+      if (sentTo > gen) continue;
+
+      this.pendingCommands.delete(id);
+
+      const failed = hostFailure(id, reason);
+
+      this.commandResults.push(failed);
+      this.broadcast({ v: CONSOLE_PROTOCOL_VERSION, type: 'agent', message: agentMessage('commandResult', failed) });
+    }
   }
 
   private async handle(request: Request, server: Server<unknown>): Promise<Response | undefined> {

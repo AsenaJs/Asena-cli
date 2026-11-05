@@ -22,9 +22,13 @@ import { consoleReducer, type ConsoleState, initialConsoleState } from '../../..
 import hostMessagesJson from '../fixtures/host-messages.json';
 
 const recording = hostMessagesJson as unknown as ConsoleHostMessage[];
+// The page that recorded host-messages.json had sent the commands c-1 to c-4.
 const state = recording.reduce<ConsoleState>(
   (current, message) => consoleReducer(current, { kind: 'message', message }),
-  { ...initialConsoleState, connection: 'open' },
+  ['c-1', 'c-2', 'c-3', 'c-4'].reduce<ConsoleState>(
+    (current, id) => consoleReducer(current, { kind: 'commandSent', id }),
+    { ...initialConsoleState, connection: 'open' },
+  ),
 );
 const snapshot = state.snapshot!;
 

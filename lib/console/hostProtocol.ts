@@ -5,6 +5,7 @@ import {
   type DevtoolsAgentMessage,
   type DevtoolsCommand,
   type DevtoolsCommandRequest,
+  type DevtoolsCommandResult,
   type DevtoolsHello,
   type DevtoolsMetrics,
   type DevtoolsRequestRecord,
@@ -24,7 +25,7 @@ export const CONSOLE_HTTP_PROXY_PATH = '/api/http';
 export const CONSOLE_ASSETS_PREFIX = '/assets/';
 
 /** How many of the most recent entries `snapshotState` replays. */
-export const CONSOLE_REPLAY_LIMITS = { metrics: 120, logs: 2000, requests: 500, runs: 50 } as const;
+export const CONSOLE_REPLAY_LIMITS = { metrics: 120, logs: 2000, requests: 500, runs: 50, commandResults: 50 } as const;
 
 export const CONSOLE_CHILD_STATES = ['starting', 'running', 'exited', 'restarting'] as const;
 
@@ -83,6 +84,8 @@ export interface ConsoleSnapshotState {
   metrics: DevtoolsMetrics[];
   logs: ConsoleLogLine[];
   requests: DevtoolsRequestRecord[];
+  /** The most recent command results, oldest first, so a page that reconnected can settle what it sent. */
+  commandResults: DevtoolsCommandResult[];
   /** The IANA zone the app runs in, which `Bun.cron.parse` reads its schedules in. */
   timeZone: string;
 }
@@ -216,6 +219,7 @@ const isSnapshotState = (value: Fields): boolean =>
   isArrayOf(value['metrics'], isObject) &&
   isArrayOf(value['logs'], isLogLine) &&
   isArrayOf(value['requests'], isObject) &&
+  isArrayOf(value['commandResults'], (result) => isObject(result) && isString(result['id'])) &&
   isString(value['timeZone']);
 
 /** Checks the envelope and the fields the host adds; agent payloads are checked only as far as ./protocol does. */

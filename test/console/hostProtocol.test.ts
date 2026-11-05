@@ -218,6 +218,7 @@ describe('console fixtures', () => {
         metrics: [],
         logs: [],
         requests: [],
+        commandResults: [],
       }),
     ).toBe(true);
   });
@@ -342,6 +343,7 @@ describe('isConsoleHostMessage', () => {
     metrics: [],
     logs: [],
     requests: [],
+    commandResults: [{ id: 'c-1', ok: true }],
   };
 
   test('accepts each message type', () => {
@@ -389,6 +391,8 @@ describe('isConsoleHostMessage', () => {
     ['a replay without a child', { ...state, child: undefined }],
     ["a replay without the app's time zone", { ...state, timeZone: undefined }],
     ['a replay with a time zone that is not a name', { ...state, timeZone: 180 }],
+    ['a replay without the recent command results', { ...state, commandResults: undefined }],
+    ['a replay with a command result without its id', { ...state, commandResults: [{ ok: true }] }],
   ])('rejects %s', (_, value) => {
     expect(isConsoleHostMessage(value)).toBe(false);
   });

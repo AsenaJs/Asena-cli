@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { ConsoleHostMessage } from '../../../lib/console/hostProtocol';
-import type { DevtoolsMetrics, DevtoolsSnapshot } from '../../../lib/console/protocol';
+import type { DevtoolsCommandResult, DevtoolsMetrics, DevtoolsSnapshot } from '../../../lib/console/protocol';
 import { filterLogs, LOG_LEVELS } from '../../../console-ui/runtime/logs';
 import {
   consoleReducer,
@@ -35,6 +35,10 @@ const metrics = (uptimeSeconds: number): DevtoolsMetrics => ({
   uptimeSeconds,
   readiness: { status: 'up' },
 });
+
+/** The page that recorded host-messages.json had sent the commands its results answer. */
+const sentRecordedCommands = (from: ConsoleState): ConsoleState =>
+  ['c-1', 'c-2', 'c-3', 'c-4'].reduce((state, id) => consoleReducer(state, { kind: 'commandSent', id }), from);
 
 const runSummary = (state: ConsoleState) =>
   state.runs.map(({ gen, state: runState, code, cause }) => ({ gen, state: runState, code, cause: cause.kind }));
@@ -82,7 +86,7 @@ describe('consoleReducer over the recorded host messages', () => {
   });
 
   test('the whole recording ends on generation 3 with its own hello, snapshot and metrics', () => {
-    const state = feed(recording);
+    const state = feed(recording, sentRecordedCommands(initialConsoleState));
     const logLines = recording.filter((message) => message.type === 'log').length;
 
     expect(state.child).toMatchObject({ gen: 3, state: 'running', pid: 48466 });
@@ -125,7 +129,7 @@ describe('consoleReducer generations', () => {
   });
 
   test('a later replay replaces the slices it carries and keeps command results', () => {
-    const withResult = feed(recording, running);
+    const withResult = feed(recording, sentRecordedCommands(running));
     const replay = feed(
       [
         {
@@ -137,6 +141,7 @@ describe('consoleReducer generations', () => {
           metrics: [],
           logs: [],
           requests: [],
+          commandResults: [],
         },
       ],
       withResult,
@@ -165,6 +170,7 @@ describe('consoleReducer generations', () => {
           metrics: [],
           logs: live.logs,
           requests: [],
+          commandResults: [],
         },
         { v: 1, type: 'log', seq: clearedThrough + 1, gen: 3, stream: 'stdout', line: 'after the reconnect', at: 1 },
       ],
@@ -238,6 +244,7 @@ describe('consoleReducer limits', () => {
         metrics: Array.from({ length: 121 }, (_, i) => metrics(i)),
         logs,
         requests: [],
+        commandResults: [],
       },
     ]);
 
@@ -246,6 +253,51 @@ describe('consoleReducer limits', () => {
     expect(state.logs[0]?.at).toBe(1);
     expect(state.runs).toHaveLength(50);
     expect(state.runs[0]?.gen).toBe(2);
+  });
+});
+
+describe('consoleReducer command results', () => {
+  const running = feed(recording.slice(0, 1));
+  const sent = (state: ConsoleState, id: string) => consoleReducer(state, { kind: 'commandSent', id });
+  const result = (id: string): DevtoolsCommandResult => ({ id, ok: true, result: { ran: id } });
+  const live = (id: string): ConsoleHostMessage => ({
+    v: 1,
+    type: 'agent',
+    message: { v: 1, type: 'commandResult', payload: result(id) },
+  });
+  const replay = (results: DevtoolsCommandResult[]): ConsoleHostMessage => ({
+    v: 1,
+    type: 'snapshotState',
+    timeZone: 'UTC',
+    child: running.child!,
+    runs: running.runs,
+    metrics: [],
+    logs: [],
+    requests: [],
+    commandResults: results,
+  });
+
+  test('a live result resolves a command this page sent; one for an id it never sent is dropped', () => {
+    const state = feed([live('mine'), live('other-tab')], sent(running, 'mine'));
+
+    expect(state.commandResults).toEqual({ mine: result('mine') });
+    expect(state.pendingCommands).toEqual([]);
+  });
+
+  // A result that arrived while the socket was reconnecting reaches the page only through the replay.
+  test('a reconnect replay resolves a command still pending and drops the results this page never asked for', () => {
+    const waiting = sent(sent(running, 'answered'), 'lost-in-reconnect');
+    const before = feed([live('answered')], waiting);
+
+    expect(before.pendingCommands).toEqual(['lost-in-reconnect']);
+
+    const after = feed([replay([result('other-tab'), result('answered'), result('lost-in-reconnect')])], before);
+
+    expect(after.commandResults).toEqual({
+      answered: result('answered'),
+      'lost-in-reconnect': result('lost-in-reconnect'),
+    });
+    expect(after.pendingCommands).toEqual([]);
   });
 });
 
