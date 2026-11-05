@@ -64,13 +64,42 @@ const STARTS = [
   '2026-10-25T03:30:00',
 ];
 
+const LOCAL_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+const APP_ZONES = ['UTC', 'Europe/Istanbul', 'America/New_York', 'Asia/Kolkata', 'Australia/Lord_Howe'];
+
+const ZONED_STARTS = [
+  '2026-11-05T10:30:20Z',
+  '2026-12-31T21:59:00Z',
+  '2026-02-28T20:59:30Z',
+  '2026-03-08T06:30:00Z',
+  '2026-03-29T00:30:00Z',
+  '2026-10-25T00:30:00Z',
+  '2026-11-01T04:00:00Z',
+  '2027-04-03T14:00:00Z',
+  '2026-10-03T15:00:00Z',
+];
+
+// Bun re-reads `TZ` on every change. `bun test` starts in UTC without setting it, so the zone is restored, not the var.
+const inZone = <T,>(zone: string, run: () => T): T => {
+  const previous = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  process.env.TZ = zone;
+
+  try {
+    return run();
+  } finally {
+    process.env.TZ = previous;
+  }
+};
+
 describe('cron next run', () => {
   test('agrees with Bun.cron.parse, which core schedules with, on every expression and start', () => {
     const differences = STARTS.flatMap((start) =>
       EXPRESSIONS.flatMap((expression) => {
         const from = new Date(start);
         const bun = Bun.cron.parse(expression, from)?.getTime() ?? null;
-        const ours = nextRunOf(expression, from);
+        const ours = nextRunOf(expression, from, LOCAL_ZONE);
 
         return ours.ok && (ours.at?.getTime() ?? null) === bun ? [] : [{ start, expression, bun, ours }];
       }),
@@ -79,10 +108,62 @@ describe('cron next run', () => {
     expect(differences).toEqual([]);
   });
 
+  test("agrees with Bun.cron.parse in the app's time zone while the browser sits in another", () => {
+    const differences = APP_ZONES.flatMap((zone) => {
+      const browserZone = zone === 'Asia/Tokyo' ? 'UTC' : 'Asia/Tokyo';
+
+      return ZONED_STARTS.flatMap((start) =>
+        EXPRESSIONS.flatMap((expression) => {
+          const from = new Date(start);
+          const bun = inZone(zone, () => Bun.cron.parse(expression, from)?.toISOString() ?? null);
+          const ours = inZone(browserZone, () => nextRunOf(expression, from, zone));
+
+          return ours.ok && (ours.at?.toISOString() ?? null) === bun ? [] : [{ zone, start, expression, bun, ours }];
+        }),
+      );
+    });
+
+    expect(differences).toEqual([]);
+  });
+
+  test('agrees with Bun.cron.parse through the hours the clocks skip or repeat', () => {
+    const windows: [zone: string, from: string, to: string][] = [
+      ['America/New_York', '2026-03-08T05:00:00Z', '2026-03-08T08:00:00Z'],
+      ['America/New_York', '2026-11-01T04:00:00Z', '2026-11-01T07:30:00Z'],
+      ['Europe/Berlin', '2026-03-29T00:00:00Z', '2026-03-29T02:00:00Z'],
+      ['Europe/Berlin', '2026-10-25T00:00:00Z', '2026-10-25T02:00:00Z'],
+      ['Australia/Lord_Howe', '2026-10-03T15:00:00Z', '2026-10-03T16:00:00Z'],
+      ['Australia/Lord_Howe', '2026-04-04T14:30:00Z', '2026-04-04T15:30:00Z'],
+    ];
+    const expressions = ['30 2 * * *', '30 1 * * *', '0 1-3 * * *', '*/30 1 * * *', '0 * * * *', '*/15 * * * *'];
+    const differences = windows.flatMap(([zone, start, end]) => {
+      const froms: Date[] = [];
+
+      for (let at = Date.parse(start); at <= Date.parse(end); at += 5 * 60_000) froms.push(new Date(at));
+
+      return froms.flatMap((from) =>
+        expressions.flatMap((expression) => {
+          const bun = inZone(zone, () => Bun.cron.parse(expression, from)?.toISOString() ?? null);
+          const ours = inZone('Asia/Tokyo', () => nextRunOf(expression, from, zone));
+
+          return ours.ok && (ours.at?.toISOString() ?? null) === bun ? [] : [{ zone, from, expression, bun, ours }];
+        }),
+      );
+    });
+
+    expect(differences).toEqual([]);
+  });
+
+  test('a midnight job in a UTC app runs at UTC midnight, wherever the browser is', () => {
+    const next = inZone('Europe/Istanbul', () => nextRunOf('0 0 * * *', new Date('2026-11-05T10:00:00Z'), 'UTC'));
+
+    expect(next.ok && next.at?.toISOString()).toBe('2026-11-06T00:00:00.000Z');
+  });
+
   test('rejects what Bun.cron.parse rejects', () => {
     for (const expression of ['0 0 ? * *', '30 25 * * *', '1-59/0 * * * *', '@reboot', '0 0 * *', '0 0 5-1 * *']) {
       expect(() => Bun.cron.parse(expression, new Date())).toThrow();
-      expect(nextRunOf(expression, new Date()).ok).toBe(false);
+      expect(nextRunOf(expression, new Date(), LOCAL_ZONE).ok).toBe(false);
     }
   });
 
@@ -95,9 +176,17 @@ describe('cron next run', () => {
   test('says when the next run is, relative to now', () => {
     const now = new Date('2026-11-05T10:30:00');
 
-    expect(formatNextRun(new Date('2026-11-05T10:45:00'), now)).toBe('today 10:45 · in 15m');
-    expect(formatNextRun(new Date('2026-11-06T03:00:00'), now)).toBe('Fri 6 Nov 03:00 · in 16h 30m');
-    expect(formatNextRun(new Date('2028-02-29T00:00:00'), now)).toContain('2028');
+    expect(formatNextRun(new Date('2026-11-05T10:45:00'), now, LOCAL_ZONE)).toBe('today 10:45 · in 15m');
+    expect(formatNextRun(new Date('2026-11-06T03:00:00'), now, LOCAL_ZONE)).toBe('Fri 6 Nov 03:00 · in 16h 30m');
+    expect(formatNextRun(new Date('2028-02-29T00:00:00'), now, LOCAL_ZONE)).toContain('2028');
+  });
+
+  test("reads the clock and the day in the app's time zone, and names it when the browser is elsewhere", () => {
+    const now = new Date('2026-11-05T22:30:00Z');
+    const at = new Date('2026-11-06T00:00:00Z');
+
+    expect(formatNextRun(at, now, 'UTC', 'Europe/Istanbul')).toBe('Fri 6 Nov 00:00 UTC · in 1h 30m');
+    expect(formatNextRun(at, now, 'Europe/Istanbul', 'Europe/Istanbul')).toBe('today 03:00 · in 1h 30m');
   });
 });
 
@@ -185,9 +274,16 @@ describe('messaging panel rendering', () => {
         send={() => true}
         blockedReason={null}
         now={new Date('2026-11-05T10:30:00')}
+        timeZone={LOCAL_ZONE}
         {...props}
       />,
     );
+
+  test("shows a schedule's next run in the app's time zone when the browser is elsewhere", () => {
+    const html = inZone('Europe/Istanbul', () => panel({ now: new Date('2026-11-05T10:30:00Z'), timeZone: 'UTC' }));
+
+    expect(html).toContain('next Fri 6 Nov 03:00 UTC · in 16h 30m');
+  });
 
   test('lists schedules with cron, next run and last run, events with their handlers, messages per transport', () => {
     const html = panel();

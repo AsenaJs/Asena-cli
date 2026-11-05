@@ -423,6 +423,20 @@ describe('ConsoleHost with a fake agent child', () => {
     expect(client.messages.filter((message) => message.type === 'log' && message.stream === 'stderr')).toEqual([]);
   });
 
+  it("tells the browser the time zone the app schedules in, its own unless it is told the app's", async () => {
+    const { host: inherited } = await startHost();
+
+    expect(inherited.snapshotState().timeZone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
+
+    await inherited.stop();
+
+    const { host: told } = await startHost({ TZ: 'America/New_York' }, { timeZone: 'America/New_York' });
+    const client = await connect();
+
+    expect((await client.replay()).timeZone).toBe('America/New_York');
+    expect(told.snapshotState().timeZone).toBe('America/New_York');
+  });
+
   it('replays no more log lines than the contract allows, keeping the newest', async () => {
     const lines = CONSOLE_REPLAY_LIMITS.logs + 50;
     const { host } = await startHost({ FAKE_FLOOD_LINES: String(lines) });

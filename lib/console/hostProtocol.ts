@@ -83,6 +83,8 @@ export interface ConsoleSnapshotState {
   metrics: DevtoolsMetrics[];
   logs: ConsoleLogLine[];
   requests: DevtoolsRequestRecord[];
+  /** The IANA zone the app runs in, which `Bun.cron.parse` reads its schedules in. */
+  timeZone: string;
 }
 
 interface ConsoleEnvelope<T extends string> {
@@ -213,7 +215,8 @@ const isSnapshotState = (value: Fields): boolean =>
   isArrayOf(value['runs'], isRun) &&
   isArrayOf(value['metrics'], isObject) &&
   isArrayOf(value['logs'], isLogLine) &&
-  isArrayOf(value['requests'], isObject);
+  isArrayOf(value['requests'], isObject) &&
+  isString(value['timeZone']);
 
 /** Checks the envelope and the fields the host adds; agent payloads are checked only as far as ./protocol does. */
 export const isConsoleHostMessage = (value: unknown): value is ConsoleHostMessage => {

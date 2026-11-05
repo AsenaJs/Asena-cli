@@ -47,6 +47,7 @@ describe('consoleReducer over the recorded host messages', () => {
     expect(state.hello?.pid).toBe(48211);
     expect(state.snapshot).toEqual(snapshot);
     expect(state.snapshotGen).toBe(1);
+    expect(state.timeZone).toBe('Europe/Istanbul');
     expect(state.metrics.map((sample) => sample.uptimeSeconds)).toEqual([3, 4, 5]);
     expect(state.logs.map((entry) => entry.seq)).toEqual([0, 1, 2, 3, 4, 5]);
     expect(state.requests.map((record) => record.id)).toEqual(['r-1', 'r-2']);
@@ -130,6 +131,7 @@ describe('consoleReducer generations', () => {
         {
           v: 1,
           type: 'snapshotState',
+          timeZone: 'UTC',
           child: { gen: 1, state: 'starting' },
           runs: [],
           metrics: [],
@@ -157,6 +159,7 @@ describe('consoleReducer generations', () => {
         {
           v: 1,
           type: 'snapshotState',
+          timeZone: 'UTC',
           child: live.child!,
           runs: live.runs,
           metrics: [],
@@ -229,6 +232,7 @@ describe('consoleReducer limits', () => {
       {
         v: 1,
         type: 'snapshotState',
+        timeZone: 'UTC',
         child: { gen: 51, state: 'exited' },
         runs,
         metrics: Array.from({ length: 121 }, (_, i) => metrics(i)),

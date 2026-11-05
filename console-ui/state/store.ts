@@ -36,6 +36,8 @@ export interface ConsoleState {
   logs: LogEntry[];
   requests: DevtoolsRequestRecord[];
   commandResults: Record<string, DevtoolsCommandResult>;
+  /** The app's time zone; `null` until the host's replay has arrived. */
+  timeZone: string | null;
 }
 
 export type ConsoleAction =
@@ -52,6 +54,7 @@ export const initialConsoleState: ConsoleState = {
   logs: [],
   requests: [],
   commandResults: {},
+  timeZone: null,
 };
 
 const keepLast = <T>(items: T[], limit: number): T[] => (items.length > limit ? items.slice(-limit) : items);
@@ -130,6 +133,7 @@ const applyMessage = (state: ConsoleState, message: ConsoleHostMessage): Console
         metrics: keepLast(message.metrics, CONSOLE_REPLAY_LIMITS.metrics),
         logs: keepLast(message.logs, CONSOLE_REPLAY_LIMITS.logs).map(logEntry),
         requests: keepLast(message.requests, CONSOLE_REPLAY_LIMITS.requests),
+        timeZone: message.timeZone,
       };
     case 'agent':
       return applyAgentMessage(state, message.message);

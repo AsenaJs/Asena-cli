@@ -211,6 +211,7 @@ describe('console fixtures', () => {
       isConsoleHostMessage({
         v: CONSOLE_PROTOCOL_VERSION,
         type: 'snapshotState',
+        timeZone: 'UTC',
         child: { gen: 1, state: 'running', pid: 1 },
         snapshot,
         runs: [],
@@ -335,6 +336,7 @@ describe('isConsoleHostMessage', () => {
   const state = {
     v: 1,
     type: 'snapshotState',
+    timeZone: 'UTC',
     child: { gen: 1, state: 'starting' },
     runs: [],
     metrics: [],
@@ -385,6 +387,8 @@ describe('isConsoleHostMessage', () => {
     ['a replay without logs', { ...state, logs: undefined }],
     ['a replay with a malformed log line', { ...state, logs: [{ gen: 1, stream: 'stdout' }] }],
     ['a replay without a child', { ...state, child: undefined }],
+    ["a replay without the app's time zone", { ...state, timeZone: undefined }],
+    ['a replay with a time zone that is not a name', { ...state, timeZone: 180 }],
   ])('rejects %s', (_, value) => {
     expect(isConsoleHostMessage(value)).toBe(false);
   });

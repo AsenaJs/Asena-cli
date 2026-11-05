@@ -101,9 +101,58 @@ export const parseCron = (expression: string): CronSpec => {
   return { minutes, hours, days, months, weekdays, dayOr: fields[2] !== '*' && fields[4] !== '*' };
 };
 
-const dayMatches = (spec: CronSpec, date: Date): boolean => {
-  const day = spec.days.has(date.getDate());
-  const weekday = spec.weekdays.has(date.getDay());
+const MINUTE = 60_000;
+
+const DAY = 86_400_000;
+
+const wallFormats = new Map<string, Intl.DateTimeFormat>();
+
+const wallFormat = (timeZone: string): Intl.DateTimeFormat => {
+  let format = wallFormats.get(timeZone);
+
+  if (!format) {
+    format = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+    });
+    wallFormats.set(timeZone, format);
+  }
+
+  return format;
+};
+
+/** The minute the clocks in `timeZone` show at `instant`, as the UTC fields of the returned epoch milliseconds. */
+export const wallClockOf = (instant: number, timeZone: string): number => {
+  const fields: Partial<Record<Intl.DateTimeFormatPartTypes, number>> = {};
+
+  for (const part of wallFormat(timeZone).formatToParts(instant)) fields[part.type] = Number(part.value);
+
+  return Date.UTC(fields.year ?? 0, (fields.month ?? 1) - 1, fields.day ?? 1, fields.hour ?? 0, fields.minute ?? 0);
+};
+
+const offsetAt = (instant: number, timeZone: string): number =>
+  wallClockOf(instant, timeZone) - Math.floor(instant / MINUTE) * MINUTE;
+
+/**
+ * The instants at which the clocks in `timeZone` show `wall`, earliest first: two when the clocks go back over it.
+ * A minute the clocks skip moves on by the skip, as `Bun.cron.parse` does.
+ */
+const instantsOf = (wall: number, timeZone: string): number[] => {
+  const before = wall - offsetAt(wall - DAY, timeZone);
+  const after = wall - offsetAt(wall + DAY, timeZone);
+  const shown = [...new Set([before, after])].filter((instant) => wallClockOf(instant, timeZone) === wall);
+
+  return shown.length > 0 ? shown.sort((a, b) => a - b) : [before];
+};
+
+const dayMatches = (spec: CronSpec, wall: Date): boolean => {
+  const day = spec.days.has(wall.getUTCDate());
+  const weekday = spec.weekdays.has(wall.getUTCDay());
 
   return spec.dayOr ? day || weekday : day && weekday;
 };
@@ -111,39 +160,80 @@ const dayMatches = (spec: CronSpec, date: Date): boolean => {
 // Far enough for `0 0 29 2 *` across a century gap; an expression with no date at all (Feb 30) ends here.
 const SEARCH_YEARS = 8;
 
-/** The first minute strictly after `from` that the expression names, in local time; `null` when there is none. */
-export const nextCronRun = (spec: CronSpec, from: Date): Date | null => {
-  const date = new Date(from.getTime());
+/** The first minute in `(from, to]` with another offset than `from`'s; `to` must have one. */
+const offsetChange = (from: number, to: number, timeZone: string): number => {
+  const before = offsetAt(from, timeZone);
+  let low = Math.floor(from / MINUTE);
+  let high = Math.floor(to / MINUTE);
 
-  date.setSeconds(0, 0);
-  date.setMinutes(date.getMinutes() + 1);
+  while (high - low > 1) {
+    const middle = Math.floor((low + high) / 2);
 
-  const limit = from.getFullYear() + SEARCH_YEARS;
+    if (offsetAt(middle * MINUTE, timeZone) === before) low = middle;
+    else high = middle;
+  }
 
-  while (date.getFullYear() <= limit) {
-    if (!spec.months.has(date.getMonth() + 1)) {
-      date.setMonth(date.getMonth() + 1, 1);
-      date.setHours(0, 0, 0, 0);
-    } else if (!dayMatches(spec, date)) {
-      date.setDate(date.getDate() + 1);
-      date.setHours(0, 0, 0, 0);
-    } else if (!spec.hours.has(date.getHours())) {
-      date.setHours(date.getHours() + 1, 0, 0, 0);
-    } else if (!spec.minutes.has(date.getMinutes())) {
-      date.setMinutes(date.getMinutes() + 1, 0, 0);
+  return high * MINUTE;
+};
+
+/**
+ * Walks the clocks forward from `start`. Where they repeat a minute, only an every-hour expression runs on the second
+ * pass, as with `Bun.cron.parse`.
+ */
+const searchFrom = (spec: CronSpec, start: number, after: number, timeZone: string): Date | null => {
+  const wall = new Date(start);
+  const limit = wall.getUTCFullYear() + SEARCH_YEARS;
+  const passes = spec.hours.size === 24 ? 2 : 1;
+
+  while (wall.getUTCFullYear() <= limit) {
+    if (!spec.months.has(wall.getUTCMonth() + 1)) {
+      wall.setUTCMonth(wall.getUTCMonth() + 1, 1);
+      wall.setUTCHours(0, 0, 0, 0);
+    } else if (!dayMatches(spec, wall)) {
+      wall.setUTCDate(wall.getUTCDate() + 1);
+      wall.setUTCHours(0, 0, 0, 0);
+    } else if (!spec.hours.has(wall.getUTCHours())) {
+      wall.setUTCHours(wall.getUTCHours() + 1, 0, 0, 0);
+    } else if (!spec.minutes.has(wall.getUTCMinutes())) {
+      wall.setUTCMinutes(wall.getUTCMinutes() + 1, 0, 0);
     } else {
-      return date;
+      const instant = instantsOf(wall.getTime(), timeZone)
+        .slice(0, passes)
+        .find((candidate) => candidate > after);
+
+      if (instant !== undefined) return new Date(instant);
+
+      wall.setUTCMinutes(wall.getUTCMinutes() + 1, 0, 0);
     }
   }
 
   return null;
 };
 
+/**
+ * The first minute strictly after `from` that the expression names on the clocks of `timeZone`, the app's zone
+ * that `Bun.cron.parse` reads; `null` when there is none.
+ */
+export const nextCronRun = (spec: CronSpec, from: Date, timeZone: string): Date | null => {
+  const at = from.getTime();
+  const wall = wallClockOf(at, timeZone);
+  const next = searchFrom(spec, wall + MINUTE, at, timeZone);
+  const secondPass = instantsOf(wall, timeZone)[1];
+
+  if (spec.hours.size !== 24 || secondPass === undefined || secondPass <= at) return next;
+
+  // `from` is on the first pass of minutes the clocks repeat, so the ones already behind it come round again.
+  const repeat = offsetChange(at, secondPass, timeZone);
+  const again = searchFrom(spec, wallClockOf(repeat, timeZone), repeat - 1, timeZone);
+
+  return again && (!next || again < next) ? again : next;
+};
+
 export type NextRun = { ok: true; at: Date | null } | { ok: false; error: string };
 
-export const nextRunOf = (expression: string, from: Date): NextRun => {
+export const nextRunOf = (expression: string, from: Date, timeZone: string): NextRun => {
   try {
-    return { ok: true, at: nextCronRun(parseCron(expression), from) };
+    return { ok: true, at: nextCronRun(parseCron(expression), from, timeZone) };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }

@@ -39,6 +39,8 @@ export interface MessagingPanelProps {
   /** `null` while commands cannot be sent; `blockedReason` says why. */
   send: SendCommand | null;
   blockedReason: string | null;
+  /** The app's time zone, which its cron schedules run in. */
+  timeZone: string;
   now?: Date;
 }
 
@@ -244,6 +246,7 @@ export const MessagingPanel = ({
   commandResults,
   send,
   blockedReason,
+  timeZone,
   now = new Date(),
 }: MessagingPanelProps) => {
   const transports = transportStates(hello, metrics);
@@ -273,7 +276,7 @@ export const MessagingPanel = ({
         <Section title="Schedules" count={snapshot.schedules.length}>
           <ul className="cmd-list">
             {snapshot.schedules.map((schedule) => {
-              const next = nextRunOf(schedule.cron, now);
+              const next = nextRunOf(schedule.cron, now, timeZone);
 
               return (
                 <CommandItem
@@ -286,7 +289,7 @@ export const MessagingPanel = ({
                       <span className="cmd-meta">
                         {next.ok
                           ? next.at
-                            ? `next ${formatNextRun(next.at, now)}`
+                            ? `next ${formatNextRun(next.at, now, timeZone)}`
                             : 'never runs'
                           : `cron not understood: ${next.error}`}
                       </span>

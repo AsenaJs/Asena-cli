@@ -48,6 +48,8 @@ export interface ConsoleHostOptions {
   app: Omit<AppSupervisorOptions, 'onStatus' | 'onLog' | 'onAgentMessage' | 'onInvalidMessage'>;
   /** Where the host's own warnings go; defaults to `console.warn`. */
   warn?: (message: string) => void;
+  /** The app's IANA time zone; defaults to this process's, which an app spawned with its env shares. */
+  timeZone?: string;
 }
 
 const TOPIC = 'console';
@@ -192,6 +194,7 @@ export class ConsoleHost {
       metrics: this.metrics.toArray(),
       logs: this.logs.toArray(),
       requests: this.requests.toArray(),
+      timeZone: this.options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
   }
 

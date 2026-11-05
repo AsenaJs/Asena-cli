@@ -7,6 +7,7 @@ import type {
   DevtoolsRequestRecord,
   DevtoolsTransport,
 } from '../../lib/console/protocol';
+import { wallClockOf } from './cron';
 
 let sequence = 0;
 
@@ -95,23 +96,30 @@ export const resultText = (result: DevtoolsCommandResult): string | null => {
   return result.result === undefined ? null : JSON.stringify(result.result);
 };
 
-export const formatNextRun = (at: Date, now: Date): string => {
+export const browserTimeZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+/** Reads `at` on the clocks of `timeZone`, the app's, naming the zone when the browser's is another. */
+export const formatNextRun = (at: Date, now: Date, timeZone: string, localZone: string = browserTimeZone()): string => {
   const minutes = Math.round((at.getTime() - now.getTime()) / 60000);
   const days = Math.floor(minutes / 1440);
   const hours = Math.floor((minutes % 1440) / 60);
   const rest = minutes % 60;
   const relative =
     days > 0 ? `${days}d ${hours}h` : hours > 0 ? `${hours}h ${rest}m` : minutes > 0 ? `${minutes}m` : 'under a minute';
-  const clock = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
-  const sameDay = at.toDateString() === now.toDateString();
+  const wall = new Date(wallClockOf(at.getTime(), timeZone));
+  const nowWall = new Date(wallClockOf(now.getTime(), timeZone));
+  const clock = `${String(wall.getUTCHours()).padStart(2, '0')}:${String(wall.getUTCMinutes()).padStart(2, '0')}`;
+  const sameDay = wall.toISOString().slice(0, 10) === nowWall.toISOString().slice(0, 10);
   const day = sameDay
     ? 'today'
-    : at.toLocaleDateString('en-GB', {
+    : wall.toLocaleDateString('en-GB', {
+        timeZone: 'UTC',
         weekday: 'short',
         day: 'numeric',
         month: 'short',
-        ...(at.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' }),
+        ...(wall.getUTCFullYear() === nowWall.getUTCFullYear() ? {} : { year: 'numeric' }),
       });
+  const zone = timeZone === localZone ? '' : ` ${timeZone}`;
 
-  return `${day} ${clock} · in ${relative}`;
+  return `${day} ${clock}${zone} · in ${relative}`;
 };

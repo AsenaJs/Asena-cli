@@ -5,7 +5,7 @@ import { ConfigPanel } from './config/ConfigPanel';
 import { EndpointsPanel } from './endpoints/EndpointsPanel';
 import { ExceptionsPanel } from './exceptions/ExceptionsPanel';
 import { GraphPanel } from './graph/GraphPanel';
-import { commandBlockedReason } from './messaging/commands';
+import { browserTimeZone, commandBlockedReason } from './messaging/commands';
 import { MessagingPanel } from './messaging/MessagingPanel';
 import type { EndpointFocus } from './requests/records';
 import { RequestsPanel } from './requests/RequestsPanel';
@@ -98,6 +98,7 @@ const Panel = ({ view, state, token, theme, focus, onOpenEndpoint, send }: Panel
           commandResults={state.commandResults}
           send={sendCommand}
           blockedReason={blockedReason}
+          timeZone={state.timeZone ?? browserTimeZone()}
         />
       ));
     case 'config':
