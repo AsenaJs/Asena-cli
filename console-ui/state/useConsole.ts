@@ -1,28 +1,39 @@
-import { useEffect, useReducer, useState } from 'react';
-import { consoleWsUrl, createConsoleClient, readToken } from './client';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import type { ConsoleBrowserMessage } from '../../lib/console/hostProtocol';
+import { type ConsoleClient, consoleWsUrl, createConsoleClient, readToken } from './client';
 import { consoleReducer, type ConsoleState, initialConsoleState } from './store';
 
 export interface ConsoleConnection {
   state: ConsoleState;
   /** The session token from the page URL; `null` when the page was opened without one. */
   token: string | null;
+  /** @returns Whether the message went out. */
+  send: (message: ConsoleBrowserMessage) => boolean;
 }
 
 export const useConsole = (): ConsoleConnection => {
   const [state, dispatch] = useReducer(consoleReducer, initialConsoleState);
   const [token] = useState(() => (typeof location === 'undefined' ? null : readToken(location.search)));
+  const client = useRef<ConsoleClient | null>(null);
 
   useEffect(() => {
     if (!token) return;
 
-    const client = createConsoleClient({
+    const current = createConsoleClient({
       url: consoleWsUrl(location, token),
       onMessage: (message) => dispatch({ kind: 'message', message }),
       onStatus: (status) => dispatch({ kind: 'connection', status }),
     });
 
-    return () => client.close();
+    client.current = current;
+
+    return () => {
+      current.close();
+      client.current = null;
+    };
   }, [token]);
 
-  return { state, token };
+  const send = useCallback((message: ConsoleBrowserMessage) => client.current?.send(message) ?? false, []);
+
+  return { state, token, send };
 };

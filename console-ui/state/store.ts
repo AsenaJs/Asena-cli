@@ -3,6 +3,7 @@ import {
   type ConsoleChildStatus,
   type ConsoleHostMessage,
   type ConsoleLogLine,
+  type ConsoleRun,
 } from '../../lib/console/hostProtocol';
 import type {
   DevtoolsAgentMessage,
@@ -15,14 +16,14 @@ import type {
 
 export type ConnectionStatus = 'connecting' | 'open' | 'closed';
 
-export interface LogEntry extends ConsoleLogLine {
-  /** Increases by one per line this browser has seen; a stable key and the anchor for pause and clear. */
-  seq: number;
-}
+/** `seq` comes from the host, so it survives a reconnect: a stable key and the anchor for pause and clear. */
+export type LogEntry = ConsoleLogLine;
 
 export interface ConsoleState {
   connection: ConnectionStatus;
   child: ConsoleChildStatus | null;
+  /** The restart timeline, oldest first. */
+  runs: ConsoleRun[];
   /** The current child's hello; `null` until a child of the current generation has sent one. */
   hello: DevtoolsHello | null;
   /** Kept across a respawn so the views do not empty while the next child boots. */
@@ -33,7 +34,6 @@ export interface ConsoleState {
   metrics: DevtoolsMetrics[];
   /** Every generation's output, oldest first, so a crash's stderr stays visible after a respawn. */
   logs: LogEntry[];
-  nextLogSeq: number;
   requests: DevtoolsRequestRecord[];
   commandResults: Record<string, DevtoolsCommandResult>;
 }
@@ -44,12 +44,12 @@ export type ConsoleAction =
 export const initialConsoleState: ConsoleState = {
   connection: 'connecting',
   child: null,
+  runs: [],
   hello: null,
   snapshot: null,
   snapshotGen: null,
   metrics: [],
   logs: [],
-  nextLogSeq: 0,
   requests: [],
   commandResults: {},
 };
@@ -58,15 +58,36 @@ const keepLast = <T>(items: T[], limit: number): T[] => (items.length > limit ? 
 
 const append = <T>(items: T[], item: T, limit: number): T[] => keepLast([...items, item], limit);
 
-const childStatus = ({ gen, state, pid, code, signal }: ConsoleChildStatus): ConsoleChildStatus => ({
+const childStatus = ({ gen, state, pid, code, signal, at, cause }: ConsoleChildStatus): ConsoleChildStatus => ({
   gen,
   state,
   ...(pid === undefined ? {} : { pid }),
   ...(code === undefined ? {} : { code }),
   ...(signal === undefined ? {} : { signal }),
+  ...(at === undefined ? {} : { at }),
+  ...(cause === undefined ? {} : { cause }),
 });
 
-const logEntry = ({ gen, stream, line, at }: ConsoleLogLine, seq: number): LogEntry => ({ gen, stream, line, at, seq });
+const logEntry = ({ seq, gen, stream, line, at }: ConsoleLogLine): LogEntry => ({ seq, gen, stream, line, at });
+
+const updateRuns = (runs: ConsoleRun[], status: ConsoleChildStatus): ConsoleRun[] => {
+  const { gen, state, code, signal } = status;
+  const exit = { ...(code === undefined ? {} : { code }), ...(signal === undefined ? {} : { signal }) };
+  const last = runs.at(-1);
+
+  if (last?.gen === gen)
+    return [...runs.slice(0, -1), { gen, startedAt: last.startedAt, cause: last.cause, state, ...exit }];
+
+  const run: ConsoleRun = {
+    gen,
+    startedAt: status.at ?? 0,
+    cause: status.cause ?? { kind: 'restart' },
+    state,
+    ...exit,
+  };
+
+  return append(runs, run, CONSOLE_REPLAY_LIMITS.runs);
+};
 
 const applyAgentMessage = (state: ConsoleState, message: DevtoolsAgentMessage): ConsoleState => {
   switch (message.type) {
@@ -89,37 +110,31 @@ const applyChild = (state: ConsoleState, status: ConsoleChildStatus): ConsoleSta
   if (status.gen < currentGen) return state;
 
   const child = childStatus(status);
+  const runs = updateRuns(state.runs, child);
 
-  if (status.gen === currentGen) return { ...state, child };
+  if (status.gen === currentGen) return { ...state, child, runs };
 
-  return { ...state, child, hello: null, metrics: [] };
+  return { ...state, child, runs, hello: null, metrics: [] };
 };
 
 const applyMessage = (state: ConsoleState, message: ConsoleHostMessage): ConsoleState => {
   switch (message.type) {
-    case 'snapshotState': {
-      const logs = keepLast(message.logs, CONSOLE_REPLAY_LIMITS.logs);
-
+    case 'snapshotState':
       return {
         ...state,
         child: childStatus(message.child),
+        runs: keepLast(message.runs, CONSOLE_REPLAY_LIMITS.runs),
         hello: message.hello ?? null,
         snapshot: message.snapshot ?? null,
         snapshotGen: message.snapshot ? message.child.gen : null,
         metrics: keepLast(message.metrics, CONSOLE_REPLAY_LIMITS.metrics),
-        logs: logs.map((line, i) => logEntry(line, state.nextLogSeq + i)),
-        nextLogSeq: state.nextLogSeq + logs.length,
+        logs: keepLast(message.logs, CONSOLE_REPLAY_LIMITS.logs).map(logEntry),
         requests: keepLast(message.requests, CONSOLE_REPLAY_LIMITS.requests),
       };
-    }
     case 'agent':
       return applyAgentMessage(state, message.message);
     case 'log':
-      return {
-        ...state,
-        logs: append(state.logs, logEntry(message, state.nextLogSeq), CONSOLE_REPLAY_LIMITS.logs),
-        nextLogSeq: state.nextLogSeq + 1,
-      };
+      return { ...state, logs: append(state.logs, logEntry(message), CONSOLE_REPLAY_LIMITS.logs) };
     case 'child':
       return applyChild(state, message);
   }

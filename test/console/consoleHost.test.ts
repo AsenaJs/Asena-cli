@@ -223,6 +223,9 @@ describe('ConsoleHost with a fake agent child', () => {
       '2:running',
     ]);
     expect(client.messages.find(isChild('exited', 1))).toMatchObject({ code: 0 });
+    expect(client.messages.find(isChild('starting', 2))).toMatchObject({
+      cause: { kind: 'change', files: ['ItemService.ts'] },
+    });
     expect(client.messages.some(isLog('fake app stopping'))).toBe(true);
     expect(host.supervisor.pid).not.toBe(firstPid);
     expect(prepared).toEqual([1, 2]);
@@ -287,7 +290,9 @@ describe('ConsoleHost with a fake agent child', () => {
     );
     const replay = await (await connect()).replay();
 
-    expect(replay.child).toEqual({ gen: 1, state: 'exited' });
+    expect(replay.child).toMatchObject({ gen: 1, state: 'exited', cause: { kind: 'start' } });
+    expect(replay.child.pid).toBeUndefined();
+    expect(replay.runs).toMatchObject([{ gen: 1, state: 'exited', cause: { kind: 'start' } }]);
     expect(replay.logs.at(-1)).toMatchObject({ gen: 1, stream: 'stderr' });
     expect(replay.logs.at(-1)?.line).toContain('Failed to import src/broken.ts');
 
@@ -296,6 +301,47 @@ describe('ConsoleHost with a fake agent child', () => {
     const client = await connect();
 
     await client.waitFor(isChild('running', 2));
+  });
+
+  it('numbers each log line once, so a replay repeats the numbers a live browser saw', async () => {
+    await startHost();
+    const live = await connect();
+
+    await live.waitFor(isChild('running', 1));
+    live.send({ v: 1, type: 'command', command: { id: 'c-1', command: 'emitEvent', event: 'flood' } });
+    await live.waitFor(isLog('flood 9'));
+
+    const seen = live.messages.flatMap((message) => (message.type === 'log' ? [[message.seq, message.line]] : []));
+    const replayed = (await (await connect()).replay()).logs.map((line) => [line.seq, line.line]);
+
+    expect(seen.length).toBeGreaterThan(9);
+    expect(replayed.slice(-seen.length)).toEqual(seen);
+    expect(replayed.map(([seq]) => seq)).toEqual(replayed.map((_, i) => i));
+  });
+
+  it('restarts the app when a browser asks, and records why each run started', async () => {
+    const { host } = await startHost();
+    const client = await connect();
+
+    await client.waitFor(isChild('running', 1));
+    client.send({ v: 1, type: 'restart' });
+
+    const starting = (await client.waitFor(isChild('starting', 2))) as Message<'child'>;
+
+    await client.waitFor(isChild('running', 2));
+
+    expect(starting.cause).toEqual({ kind: 'restart' });
+    expect(typeof starting.at).toBe('number');
+    expect(host.supervisor.generation).toBe(2);
+
+    const { runs } = await (await connect()).replay();
+
+    expect(runs.map(({ gen, cause, state }) => ({ gen, cause, state }))).toEqual([
+      { gen: 1, cause: { kind: 'start' }, state: 'exited' },
+      { gen: 2, cause: { kind: 'restart' }, state: 'running' },
+    ]);
+    expect(runs[0]?.code).toBe(0);
+    expect(runs[1]!.startedAt).toBeGreaterThanOrEqual(runs[0]!.startedAt);
   });
 
   it('replays only the current child metrics to a browser that connects after a restart', async () => {
@@ -334,7 +380,8 @@ describe('ConsoleHost with a fake agent child', () => {
 
     const replay = await (await connect()).replay();
 
-    expect(replay.child).toEqual({ gen: 2, state: 'exited' });
+    expect(replay.child).toMatchObject({ gen: 2, state: 'exited' });
+    expect(replay.child.pid).toBeUndefined();
     expect(replay.hello).toBeUndefined();
     expect(replay.snapshot).toBeUndefined();
     expect(replay.metrics).toEqual([]);

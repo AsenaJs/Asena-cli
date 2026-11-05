@@ -5,8 +5,19 @@
     "child": {
       "gen": 1,
       "state": "running",
-      "pid": 48211
+      "pid": 48211,
+      "at": 1762329600160
     },
+    "runs": [
+      {
+        "gen": 1,
+        "startedAt": 1762329600000,
+        "cause": {
+          "kind": "start"
+        },
+        "state": "running"
+      }
+    ],
     "hello": {
       "coreVersion": "0.13.0",
       "adapter": "Ergenecore",
@@ -430,36 +441,42 @@
     ],
     "logs": [
       {
+        "seq": 0,
         "gen": 1,
         "stream": "stdout",
         "line": "[AsenaServer] is initialized",
         "at": 1762329600120
       },
       {
+        "seq": 1,
         "gen": 1,
         "stream": "stdout",
         "line": "All components registered and ready to use",
         "at": 1762329600141
       },
       {
+        "seq": 2,
         "gen": 1,
         "stream": "stderr",
         "line": "[warn] CORS allows every origin",
         "at": 1762329600142
       },
       {
+        "seq": 3,
         "gen": 1,
         "stream": "stdout",
         "line": "[Schedule] Started \"NightlyCleanup\"",
         "at": 1762329600150
       },
       {
+        "seq": 4,
         "gen": 1,
         "stream": "stdout",
         "line": "Server started on http://localhost:3000",
         "at": 1762329600151
       },
       {
+        "seq": 5,
         "gen": 1,
         "stream": "stdout",
         "line": "Item 1 created",
@@ -622,6 +639,7 @@
   {
     "v": 1,
     "type": "log",
+    "seq": 6,
     "gen": 1,
     "stream": "stdout",
     "line": "Rename of item 7 rejected: name taken",
@@ -672,6 +690,7 @@
   {
     "v": 1,
     "type": "log",
+    "seq": 7,
     "gen": 1,
     "stream": "stderr",
     "line": "TypeError: undefined is not an object (evaluating 'item.name')",
@@ -718,6 +737,7 @@
   {
     "v": 1,
     "type": "log",
+    "seq": 8,
     "gen": 1,
     "stream": "stdout",
     "line": "NightlyCleanup removed 3 drafts",
@@ -759,11 +779,13 @@
     "type": "child",
     "gen": 1,
     "state": "restarting",
-    "pid": 48211
+    "pid": 48211,
+    "at": 1762329615000
   },
   {
     "v": 1,
     "type": "log",
+    "seq": 9,
     "gen": 1,
     "stream": "stdout",
     "line": "[AsenaServer] SIGTERM received, shutting down",
@@ -775,18 +797,25 @@
     "gen": 1,
     "state": "exited",
     "pid": 48211,
-    "code": 0
+    "code": 0,
+    "at": 1762329615020
   },
   {
     "v": 1,
     "type": "child",
     "gen": 2,
     "state": "starting",
-    "pid": 48390
+    "pid": 48390,
+    "at": 1762329615100,
+    "cause": {
+      "kind": "change",
+      "files": ["ItemService.ts"]
+    }
   },
   {
     "v": 1,
     "type": "log",
+    "seq": 10,
     "gen": 2,
     "stream": "stderr",
     "line": "error: Cannot find module './ItemRepositry' from '/srv/app/src/ItemService.ts'",
@@ -798,18 +827,25 @@
     "gen": 2,
     "state": "exited",
     "pid": 48390,
-    "code": 1
+    "code": 1,
+    "at": 1762329615160
   },
   {
     "v": 1,
     "type": "child",
     "gen": 3,
     "state": "starting",
-    "pid": 48466
+    "pid": 48466,
+    "at": 1762329621000,
+    "cause": {
+      "kind": "change",
+      "files": ["ItemService.ts"]
+    }
   },
   {
     "v": 1,
     "type": "log",
+    "seq": 11,
     "gen": 3,
     "stream": "stdout",
     "line": "[AsenaServer] is initialized",
@@ -818,6 +854,7 @@
   {
     "v": 1,
     "type": "log",
+    "seq": 12,
     "gen": 3,
     "stream": "stdout",
     "line": "Server started on http://localhost:3000",
@@ -848,7 +885,8 @@
     "type": "child",
     "gen": 3,
     "state": "running",
-    "pid": 48466
+    "pid": 48466,
+    "at": 1762329621170
   },
   {
     "v": 1,

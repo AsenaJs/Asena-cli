@@ -1,6 +1,7 @@
 import {
   CONSOLE_TOKEN_PARAM,
   CONSOLE_WS_PATH,
+  type ConsoleBrowserMessage,
   type ConsoleHostMessage,
   isConsoleHostMessage,
 } from '../../lib/console/hostProtocol';
@@ -11,6 +12,7 @@ export interface SocketLike {
   onmessage: ((event: { data: unknown }) => void) | null;
   onclose: ((event: unknown) => void) | null;
   close(): void;
+  send(data: string): void;
 }
 
 export interface ConsoleClientOptions {
@@ -25,6 +27,8 @@ export interface ConsoleClientOptions {
 }
 
 export interface ConsoleClient {
+  /** @returns Whether the message went out; false while the socket is not open. */
+  send(message: ConsoleBrowserMessage): boolean;
   close(): void;
 }
 
@@ -69,6 +73,7 @@ export const createConsoleClient = (options: ConsoleClientOptions): ConsoleClien
   } = options;
 
   let socket: SocketLike | null = null;
+  let open = false;
   let timer: unknown = null;
   let attempt = 0;
   let closed = false;
@@ -82,6 +87,7 @@ export const createConsoleClient = (options: ConsoleClientOptions): ConsoleClien
     socket = current;
     current.onopen = () => {
       attempt = 0;
+      open = true;
       onStatus('open');
     };
     current.onmessage = (event) => {
@@ -97,6 +103,7 @@ export const createConsoleClient = (options: ConsoleClientOptions): ConsoleClien
       if (closed || socket !== current) return;
 
       socket = null;
+      open = false;
       onStatus('closed');
       timer = setTimer(connect, reconnectDelay(attempt++, initialDelayMs, maxDelayMs));
     };
@@ -105,8 +112,16 @@ export const createConsoleClient = (options: ConsoleClientOptions): ConsoleClien
   connect();
 
   return {
+    send: (message) => {
+      if (!open || !socket) return false;
+
+      socket.send(JSON.stringify(message));
+
+      return true;
+    },
     close: () => {
       closed = true;
+      open = false;
 
       if (timer !== null) clearTimer(timer);
 

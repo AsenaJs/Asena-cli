@@ -17,8 +17,14 @@ class FakeSocket implements SocketLike {
 
   constructor(readonly url: string) {}
 
+  sent: string[] = [];
+
   close() {
     this.closeCalls++;
+  }
+
+  send(data: string) {
+    this.sent.push(data);
   }
 
   open() {
@@ -70,7 +76,7 @@ const setup = () => {
   return { client, sockets, statuses, messages, timers, fire };
 };
 
-const log: ConsoleHostMessage = { v: 1, type: 'log', gen: 1, stream: 'stdout', line: 'ready', at: 1 };
+const log: ConsoleHostMessage = { v: 1, type: 'log', seq: 0, gen: 1, stream: 'stdout', line: 'ready', at: 1 };
 
 describe('readToken / consoleWsUrl', () => {
   test('reads the token from the page query', () => {
@@ -136,6 +142,27 @@ describe('createConsoleClient', () => {
     sockets.at(-1)!.drop();
 
     expect(timers.map((timer) => timer.ms)).toEqual([100, 200, 100]);
+  });
+
+  test('send() writes a browser message to the open socket and refuses while there is none', () => {
+    const { client, sockets, fire } = setup();
+
+    expect(client.send({ v: 1, type: 'restart' })).toBe(false);
+
+    sockets[0]!.open();
+
+    expect(client.send({ v: 1, type: 'restart' })).toBe(true);
+    expect(sockets[0]!.sent).toEqual(['{"v":1,"type":"restart"}']);
+
+    sockets[0]!.drop();
+
+    expect(client.send({ v: 1, type: 'restart' })).toBe(false);
+
+    fire();
+    sockets[1]!.open();
+
+    expect(client.send({ v: 1, type: 'restart' })).toBe(true);
+    expect(sockets[1]!.sent).toHaveLength(1);
   });
 
   test('close() stops the pending retry and closes the socket without reconnecting', () => {

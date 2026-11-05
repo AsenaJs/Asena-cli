@@ -14,7 +14,8 @@ export interface AppSupervisorOptions {
   /** How long a stopping child gets after SIGTERM before SIGKILL. */
   killAfterMs?: number;
   onStatus: (status: ConsoleChildStatus) => void;
-  onLog: (line: ConsoleLogLine) => void;
+  /** The host numbers the lines. */
+  onLog: (line: Omit<ConsoleLogLine, 'seq'>) => void;
   onAgentMessage: (message: DevtoolsAgentMessage, gen: number) => void;
   onInvalidMessage?: (message: unknown, gen: number) => void;
 }

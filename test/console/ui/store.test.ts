@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { ConsoleHostMessage } from '../../../lib/console/hostProtocol';
 import type { DevtoolsMetrics, DevtoolsSnapshot } from '../../../lib/console/protocol';
+import { filterLogs, LOG_LEVELS } from '../../../console-ui/runtime/logs';
 import {
   consoleReducer,
   type ConsoleState,
@@ -35,44 +36,55 @@ const metrics = (uptimeSeconds: number): DevtoolsMetrics => ({
   readiness: { status: 'up' },
 });
 
+const runSummary = (state: ConsoleState) =>
+  state.runs.map(({ gen, state: runState, code, cause }) => ({ gen, state: runState, code, cause: cause.kind }));
+
 describe('consoleReducer over the recorded host messages', () => {
   test('the replay fills every slice for the current child', () => {
     const state = feed(recording.slice(0, 1));
 
-    expect(state.child).toEqual({ gen: 1, state: 'running', pid: 48211 });
+    expect(state.child).toMatchObject({ gen: 1, state: 'running', pid: 48211 });
     expect(state.hello?.pid).toBe(48211);
     expect(state.snapshot).toEqual(snapshot);
     expect(state.snapshotGen).toBe(1);
     expect(state.metrics.map((sample) => sample.uptimeSeconds)).toEqual([3, 4, 5]);
     expect(state.logs.map((entry) => entry.seq)).toEqual([0, 1, 2, 3, 4, 5]);
     expect(state.requests.map((record) => record.id)).toEqual(['r-1', 'r-2']);
+    expect(runSummary(state)).toEqual([{ gen: 1, state: 'running', code: undefined, cause: 'start' }]);
     expect(isSnapshotStale(state)).toBe(false);
   });
 
   test('a respawn drops the old child hello and metrics, keeps the snapshot marked stale and keeps the logs', () => {
     const state = feedUntil((message) => message.type === 'child' && message.gen === 2);
 
-    expect(state.child).toEqual({ gen: 2, state: 'starting', pid: 48390 });
+    expect(state.child).toMatchObject({ gen: 2, state: 'starting', pid: 48390 });
     expect(state.hello).toBeNull();
     expect(state.metrics).toEqual([]);
     expect(state.snapshot).toEqual(snapshot);
     expect(state.snapshotGen).toBe(1);
     expect(isSnapshotStale(state)).toBe(true);
     expect(state.logs.some((entry) => entry.line.includes('SIGTERM received'))).toBe(true);
+    expect(state.runs.at(-1)).toEqual({
+      gen: 2,
+      startedAt: 1762329615100,
+      cause: { kind: 'change', files: ['ItemService.ts'] },
+      state: 'starting',
+    });
   });
 
   test('a crashed child reports its exit code and its stderr stays in the log', () => {
     const state = feedUntil((message) => message.type === 'child' && message.gen === 2 && message.state === 'exited');
 
-    expect(state.child).toEqual({ gen: 2, state: 'exited', pid: 48390, code: 1 });
+    expect(state.child).toMatchObject({ gen: 2, state: 'exited', pid: 48390, code: 1 });
     expect(state.logs.at(-1)).toMatchObject({ gen: 2, stream: 'stderr' });
+    expect(state.runs.at(-1)).toMatchObject({ gen: 2, state: 'exited', code: 1 });
   });
 
   test('the whole recording ends on generation 3 with its own hello, snapshot and metrics', () => {
     const state = feed(recording);
     const logLines = recording.filter((message) => message.type === 'log').length;
 
-    expect(state.child).toEqual({ gen: 3, state: 'running', pid: 48466 });
+    expect(state.child).toMatchObject({ gen: 3, state: 'running', pid: 48466 });
     expect(state.hello?.pid).toBe(48466);
     expect(state.snapshotGen).toBe(3);
     expect(isSnapshotStale(state)).toBe(false);
@@ -82,6 +94,11 @@ describe('consoleReducer over the recorded host messages', () => {
     expect(state.requests.map((record) => record.id)).toEqual(['r-1', 'r-2', 'r-3', 'r-4', 'r-5']);
     expect(state.commandResults['c-1']).toEqual({ id: 'c-1', ok: true, result: { ran: 'NightlyCleanup' } });
     expect(state.commandResults['c-2']?.ok).toBe(false);
+    expect(runSummary(state)).toEqual([
+      { gen: 1, state: 'exited', code: 0, cause: 'start' },
+      { gen: 2, state: 'exited', code: 1, cause: 'change' },
+      { gen: 3, state: 'running', code: undefined, cause: 'change' },
+    ]);
   });
 });
 
@@ -93,6 +110,7 @@ describe('consoleReducer generations', () => {
     const late = feed([{ v: 1, type: 'child', gen: 1, state: 'exited', code: 0 }], respawned);
 
     expect(late.child).toEqual({ gen: 2, state: 'running', pid: 2 });
+    expect(late.runs.map((run) => run.gen)).toEqual([1, 2]);
   });
 
   test('a state change within one generation keeps hello and metrics', () => {
@@ -101,12 +119,23 @@ describe('consoleReducer generations', () => {
     expect(restarting.child?.state).toBe('restarting');
     expect(restarting.hello).toBe(running.hello);
     expect(restarting.metrics).toBe(running.metrics);
+    expect(restarting.runs).toEqual([{ ...running.runs[0]!, state: 'restarting' }]);
   });
 
-  test('a later replay replaces the slices it carries, keeps command results and continues the log sequence', () => {
+  test('a later replay replaces the slices it carries and keeps command results', () => {
     const withResult = feed(recording, running);
     const replay = feed(
-      [{ v: 1, type: 'snapshotState', child: { gen: 1, state: 'starting' }, metrics: [], logs: [], requests: [] }],
+      [
+        {
+          v: 1,
+          type: 'snapshotState',
+          child: { gen: 1, state: 'starting' },
+          runs: [],
+          metrics: [],
+          logs: [],
+          requests: [],
+        },
+      ],
       withResult,
     );
 
@@ -115,8 +144,37 @@ describe('consoleReducer generations', () => {
     expect(replay.snapshot).toBeNull();
     expect(replay.snapshotGen).toBeNull();
     expect(replay.logs).toEqual([]);
+    expect(replay.runs).toEqual([]);
     expect(replay.commandResults).toEqual(withResult.commandResults);
-    expect(replay.nextLogSeq).toBe(withResult.nextLogSeq);
+  });
+
+  test('a reconnect replay keeps the numbers the host gave each line, so a clear stays cleared', () => {
+    const live = feed(recording);
+    const clearedThrough = live.logs.at(-1)!.seq;
+    const reconnected = feed(
+      [
+        {
+          v: 1,
+          type: 'snapshotState',
+          child: live.child!,
+          runs: live.runs,
+          metrics: [],
+          logs: live.logs,
+          requests: [],
+        },
+        { v: 1, type: 'log', seq: clearedThrough + 1, gen: 3, stream: 'stdout', line: 'after the reconnect', at: 1 },
+      ],
+      live,
+    );
+    const shown = filterLogs(reconnected.logs, {
+      levels: new Set(LOG_LEVELS),
+      search: '',
+      pausedAt: null,
+      clearedThrough,
+    });
+
+    expect(reconnected.logs.map((entry) => entry.seq)).toEqual([...live.logs.map((entry) => entry.seq), 13]);
+    expect(shown.map((entry) => entry.line)).toEqual(['after the reconnect']);
   });
 });
 
@@ -133,10 +191,11 @@ describe('consoleReducer limits', () => {
     expect(state.metrics[0]?.uptimeSeconds).toBe(10);
   });
 
-  test('keeps the last 2000 log lines and keeps numbering past the dropped ones', () => {
+  test('keeps the last 2000 log lines with the numbers the host gave them', () => {
     const lines = Array.from({ length: 2005 }, (_, i): ConsoleHostMessage => ({
       v: 1,
       type: 'log',
+      seq: i,
       gen: 1,
       stream: 'stdout',
       line: `line ${i}`,
@@ -145,17 +204,29 @@ describe('consoleReducer limits', () => {
     const state = feed(lines);
 
     expect(state.logs).toHaveLength(2000);
-    expect(state.logs[0]).toEqual({ gen: 1, stream: 'stdout', line: 'line 5', at: 5, seq: 5 });
-    expect(state.nextLogSeq).toBe(2005);
+    expect(state.logs[0]).toEqual({ seq: 5, gen: 1, stream: 'stdout', line: 'line 5', at: 5 });
   });
 
   test('trims an oversized replay to the replay limits', () => {
-    const logs = Array.from({ length: 2001 }, (_, i) => ({ gen: 1, stream: 'stdout' as const, line: '', at: i }));
+    const logs = Array.from({ length: 2001 }, (_, i) => ({
+      seq: i,
+      gen: 1,
+      stream: 'stdout' as const,
+      line: '',
+      at: i,
+    }));
+    const runs = Array.from({ length: 51 }, (_, i) => ({
+      gen: i + 1,
+      startedAt: i,
+      cause: { kind: 'restart' as const },
+      state: 'exited' as const,
+    }));
     const state = feed([
       {
         v: 1,
         type: 'snapshotState',
-        child: { gen: 1, state: 'running' },
+        child: { gen: 51, state: 'exited' },
+        runs,
         metrics: Array.from({ length: 121 }, (_, i) => metrics(i)),
         logs,
         requests: [],
@@ -165,6 +236,8 @@ describe('consoleReducer limits', () => {
     expect(state.metrics).toHaveLength(120);
     expect(state.logs).toHaveLength(2000);
     expect(state.logs[0]?.at).toBe(1);
+    expect(state.runs).toHaveLength(50);
+    expect(state.runs[0]?.gen).toBe(2);
   });
 });
 

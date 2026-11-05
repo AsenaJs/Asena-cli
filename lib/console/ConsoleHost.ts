@@ -13,6 +13,8 @@ import {
   type ConsoleHostMessage,
   type ConsoleHttpError,
   type ConsoleLogLine,
+  type ConsoleRun,
+  type ConsoleRunCause,
   type ConsoleSnapshotStateMessage,
   isConsoleBrowserMessage,
   isConsoleHttpRequest,
@@ -107,6 +109,12 @@ export class ConsoleHost {
 
   private readonly warnedInvalid = new Set<number>();
 
+  private readonly runs: ConsoleRun[] = [];
+
+  private pendingCause?: ConsoleRunCause;
+
+  private nextLogSeq = 0;
+
   public constructor(private readonly options: ConsoleHostOptions) {
     this.token = options.token ?? createConsoleToken();
     this.assets = listAssets(options.uiDir);
@@ -149,11 +157,21 @@ export class ConsoleHost {
     await this.supervisor.start();
 
     if (this.options.watchDir) {
-      this.watcher = watchSourceFolder(this.options.watchDir, () => void this.restart(), this.options.watchDebounceMs);
+      this.watcher = watchSourceFolder(
+        this.options.watchDir,
+        (files) => void this.restart({ kind: 'change', files }),
+        this.options.watchDebounceMs,
+      );
     }
   }
 
-  public restart(): Promise<void> {
+  /** Restarts the app; restarts asked for while one runs fold into it, saved files adding up. */
+  public restart(cause: ConsoleRunCause = { kind: 'restart' }): Promise<void> {
+    this.pendingCause =
+      this.pendingCause?.kind === 'change' && cause.kind === 'change'
+        ? { kind: 'change', files: [...new Set([...this.pendingCause.files, ...cause.files])] }
+        : cause;
+
     return this.supervisor.restart();
   }
 
@@ -170,6 +188,7 @@ export class ConsoleHost {
       child: this.child,
       ...(this.hello ? { hello: this.hello } : {}),
       ...(this.snapshot ? { snapshot: this.snapshot } : {}),
+      runs: [...this.runs],
       metrics: this.metrics.toArray(),
       logs: this.logs.toArray(),
       requests: this.requests.toArray(),
@@ -184,21 +203,48 @@ export class ConsoleHost {
     this.server?.publish(TOPIC, JSON.stringify(message));
   }
 
-  private onStatus(status: ConsoleChildStatus): void {
+  private onStatus(reported: ConsoleChildStatus): void {
+    const at = Date.now();
+    let status: ConsoleChildStatus = { ...reported, at };
+
     // A failed start reports only `exited` for its generation, so the boundary is the generation, not `starting`.
     if (status.gen !== this.child.gen) {
       this.hello = undefined;
       this.snapshot = undefined;
       this.metrics.clear();
+
+      const cause = this.pendingCause ?? (this.runs.length === 0 ? { kind: 'start' } : { kind: 'restart' });
+
+      this.pendingCause = undefined;
+      status = { ...status, cause };
+      this.runs.push({ gen: status.gen, startedAt: at, cause, state: status.state });
+      this.runs.splice(0, Math.max(0, this.runs.length - CONSOLE_REPLAY_LIMITS.runs));
+    }
+
+    const run = this.runs.at(-1);
+
+    if (run?.gen === status.gen) {
+      const { code, signal } = status;
+
+      this.runs[this.runs.length - 1] = {
+        gen: run.gen,
+        startedAt: run.startedAt,
+        cause: run.cause,
+        state: status.state,
+        ...(code === undefined ? {} : { code }),
+        ...(signal === undefined ? {} : { signal }),
+      };
     }
 
     this.child = status;
     this.broadcast({ v: CONSOLE_PROTOCOL_VERSION, type: 'child', ...status });
   }
 
-  private onLog(line: ConsoleLogLine): void {
-    this.logs.push(line);
-    this.broadcast({ v: CONSOLE_PROTOCOL_VERSION, type: 'log', ...line });
+  private onLog(line: Omit<ConsoleLogLine, 'seq'>): void {
+    const numbered: ConsoleLogLine = { seq: this.nextLogSeq++, ...line };
+
+    this.logs.push(numbered);
+    this.broadcast({ v: CONSOLE_PROTOCOL_VERSION, type: 'log', ...numbered });
   }
 
   /** A warning shown in the terminal and, as a stderr line of the app, in the UI. */
@@ -262,6 +308,12 @@ export class ConsoleHost {
     }
 
     if (!isConsoleBrowserMessage(message)) return;
+
+    if (message.type === 'restart') {
+      void this.restart({ kind: 'restart' });
+
+      return;
+    }
 
     if (this.supervisor.send(hostMessage('command', message.command))) return;
 

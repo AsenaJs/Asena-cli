@@ -24,7 +24,7 @@ export const CONSOLE_HTTP_PROXY_PATH = '/api/http';
 export const CONSOLE_ASSETS_PREFIX = '/assets/';
 
 /** How many of the most recent entries `snapshotState` replays. */
-export const CONSOLE_REPLAY_LIMITS = { metrics: 120, logs: 2000, requests: 500 } as const;
+export const CONSOLE_REPLAY_LIMITS = { metrics: 120, logs: 2000, requests: 500, runs: 50 } as const;
 
 export const CONSOLE_CHILD_STATES = ['starting', 'running', 'exited', 'restarting'] as const;
 
@@ -33,6 +33,9 @@ export type ConsoleChildState = (typeof CONSOLE_CHILD_STATES)[number];
 export const CONSOLE_LOG_STREAMS = ['stdout', 'stderr'] as const;
 
 export type ConsoleLogStream = (typeof CONSOLE_LOG_STREAMS)[number];
+
+/** Why the host started a generation: the first start, a restart asked for in the UI, or saved source files. */
+export type ConsoleRunCause = { kind: 'start' } | { kind: 'restart' } | { kind: 'change'; files: string[] };
 
 export interface ConsoleChildStatus {
   /** The child's generation: 1 for the first spawn, one more on every respawn. */
@@ -43,9 +46,25 @@ export interface ConsoleChildStatus {
   code?: number;
   /** Signal name, once the child has been killed by one. */
   signal?: string;
+  /** Epoch milliseconds of the change. */
+  at?: number;
+  /** Set on the first status of a generation. */
+  cause?: ConsoleRunCause;
+}
+
+/** One generation as the restart timeline shows it: when and why it started, and its latest state. */
+export interface ConsoleRun {
+  gen: number;
+  startedAt: number;
+  cause: ConsoleRunCause;
+  state: ConsoleChildState;
+  code?: number;
+  signal?: string;
 }
 
 export interface ConsoleLogLine {
+  /** Numbers every line the host captured this session from 0, so a replay repeats the numbers. */
+  seq: number;
   gen: number;
   stream: ConsoleLogStream;
   /** One line of output, without its line break. */
@@ -59,6 +78,8 @@ export interface ConsoleSnapshotState {
   child: ConsoleChildStatus;
   hello?: DevtoolsHello;
   snapshot?: DevtoolsSnapshot;
+  /** The most recent generations, oldest first, the current one last. */
+  runs: ConsoleRun[];
   metrics: DevtoolsMetrics[];
   logs: ConsoleLogLine[];
   requests: DevtoolsRequestRecord[];
@@ -86,7 +107,10 @@ export type ConsoleHostMessageType = ConsoleHostMessage['type'];
 /** A command for the agent. The host forwards it as a protocol `command` message. */
 export type ConsoleCommandMessage = ConsoleEnvelope<'command'> & { command: DevtoolsCommandRequest };
 
-export type ConsoleBrowserMessage = ConsoleCommandMessage;
+/** Asks the host to respawn the app, as a saved source file does. */
+export type ConsoleRestartMessage = ConsoleEnvelope<'restart'>;
+
+export type ConsoleBrowserMessage = ConsoleCommandMessage | ConsoleRestartMessage;
 
 export type ConsoleBrowserMessageType = ConsoleBrowserMessage['type'];
 
@@ -136,28 +160,57 @@ const isString = (value: unknown): value is string => typeof value === 'string';
 const isStringRecord = (value: unknown): value is Record<string, string> =>
   isObject(value) && Object.values(value).every(isString);
 
-const isChildStatus = (value: Fields): boolean =>
-  Number.isInteger(value['gen']) &&
+const isArrayOf = (value: unknown, check: (item: unknown) => boolean): boolean =>
+  Array.isArray(value) && value.every(check);
+
+const isRunCause = (value: unknown): boolean => {
+  if (!isObject(value)) return false;
+
+  switch (value['kind']) {
+    case 'start':
+    case 'restart':
+      return true;
+    case 'change':
+      return isArrayOf(value['files'], isString);
+    default:
+      return false;
+  }
+};
+
+const isExit = (value: Fields): boolean =>
   isOneOf(value['state'], CONSOLE_CHILD_STATES) &&
-  isOptional(value['pid'], isNumber) &&
   isOptional(value['code'], isNumber) &&
   isOptional(value['signal'], isString);
 
+const isChildStatus = (value: Fields): boolean =>
+  Number.isInteger(value['gen']) &&
+  isExit(value) &&
+  isOptional(value['pid'], isNumber) &&
+  isOptional(value['at'], isNumber) &&
+  isOptional(value['cause'], isRunCause);
+
+const isRun = (value: unknown): boolean =>
+  isObject(value) &&
+  Number.isInteger(value['gen']) &&
+  isNumber(value['startedAt']) &&
+  isRunCause(value['cause']) &&
+  isExit(value);
+
 const isLogLine = (value: unknown): boolean =>
   isObject(value) &&
+  Number.isInteger(value['seq']) &&
+  (value['seq'] as number) >= 0 &&
   Number.isInteger(value['gen']) &&
   isOneOf(value['stream'], CONSOLE_LOG_STREAMS) &&
   isString(value['line']) &&
   isNumber(value['at']);
-
-const isArrayOf = (value: unknown, check: (item: unknown) => boolean): boolean =>
-  Array.isArray(value) && value.every(check);
 
 const isSnapshotState = (value: Fields): boolean =>
   isObject(value['child']) &&
   isChildStatus(value['child']) &&
   isOptional(value['hello'], isObject) &&
   isOptional(value['snapshot'], isObject) &&
+  isArrayOf(value['runs'], isRun) &&
   isArrayOf(value['metrics'], isObject) &&
   isArrayOf(value['logs'], isLogLine) &&
   isArrayOf(value['requests'], isObject);
@@ -196,11 +249,11 @@ const isCommand = (value: unknown): value is DevtoolsCommandRequest => {
 };
 
 /** The host's input check on every browser WebSocket frame, after `JSON.parse`. */
-export const isConsoleBrowserMessage = (value: unknown): value is ConsoleBrowserMessage =>
-  isObject(value) &&
-  value['v'] === CONSOLE_PROTOCOL_VERSION &&
-  value['type'] === 'command' &&
-  isCommand(value['command']);
+export const isConsoleBrowserMessage = (value: unknown): value is ConsoleBrowserMessage => {
+  if (!isObject(value) || value['v'] !== CONSOLE_PROTOCOL_VERSION) return false;
+
+  return value['type'] === 'restart' || (value['type'] === 'command' && isCommand(value['command']));
+};
 
 // A second `/` or `\` makes the path protocol-relative under `new URL(path, base)`, i.e. another host.
 // The URL parser drops tab, LF and CR first, so control characters are rejected before that check.

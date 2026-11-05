@@ -213,6 +213,7 @@ describe('console fixtures', () => {
         type: 'snapshotState',
         child: { gen: 1, state: 'running', pid: 1 },
         snapshot,
+        runs: [],
         metrics: [],
         logs: [],
         requests: [],
@@ -284,15 +285,41 @@ describe('console fixtures', () => {
 
     expect(gens).toEqual([...gens].sort((a, b) => a - b));
   });
+
+  test('log lines are numbered in the order the host captured them, without gaps', () => {
+    const seqs = (hostMessages as ConsoleHostMessage[]).flatMap((message) => {
+      if (message.type === 'snapshotState') return message.logs.map((line) => line.seq);
+      if (message.type === 'log') return [message.seq];
+
+      return [];
+    });
+
+    expect(seqs).toEqual(seqs.map((_, i) => i));
+  });
+
+  test('every generation that starts says why, and the replay lists the runs so far', () => {
+    const messages = hostMessages as ConsoleHostMessage[];
+    const starts = messages.filter(
+      (message): message is Extract<ConsoleHostMessage, { type: 'child' }> =>
+        message.type === 'child' && message.state === 'starting',
+    );
+    const [first] = messages;
+
+    expect(starts.length).toBeGreaterThan(0);
+    expect(starts.every((message) => message.cause !== undefined && message.at !== undefined)).toBe(true);
+    expect(first?.type === 'snapshotState' && first.runs.map((run) => run.gen)).toEqual([1]);
+  });
 });
 
 describe('isConsoleHostMessage', () => {
-  const log = { v: 1, type: 'log', gen: 1, stream: 'stdout', line: 'ready', at: 1 };
+  const log = { v: 1, type: 'log', seq: 0, gen: 1, stream: 'stdout', line: 'ready', at: 1 };
   const child = { v: 1, type: 'child', gen: 2, state: 'exited', code: 1 };
+  const run = { gen: 1, startedAt: 1, cause: { kind: 'start' }, state: 'running' };
   const state = {
     v: 1,
     type: 'snapshotState',
     child: { gen: 1, state: 'starting' },
+    runs: [],
     metrics: [],
     logs: [],
     requests: [],
@@ -305,6 +332,17 @@ describe('isConsoleHostMessage', () => {
     expect(isConsoleHostMessage({ v: 1, type: 'agent', message: { v: 1, type: 'metrics', payload: {} } })).toBe(true);
   });
 
+  test('accepts the cause and time of a child state and the runs of a replay', () => {
+    expect(isConsoleHostMessage({ ...child, state: 'starting', at: 5, cause: { kind: 'restart' } })).toBe(true);
+    expect(isConsoleHostMessage({ ...child, cause: { kind: 'change', files: ['ItemService.ts'] } })).toBe(true);
+    expect(
+      isConsoleHostMessage({
+        ...state,
+        runs: [run, { ...run, gen: 2, cause: { kind: 'change', files: [] }, state: 'exited', code: 1 }],
+      }),
+    ).toBe(true);
+  });
+
   test.each([
     ['another version', { ...log, v: 2 }],
     ['an unknown type', { ...log, type: 'stdout' }],
@@ -312,6 +350,13 @@ describe('isConsoleHostMessage', () => {
     ['null', null],
     ['an unknown log stream', { ...log, stream: 'stdin' }],
     ['a log line without its time', { ...log, at: undefined }],
+    ['a log line without its sequence number', { ...log, seq: undefined }],
+    ['a negative sequence number', { ...log, seq: -1 }],
+    ['an unknown start cause', { ...child, cause: { kind: 'reload' } }],
+    ['a change cause without its files', { ...child, cause: { kind: 'change' } }],
+    ['a change time that is not a number', { ...child, at: '12:00' }],
+    ['a replay without runs', { ...state, runs: undefined }],
+    ['a replay with a run without its start time', { ...state, runs: [{ ...run, startedAt: undefined }] }],
     ['an unknown child state', { ...child, state: 'crashed' }],
     ['a fractional generation', { ...child, gen: 1.5 }],
     ['a signal that is not a name', { ...child, signal: 9 }],
@@ -351,7 +396,14 @@ describe('isConsoleBrowserMessage', () => {
     expect(accepted.every(isConsoleBrowserMessage)).toBe(true);
   });
 
+  test('accepts a restart request', () => {
+    const restart: ConsoleBrowserMessage = { v: 1, type: 'restart' };
+
+    expect(isConsoleBrowserMessage(restart)).toBe(true);
+  });
+
   test.each([
+    ['a restart of another version', { v: 2, type: 'restart' }],
     ['another version', { v: 2, type: 'command', command: { id: 'c-1', command: 'runSchedule', name: 'x' } }],
     ['a host message type', { v: 1, type: 'log', command: { id: 'c-1', command: 'runSchedule', name: 'x' } }],
     ['a command without an id', { v: 1, type: 'command', command: { command: 'runSchedule', name: 'x' } }],
