@@ -327,7 +327,7 @@ describe('endpoints panel rendering', () => {
         snapshot={snapshot}
         hello={hello}
         token="t"
-        focusedRoute={null}
+        focus={null}
         storage={new MemoryStorage()}
         {...props}
       />,
@@ -357,13 +357,22 @@ describe('endpoints panel rendering', () => {
   });
 
   test('opens the route the graph linked to, with its path parameter marked in the URL', () => {
-    const html = panel({ focusedRoute: 'PUT /items/:id/name' });
+    const html = panel({ focus: { key: 'PUT /items/:id/name' } });
 
     expect(html).toContain('ItemController.rename');
     expect(html).toContain('contract RenameItemContext');
     expect(html).toContain('Fill in :id');
     expect(html).toContain('<span class="param" title=":id">:id</span>');
     expect(html).toMatch(/aria-selected="true"[^>]*>Body</);
+  });
+
+  test('a replayed request opens its route with the path values it was sent with', () => {
+    const html = panel({ focus: { key: 'GET /items/images/*', params: { '*': 'lamp front.png' }, method: 'GET' } });
+
+    expect(html).toContain('ItemController.images');
+    expect(html).toContain('<span class="param" title=":*">lamp front.png</span>');
+    expect(html).not.toContain('Fill in');
+    expect(html).toContain('send the request to see the chain that answers it');
   });
 
   test('says why it cannot send without a running app or a token', () => {
@@ -431,18 +440,22 @@ describe('endpoints panel rendering', () => {
     expect(highlightJson('plain <text>')).toEqual(['plain <text>']);
   });
 
-  test('the chain area waits for the request inspector, and shows a chain it is given', () => {
-    expect(renderToStaticMarkup(<ChainView chain={null} />)).toContain('the request inspector shows the chain');
+  test('the chain area says why it has no chain, and marks the step that answered', () => {
+    expect(renderToStaticMarkup(<ChainView chain={null} empty="nothing yet" />)).toContain('nothing yet');
 
     const steps = [
       { kind: 'middleware' as const, name: 'AuditTrail' },
       { kind: 'controller' as const, name: 'ItemController.find' },
       { kind: 'catch' as const, name: 'ApiExceptionHandler.known' },
     ];
-    const html = renderToStaticMarkup(<ChainView chain={{ steps, answeredBy: steps[2]! }} />);
+    const caught = renderToStaticMarkup(<ChainView chain={{ steps, answeredBy: steps[2]! }} empty="" />);
+    const handled = renderToStaticMarkup(
+      <ChainView chain={{ steps: steps.slice(0, 2), answeredBy: steps[1]! }} empty="" />,
+    );
 
-    expect(html).toContain('<span class="step ">AuditTrail</span>');
-    expect(html).toContain('<span class="step win">ApiExceptionHandler.known</span>');
+    expect(caught).toContain('<span class="step " title="Middleware">AuditTrail</span>');
+    expect(caught).toContain('<span class="step win" title="@Catch">ApiExceptionHandler.known</span>');
+    expect(handled).toContain('<span class="step ok" title="Handler">ItemController.find</span>');
   });
 
   test('the WebSocket tester targets the app port, or says there is none', () => {

@@ -3,6 +3,8 @@ import type { ConsoleBrowserMessage } from '../lib/console/hostProtocol';
 import type { DevtoolsSnapshot } from '../lib/console/protocol';
 import { EndpointsPanel } from './endpoints/EndpointsPanel';
 import { GraphPanel } from './graph/GraphPanel';
+import type { EndpointFocus } from './requests/records';
+import { RequestsPanel } from './requests/RequestsPanel';
 import { RuntimePanel } from './runtime/RuntimePanel';
 import { Placeholder, StaleNotice, WaitingForSnapshot } from './shell/Placeholder';
 import { Sidebar } from './shell/Sidebar';
@@ -27,11 +29,11 @@ interface PanelProps {
   state: ConsoleState;
   token: string | null;
   theme: ThemeChoice;
-  focusedRoute: string | null;
-  onOpenRoute: (key: string) => void;
+  focus: EndpointFocus | null;
+  onOpenEndpoint: (focus: EndpointFocus) => void;
 }
 
-const Panel = ({ view, state, token, theme, focusedRoute, onOpenRoute }: PanelProps) => {
+const Panel = ({ view, state, token, theme, focus, onOpenEndpoint }: PanelProps) => {
   const withSnapshot = (render: (snapshot: DevtoolsSnapshot) => ReactNode) =>
     state.snapshot ? (
       <>
@@ -44,7 +46,9 @@ const Panel = ({ view, state, token, theme, focusedRoute, onOpenRoute }: PanelPr
 
   switch (view) {
     case 'graph':
-      return withSnapshot((snapshot) => <GraphPanel snapshot={snapshot} theme={theme} onOpenRoute={onOpenRoute} />);
+      return withSnapshot((snapshot) => (
+        <GraphPanel snapshot={snapshot} theme={theme} onOpenRoute={(key) => onOpenEndpoint({ key })} />
+      ));
     case 'runtime':
       return <RuntimePanel state={state} />;
     case 'endpoints':
@@ -54,9 +58,20 @@ const Panel = ({ view, state, token, theme, focusedRoute, onOpenRoute }: PanelPr
           hello={state.hello}
           gen={state.child?.gen ?? null}
           token={token}
-          focusedRoute={focusedRoute}
+          focus={focus}
+          requests={state.requests}
         />
       ));
+    case 'requests':
+      return (
+        <RequestsPanel
+          requests={state.requests}
+          logs={state.logs}
+          runs={state.runs}
+          routes={state.snapshot?.routes ?? []}
+          onReplay={onOpenEndpoint}
+        />
+      );
     default:
       return <Placeholder view={view} />;
   }
@@ -65,7 +80,7 @@ const Panel = ({ view, state, token, theme, focusedRoute, onOpenRoute }: PanelPr
 export const Shell = ({ state, token, initialView, send }: ShellProps) => {
   const [view, setView] = useState<ViewId>(() => initialView ?? viewFromHash(currentHash()));
   const [theme, setTheme] = useTheme();
-  const [focusedRoute, setFocusedRoute] = useState<string | null>(null);
+  const [focus, setFocus] = useState<EndpointFocus | null>(null);
   const status = appStatus(state, token);
 
   useEffect(() => {
@@ -76,8 +91,8 @@ export const Shell = ({ state, token, initialView, send }: ShellProps) => {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  const openRoute = (key: string) => {
-    setFocusedRoute(key);
+  const openEndpoint = (next: EndpointFocus) => {
+    setFocus(next);
     setView('endpoints');
     location.hash = viewHash('endpoints');
   };
@@ -105,14 +120,7 @@ export const Shell = ({ state, token, initialView, send }: ShellProps) => {
               {status.detail}
             </p>
           ) : null}
-          <Panel
-            view={view}
-            state={state}
-            token={token}
-            theme={theme}
-            focusedRoute={focusedRoute}
-            onOpenRoute={openRoute}
-          />
+          <Panel view={view} state={state} token={token} theme={theme} focus={focus} onOpenEndpoint={openEndpoint} />
         </main>
       </div>
     </div>

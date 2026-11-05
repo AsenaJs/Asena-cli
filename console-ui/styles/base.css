@@ -571,6 +571,82 @@ input[type='radio'] {
   color: var(--ink-3);
 }
 
+/* ---------- table, toolbar ---------- */
+.table-wrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.table th {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table .right {
+  text-align: right;
+}
+
+.table tbody tr[tabindex] {
+  cursor: pointer;
+}
+
+.table tbody tr[tabindex]:hover {
+  background: var(--hover);
+}
+
+.table tbody tr[aria-current='true'] {
+  background: var(--sunken);
+}
+
+.table-note {
+  padding: 12px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.toolbar .search {
+  flex: 1 1 220px;
+}
+
+.toolbar-select {
+  width: auto;
+  font-family: var(--font-ui);
+}
+
+.toolbar-count {
+  margin-left: auto;
+  font-size: 12px;
+}
+
 /* ---------- code ---------- */
 .code {
   margin: 0;

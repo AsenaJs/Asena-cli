@@ -50,15 +50,19 @@ describe('console UI shell', () => {
     expect(html).toContain('<dd class="mono">0.13.0</dd>');
   });
 
-  test.each(['requests', 'messaging', 'config', 'exceptions'] as const)(
-    '%s routes to a placeholder for now',
-    (view) => {
-      const html = renderToStaticMarkup(<Shell state={running} token="t" initialView={view} />);
+  test('requests shows the request inspector', () => {
+    const html = renderToStaticMarkup(<Shell state={running} token="t" initialView="requests" />);
 
-      expect(html).toContain('This panel is not built yet.');
-      expect(html).toContain(`<h1>${VIEWS.find((entry) => entry.id === view)!.label}</h1>`);
-    },
-  );
+    expect(html).toContain('<h1>Requests</h1>');
+    expect(html).toContain('Requests, newest first');
+  });
+
+  test.each(['messaging', 'config', 'exceptions'] as const)('%s routes to a placeholder for now', (view) => {
+    const html = renderToStaticMarkup(<Shell state={running} token="t" initialView={view} />);
+
+    expect(html).toContain('This panel is not built yet.');
+    expect(html).toContain(`<h1>${VIEWS.find((entry) => entry.id === view)!.label}</h1>`);
+  });
 
   test('the graph waits for a snapshot, and says so when the one it shows is from an earlier run', () => {
     const waiting = renderToStaticMarkup(<Shell state={initialConsoleState} token="t" initialView="graph" />);

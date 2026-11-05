@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { ConsoleHttpRequest } from '../../lib/console/hostProtocol';
-import type { DevtoolsHello, DevtoolsRoute, DevtoolsSnapshot } from '../../lib/console/protocol';
+import type { DevtoolsHello, DevtoolsRequestRecord, DevtoolsRoute, DevtoolsSnapshot } from '../../lib/console/protocol';
 import { routeKey } from '../graph/buildGraph';
+import type { EndpointFocus } from '../requests/records';
 import { browserStorage, type StorageLike } from '../state/storage';
 import { MethodBadge } from '../ui/components';
 import { addToHistory, type HttpHistory, loadHistory, saveHistory } from './history';
@@ -17,8 +18,10 @@ export interface EndpointsPanelProps {
   /** The current run, shown with each response. */
   gen?: number | null;
   token: string | null;
-  /** The route key to select first, e.g. the one picked in the graph's inspector. */
-  focusedRoute: string | null;
+  /** The route to select first, e.g. picked in the graph's inspector or replayed from the request inspector. */
+  focus: EndpointFocus | null;
+  /** The request inspector's records, for the chain under each response. */
+  requests?: DevtoolsRequestRecord[];
   storage?: StorageLike | null;
   send?: (request: ConsoleHttpRequest, token: string) => Promise<HttpOutcome>;
 }
@@ -39,8 +42,8 @@ const blockedReason = (token: string | null, hello: DevtoolsHello | null): strin
   return null;
 };
 
-const initialSelection = (snapshot: DevtoolsSnapshot, focusedRoute: string | null): Selection | null => {
-  const route = snapshot.routes.find((candidate) => routeKey(candidate) === focusedRoute) ?? snapshot.routes[0];
+const initialSelection = (snapshot: DevtoolsSnapshot, focus: EndpointFocus | null): Selection | null => {
+  const route = snapshot.routes.find((candidate) => routeKey(candidate) === focus?.key) ?? snapshot.routes[0];
 
   if (route) return { kind: 'http', key: routeKey(route) };
 
@@ -54,11 +57,12 @@ export const EndpointsPanel = ({
   hello,
   gen = null,
   token,
-  focusedRoute,
+  focus,
+  requests = [],
   storage = browserStorage(),
   send = sendHttp,
 }: EndpointsPanelProps) => {
-  const [selection, setSelection] = useState<Selection | null>(() => initialSelection(snapshot, focusedRoute));
+  const [selection, setSelection] = useState<Selection | null>(() => initialSelection(snapshot, focus));
   const [history, setHistory] = useState<HttpHistory>(() => loadHistory(storage));
   const route =
     selection?.kind === 'http' ? snapshot.routes.find((candidate) => routeKey(candidate) === selection.key) : undefined;
@@ -134,6 +138,8 @@ export const EndpointsPanel = ({
           blockedReason={blocked}
           port={hello?.port ?? null}
           gen={gen}
+          requests={requests}
+          {...(focus?.key === routeKey(route) ? { prefill: focus } : {})}
           onRecord={(entry) => updateHistory((current) => addToHistory(current, routeKey(route), entry))}
           onClearHistory={() => updateHistory((current) => ({ ...current, [routeKey(route)]: [] }))}
         />

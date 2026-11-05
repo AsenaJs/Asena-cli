@@ -28,10 +28,10 @@ export interface PathParam {
 
 export const ALL_METHOD_CHOICES = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'] as const;
 
-const WILDCARD = '*';
+export const WILDCARD = '*';
 
 // `:name`, optionally followed by a `{regex}` constraint and a `?` that makes it optional.
-const PARAM_SEGMENT = /^:([A-Za-z_$][\w$]*)(?:\{[^}]*\})?(\?)?$/;
+export const PARAM_SEGMENT = /^:([A-Za-z_$][\w$]*)(?:\{[^}]*\})?(\?)?$/;
 
 export const methodHasBody = (method: string): boolean => !['GET', 'HEAD'].includes(method.toUpperCase());
 

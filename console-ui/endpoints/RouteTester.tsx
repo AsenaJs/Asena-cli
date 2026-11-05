@@ -1,6 +1,7 @@
 import { type KeyboardEvent, useState } from 'react';
 import type { ConsoleHttpRequest } from '../../lib/console/hostProtocol';
-import type { DevtoolsRequestStep, DevtoolsRoute } from '../../lib/console/protocol';
+import type { DevtoolsRequestRecord, DevtoolsRequestStep, DevtoolsRoute } from '../../lib/console/protocol';
+import { type EndpointFocus, isAnswer, recordForResponse, STEP_LABELS } from '../requests/records';
 import { formatBytes } from '../runtime/format';
 import { Card, MethodBadge, Pill, Tabs, type Tone } from '../ui/components';
 import { highlightJson } from './highlight';
@@ -20,7 +21,7 @@ import {
   requestUrl,
 } from './requestBuilder';
 
-const STATUS_TEXT: Record<number, string> = {
+export const STATUS_TEXT: Record<number, string> = {
   101: 'Switching Protocols',
   200: 'OK',
   201: 'Created',
@@ -233,31 +234,45 @@ export const ResponseView = ({
   );
 };
 
-/** The steps that answered the request; the request inspector supplies them. */
+/** A handler answering is the normal case; anything else answering (a @Catch, a middleware, a 404) is marked. */
+export const answerTone = (step: DevtoolsRequestStep): 'ok' | 'win' => (step.kind === 'controller' ? 'ok' : 'win');
+
+/** The steps a request went through, from the request inspector's record of it. */
 export const ChainView = ({
   chain,
+  empty,
 }: {
   chain: { steps: DevtoolsRequestStep[]; answeredBy: DevtoolsRequestStep } | null;
+  /** Shown while there is no chain. */
+  empty: string;
 }) => (
   <div className="chain" aria-label="Handled by">
     <span>Handled by</span>
     {chain ? (
       chain.steps.map((step, index) => {
-        const answered = step.kind === chain.answeredBy.kind && step.name === chain.answeredBy.name;
-        const tone = answered ? (step.kind === 'controller' ? 'ok' : 'win') : '';
+        const tone = isAnswer(step, chain) ? answerTone(step) : '';
 
         return (
           <span key={`${step.kind}:${step.name}:${index}`} className="chain-step">
             {index > 0 ? <span aria-hidden="true">→</span> : null}
-            <span className={`step ${tone}`}>{step.name}</span>
+            <span className={`step ${tone}`} title={STEP_LABELS[step.kind]}>
+              {step.name}
+            </span>
           </span>
         );
       })
     ) : (
-      <span className="chain-empty">the request inspector shows the chain once the app reports it</span>
+      <span className="chain-empty">{empty}</span>
     )}
   </div>
 );
+
+const chainEmptyText = (shown: Shown | null): string => {
+  if (!shown) return 'send the request to see the chain that answers it';
+  if (!shown.outcome.ok) return 'the request did not reach the app';
+
+  return 'no record of this request from the app yet';
+};
 
 export interface RouteTesterProps {
   route: DevtoolsRoute;
@@ -269,7 +284,33 @@ export interface RouteTesterProps {
   onClearHistory: () => void;
   port?: number | null;
   gen?: number | null;
+  /** The request inspector's records, to show the chain that answered the shown response. */
+  requests?: DevtoolsRequestRecord[];
+  /** Path values and method to start from, e.g. from a replayed request. */
+  prefill?: Pick<EndpointFocus, 'params' | 'method'>;
 }
+
+interface Shown {
+  outcome: HttpOutcome;
+  truncated: boolean;
+  gen: number | null;
+  request: ConsoleHttpRequest;
+  sentAt?: number;
+  at: number;
+}
+
+const prefilledDraft = (route: DevtoolsRoute, prefill: RouteTesterProps['prefill']): RequestDraft => {
+  const draft = draftFor(route);
+  const params = Object.fromEntries(
+    Object.keys(draft.params).map((name) => [name, prefill?.params?.[name] ?? draft.params[name] ?? '']),
+  );
+  const method =
+    route.httpMethod === 'ALL' && prefill?.method && (ALL_METHOD_CHOICES as readonly string[]).includes(prefill.method)
+      ? prefill.method
+      : draft.method;
+
+  return { ...draft, params, method };
+};
 
 const firstTab = (route: DevtoolsRoute, params: PathParam[]): RequestTab => {
   if (route.hasBodySchema && methodHasBody(route.httpMethod === 'ALL' ? 'GET' : route.httpMethod)) return 'body';
@@ -286,13 +327,19 @@ export const RouteTester = ({
   onClearHistory,
   port = null,
   gen = null,
+  requests = [],
+  prefill,
 }: RouteTesterProps) => {
   const params = pathParams(route.path);
-  const [draft, setDraft] = useState<RequestDraft>(() => draftFor(route));
+  const [draft, setDraft] = useState<RequestDraft>(() => prefilledDraft(route, prefill));
   const [tab, setTab] = useState<RequestTab>(() => firstTab(route, params));
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(0);
-  const [shown, setShown] = useState<{ outcome: HttpOutcome; truncated: boolean; gen: number | null } | null>(null);
+  const [shown, setShown] = useState<Shown | null>(null);
+  const record =
+    shown?.outcome.ok && shown.sentAt !== undefined
+      ? recordForResponse(requests, shown.request, shown.sentAt, shown.at)
+      : null;
   const built = buildRequest(route, draft);
   const method = route.httpMethod === 'ALL' ? draft.method : route.httpMethod;
   const bodyAllowed = methodHasBody(method);
@@ -306,11 +353,13 @@ export const RouteTester = ({
     setSending(true);
     setSent((count) => count + 1);
 
+    const sentAt = Date.now();
     const outcome = await send(built.request);
+    const at = Date.now();
 
     setSending(false);
-    setShown({ outcome, truncated: false, gen });
-    onRecord({ at: Date.now(), draft, request: built.request, outcome, ...(gen ? { gen } : {}) });
+    setShown({ outcome, truncated: false, gen, request: built.request, sentAt, at });
+    onRecord({ at, sentAt, draft, request: built.request, outcome, ...(gen ? { gen } : {}) });
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
@@ -475,6 +524,9 @@ export const RouteTester = ({
                           outcome: entry.outcome,
                           truncated: entry.truncated === true,
                           gen: entry.gen ?? null,
+                          request: entry.request,
+                          ...(entry.sentAt === undefined ? {} : { sentAt: entry.sentAt }),
+                          at: entry.at,
                         });
                       }}
                     >
@@ -503,7 +555,7 @@ export const RouteTester = ({
             truncated={shown?.truncated ?? false}
             gen={shown?.gen ?? null}
           />
-          <ChainView chain={null} />
+          <ChainView chain={record} empty={chainEmptyText(shown)} />
         </Card>
       </div>
     </section>

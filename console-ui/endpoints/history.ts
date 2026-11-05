@@ -4,7 +4,10 @@ import type { HttpOutcome } from './http';
 import type { RequestDraft } from './requestBuilder';
 
 export interface HistoryEntry {
+  /** When the response came back. */
   at: number;
+  /** When the request went out; with `at`, the window the app's record of it starts in. */
+  sentAt?: number;
   draft: RequestDraft;
   request: ConsoleHttpRequest;
   outcome: HttpOutcome;
