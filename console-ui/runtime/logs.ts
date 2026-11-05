@@ -11,7 +11,7 @@ const ANSI_ESCAPE = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*[A-Za-z]`, '
 const ERROR_MARKERS = [
   /\[(?:[\w.-]+:)?(?:error|err|fatal)\]/i,
   /^[^\S\n]*(?:error|fatal)\b/im,
-  /\b[A-Z]\w*Error\b:/,
+  /\b(?:[A-Z]\w*)?Error\b:/,
   /\bERROR\b/,
 ];
 

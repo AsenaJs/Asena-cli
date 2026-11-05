@@ -57,6 +57,12 @@ describe('logLevel heuristics', () => {
     ['    at ItemService.find (/srv/app/src/ItemService.ts:12:5)', 'stderr', 'warn'],
     ['errors resolved: 0', 'stdout', 'info'],
     ['ErrorBoundary mounted', 'stdout', 'info'],
+    ['Error: boom', 'stderr', 'error'],
+    [
+      'Application error occurred: {\n  message: "boom",\n  stack: "Error: boom\\n    at broken (/app/x.ts:1:1)",\n}',
+      'stderr',
+      'error',
+    ],
   ] as const)('%s on %s is %s', (line, stream, level) => {
     expect(logLevel(line, stream)).toBe(level);
   });
