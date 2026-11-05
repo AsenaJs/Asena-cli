@@ -65,6 +65,23 @@ export const filterLogs = (logs: LogEntry[], filter: LogFilter): ShownLogEntry[]
   return shown;
 };
 
+export type LogRow = { kind: 'line'; entry: ShownLogEntry } | { kind: 'run'; gen: number; key: string };
+
+/** The shown lines with a run separator wherever the generation changes, not above the first line. */
+export const withRunSeparators = (shown: ShownLogEntry[]): LogRow[] => {
+  const rows: LogRow[] = [];
+  let gen: number | null = null;
+
+  for (const entry of shown) {
+    if (gen !== null && entry.gen !== gen) rows.push({ kind: 'run', gen: entry.gen, key: `run-${entry.seq}` });
+
+    gen = entry.gen;
+    rows.push({ kind: 'line', entry });
+  }
+
+  return rows;
+};
+
 export interface VisibleWindow {
   start: number;
   end: number;
@@ -72,17 +89,44 @@ export interface VisibleWindow {
   totalHeight: number;
 }
 
-/** The rows `[start, end)` to render for a fixed-row-height list scrolled to `scrollTop`. */
+/** Each row's top, plus the total height as the last element. */
+export const rowOffsets = (heights: number[]): number[] => {
+  const offsets = [0];
+
+  for (const height of heights) offsets.push((offsets[offsets.length - 1] ?? 0) + height);
+
+  return offsets;
+};
+
+/** The rows `[start, end)` to render for a list with the given `rowOffsets`, scrolled to `scrollTop`. */
 export const visibleWindow = (
+  offsets: number[],
   scrollTop: number,
   viewportHeight: number,
-  rowHeight: number,
-  count: number,
   overscan = 10,
 ): VisibleWindow => {
-  const first = Math.floor(Math.max(0, scrollTop) / rowHeight);
-  const start = Math.max(0, Math.min(count, first - overscan));
-  const end = Math.min(count, first + Math.ceil(viewportHeight / rowHeight) + overscan);
+  const count = offsets.length - 1;
+  const totalHeight = offsets[count] ?? 0;
+  const top = Math.max(0, scrollTop);
+  let low = 0;
+  let high = count;
 
-  return { start, end: Math.max(start, end), offsetTop: start * rowHeight, totalHeight: count * rowHeight };
+  while (low < high) {
+    const mid = (low + high) >> 1;
+
+    if ((offsets[mid + 1] ?? 0) <= top) {
+      low = mid + 1;
+    } else {
+      high = mid;
+    }
+  }
+
+  let last = low;
+
+  while (last < count && (offsets[last] ?? 0) < top + viewportHeight) last++;
+
+  const start = Math.max(0, Math.min(count, low - overscan));
+  const end = Math.min(count, last + overscan);
+
+  return { start, end: Math.max(start, end), offsetTop: offsets[start] ?? 0, totalHeight };
 };

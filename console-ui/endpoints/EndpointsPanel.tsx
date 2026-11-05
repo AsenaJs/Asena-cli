@@ -1,20 +1,23 @@
-import { type KeyboardEvent, useState } from 'react';
+import { useState } from 'react';
 import type { ConsoleHttpRequest } from '../../lib/console/hostProtocol';
 import type { DevtoolsHello, DevtoolsRoute, DevtoolsSnapshot } from '../../lib/console/protocol';
 import { routeKey } from '../graph/buildGraph';
 import { browserStorage, type StorageLike } from '../state/storage';
+import { MethodBadge } from '../ui/components';
 import { addToHistory, type HttpHistory, loadHistory, saveHistory } from './history';
 import { type HttpOutcome, sendHttp } from './http';
 import { RouteTester } from './RouteTester';
 import { WebSocketTester } from './WebSocketTester';
 
-type Tab = 'http' | 'ws';
+type Selection = { kind: 'http'; key: string } | { kind: 'ws'; namespace: string };
 
 export interface EndpointsPanelProps {
   snapshot: DevtoolsSnapshot;
   hello: DevtoolsHello | null;
+  /** The current run, shown with each response. */
+  gen?: number | null;
   token: string | null;
-  /** The route key to select first, e.g. the one picked in the graph's side panel. */
+  /** The route key to select first, e.g. the one picked in the graph's inspector. */
   focusedRoute: string | null;
   storage?: StorageLike | null;
   send?: (request: ConsoleHttpRequest, token: string) => Promise<HttpOutcome>;
@@ -36,22 +39,33 @@ const blockedReason = (token: string | null, hello: DevtoolsHello | null): strin
   return null;
 };
 
+const initialSelection = (snapshot: DevtoolsSnapshot, focusedRoute: string | null): Selection | null => {
+  const route = snapshot.routes.find((candidate) => routeKey(candidate) === focusedRoute) ?? snapshot.routes[0];
+
+  if (route) return { kind: 'http', key: routeKey(route) };
+
+  const socket = snapshot.websockets[0];
+
+  return socket ? { kind: 'ws', namespace: socket.namespace } : null;
+};
+
 export const EndpointsPanel = ({
   snapshot,
   hello,
+  gen = null,
   token,
   focusedRoute,
   storage = browserStorage(),
   send = sendHttp,
 }: EndpointsPanelProps) => {
-  const [tab, setTab] = useState<Tab>('http');
-  const [selected, setSelected] = useState<string | null>(focusedRoute);
-  const [selectedSocket, setSelectedSocket] = useState<string | null>(null);
+  const [selection, setSelection] = useState<Selection | null>(() => initialSelection(snapshot, focusedRoute));
   const [history, setHistory] = useState<HttpHistory>(() => loadHistory(storage));
-  const route = snapshot.routes.find((candidate) => routeKey(candidate) === selected) ?? snapshot.routes[0] ?? null;
+  const route =
+    selection?.kind === 'http' ? snapshot.routes.find((candidate) => routeKey(candidate) === selection.key) : undefined;
   const socket =
-    snapshot.websockets.find((candidate) => candidate.namespace === selectedSocket) ?? snapshot.websockets[0] ?? null;
-
+    selection?.kind === 'ws'
+      ? snapshot.websockets.find((candidate) => candidate.namespace === selection.namespace)
+      : undefined;
   const blocked = blockedReason(token, hello);
 
   const updateHistory = (change: (current: HttpHistory) => HttpHistory) =>
@@ -63,103 +77,75 @@ export const EndpointsPanel = ({
       return next;
     });
 
-  const onTabKey = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-
-    const next: Tab = tab === 'http' ? 'ws' : 'http';
-
-    setTab(next);
-    document.getElementById(`endpoints-tab-${next}`)?.focus();
-  };
-
-  const tabProps = (id: Tab) => ({
-    id: `endpoints-tab-${id}`,
-    role: 'tab',
-    type: 'button' as const,
-    'aria-selected': tab === id,
-    'aria-controls': `endpoints-panel-${id}`,
-    tabIndex: tab === id ? 0 : -1,
-    className: 'tab',
-    onClick: () => setTab(id),
-    onKeyDown: onTabKey,
-  });
-
   return (
-    <section className="panel endpoints-panel" aria-labelledby="endpoints-title">
-      <h2 id="endpoints-title">Endpoints</h2>
-      <div role="tablist" aria-label="Endpoint kinds" className="tabs">
-        <button {...tabProps('http')}>HTTP routes ({snapshot.routes.length})</button>
-        <button {...tabProps('ws')}>WebSockets ({snapshot.websockets.length})</button>
-      </div>
-
-      {tab === 'http' ? (
-        <div id="endpoints-panel-http" role="tabpanel" aria-labelledby="endpoints-tab-http" className="endpoints-body">
-          <nav className="endpoint-list" aria-label="Routes">
-            {groupByController(snapshot.routes).map(([controller, routes]) => (
-              <div key={controller}>
-                <h3>{controller}</h3>
-                <ul className="plain-list">
-                  {routes.map((candidate) => (
-                    <li key={routeKey(candidate)}>
-                      <button
-                        type="button"
-                        className="endpoint-item"
-                        aria-current={candidate === route ? 'true' : undefined}
-                        onClick={() => setSelected(routeKey(candidate))}
-                      >
-                        <span className="method-badge" data-method={candidate.httpMethod}>
-                          {candidate.httpMethod}
-                        </span>
-                        <span className="mono">{candidate.path}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+    <div className="ep-layout">
+      <nav className="card routes" aria-label="Endpoints">
+        {groupByController(snapshot.routes).map(([controller, routes]) => (
+          <div key={controller} className="route-group">
+            <div className="group">
+              <span>{controller}</span>
+              <span>{routes.length}</span>
+            </div>
+            {routes.map((candidate) => (
+              <button
+                key={routeKey(candidate)}
+                type="button"
+                className="route"
+                aria-current={candidate === route ? 'true' : undefined}
+                onClick={() => setSelection({ kind: 'http', key: routeKey(candidate) })}
+              >
+                <MethodBadge method={candidate.httpMethod} />
+                <span className="route-path">{candidate.path}</span>
+                {candidate.validator ? <span className="tag mw">validated</span> : null}
+              </button>
             ))}
-            {snapshot.routes.length === 0 ? <p className="muted">The app registers no HTTP routes.</p> : null}
-          </nav>
-          {route ? (
-            <RouteTester
-              key={routeKey(route)}
-              route={route}
-              history={history[routeKey(route)] ?? []}
-              send={token && blocked === null ? (request) => send(request, token) : null}
-              blockedReason={blocked}
-              onRecord={(entry) => updateHistory((current) => addToHistory(current, routeKey(route), entry))}
-              onClearHistory={() => updateHistory((current) => ({ ...current, [routeKey(route)]: [] }))}
-            />
-          ) : null}
-        </div>
-      ) : (
-        <div id="endpoints-panel-ws" role="tabpanel" aria-labelledby="endpoints-tab-ws" className="endpoints-body">
-          <nav className="endpoint-list" aria-label="WebSocket namespaces">
-            <ul className="plain-list">
-              {snapshot.websockets.map((candidate) => (
-                <li key={candidate.namespace}>
-                  <button
-                    type="button"
-                    className="endpoint-item"
-                    aria-current={candidate === socket ? 'true' : undefined}
-                    onClick={() => setSelectedSocket(candidate.namespace)}
-                  >
-                    <span className="mono">/{candidate.namespace}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {snapshot.websockets.length === 0 ? <p className="muted">The app declares no WebSocket.</p> : null}
-          </nav>
-          {socket ? (
-            <WebSocketTester
-              key={socket.namespace}
-              namespace={socket.namespace}
-              component={socket.component}
-              port={hello?.port ?? null}
-            />
-          ) : null}
-        </div>
-      )}
-    </section>
+          </div>
+        ))}
+        {snapshot.websockets.length > 0 ? (
+          <div className="route-group">
+            <div className="group">
+              <span>WebSockets</span>
+              <span>{snapshot.websockets.length}</span>
+            </div>
+            {snapshot.websockets.map((candidate) => (
+              <button
+                key={candidate.namespace}
+                type="button"
+                className="route"
+                aria-current={candidate === socket ? 'true' : undefined}
+                onClick={() => setSelection({ kind: 'ws', namespace: candidate.namespace })}
+              >
+                <MethodBadge method="WS" />
+                <span className="route-path">/{candidate.namespace}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {snapshot.routes.length === 0 && snapshot.websockets.length === 0 ? (
+          <p className="muted pane-note">The app registers no HTTP route and no WebSocket.</p>
+        ) : null}
+      </nav>
+      {route ? (
+        <RouteTester
+          key={routeKey(route)}
+          route={route}
+          history={history[routeKey(route)] ?? []}
+          send={token && blocked === null ? (request) => send(request, token) : null}
+          blockedReason={blocked}
+          port={hello?.port ?? null}
+          gen={gen}
+          onRecord={(entry) => updateHistory((current) => addToHistory(current, routeKey(route), entry))}
+          onClearHistory={() => updateHistory((current) => ({ ...current, [routeKey(route)]: [] }))}
+        />
+      ) : null}
+      {socket ? (
+        <WebSocketTester
+          key={socket.namespace}
+          namespace={socket.namespace}
+          component={socket.component}
+          port={hello?.port ?? null}
+        />
+      ) : null}
+    </div>
   );
 };

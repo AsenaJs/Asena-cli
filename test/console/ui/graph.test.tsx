@@ -10,9 +10,19 @@ import {
   type GraphNodeKind,
   routesOf,
 } from '../../../console-ui/graph/buildGraph';
-import { ComponentDetails, kindLabel } from '../../../console-ui/graph/ComponentDetails';
 import { GraphPanel } from '../../../console-ui/graph/GraphPanel';
-import { gridLayout, layoutGraph } from '../../../console-ui/graph/layout';
+import { Inspector } from '../../../console-ui/graph/Inspector';
+import { laneOf, nodeMeta } from '../../../console-ui/graph/lanes';
+import {
+  gridLayout,
+  labelWidth,
+  LABEL_HEIGHT,
+  layoutGraph,
+  NODE_HEIGHT,
+  NODE_WIDTH,
+  roundedPath,
+} from '../../../console-ui/graph/layout';
+import { kindLabel } from '../../../console-ui/ui/kinds';
 import snapshotJson from '../fixtures/snapshot.json';
 
 const snapshot = snapshotJson as unknown as DevtoolsSnapshot;
@@ -55,8 +65,8 @@ describe('buildFullGraph over snapshot.json', () => {
     expect(edgeList(graph).sort()).toEqual(
       [
         'inject component:ItemController -> component:ItemService [itemService]',
-        'soft component:ItemController -> component:AuditTrail',
-        'soft component:ItemController -> component:RequestTimer',
+        'soft component:ItemController -> component:AuditTrail [all routes]',
+        'soft component:ItemController -> component:RequestTimer [POST /items/]',
         'strategy component:ItemService -> component:DollarFormatter [formatters]',
         'strategy component:ItemService -> component:EuroFormatter [formatters]',
         'validator component:ItemController -> component:CreateItemValidator [POST /items/]',
@@ -162,87 +172,192 @@ describe('routesOf', () => {
   });
 });
 
-describe('graph layout', () => {
-  test('elk places every node, a dependency to the right of its dependant', async () => {
-    const graph = buildFullGraph(snapshot);
-    const positions = await layoutGraph(graph);
+describe('graph lanes', () => {
+  const graph = buildFullGraph(withCoreTarget);
+  const laneNames = (lane: number) =>
+    graph.nodes
+      .filter((node) => laneOf(node) === lane)
+      .map((node) => node.name)
+      .sort();
 
-    expect([...positions.keys()].sort()).toEqual(graph.nodes.map((node) => node.id).sort());
-    expect(positions.get(componentNodeId('ItemService'))!.x).toBeGreaterThan(
-      positions.get(componentNodeId('ItemController'))!.x,
-    );
+  test('entry points, services and middleware, then data and errors', () => {
+    expect(laneNames(0)).toEqual([
+      'AdminPages',
+      'AppConfig',
+      'InventoryHandler',
+      'ItemController',
+      'ItemEvents',
+      'ItemFeed',
+      'NightlyCleanup',
+    ]);
+    expect(laneNames(2)).toEqual(['ApiExceptionHandler', 'EventEmitter', '__ulak__:items']);
   });
 
-  test('the grid fallback places every node apart', () => {
-    const graph = buildFullGraph(snapshot);
-    const cells = new Set([...gridLayout(graph).values()].map(({ x, y }) => `${x},${y}`));
+  test('a repository is a service by type and data by name', () => {
+    const repository = { ...graph.nodes.find((node) => node.name === 'ItemDraft')!, name: 'ItemRepository' };
 
-    expect(cells.size).toBe(graph.nodes.length);
+    expect(laneOf(repository)).toBe(2);
+  });
+
+  test('each node says what it is and the fact that sets it apart', () => {
+    const meta = (name: string) =>
+      nodeMeta(
+        snapshot,
+        buildFullGraph(snapshot).nodes.find((node) => node.name === name)!,
+      );
+
+    expect(meta('ItemController')).toBe('Controller · 4 routes');
+    expect(meta('ItemService')).toBe('Service · 2 env values');
+    expect(meta('CorsHeaders')).toBe('Middleware · every request');
+    expect(meta('CreateItemValidator')).toBe('Middleware · validator');
+    expect(meta('AuditTrail')).toBe('Middleware · route-level');
+    expect(meta('ItemFeed')).toBe('WebSocket · /ws/items');
+    expect(meta('NightlyCleanup')).toBe('Schedule · 0 3 * * *');
+    expect(meta('ApiExceptionHandler')).toBe('Exception handler · 3 catches + 404');
+    expect(meta('AppConfig')).toBe('Config · 1 global middleware');
+    expect(meta('ItemEvents')).toBe('Event · audit.* +1');
   });
 });
 
-describe('graph panel rendering', () => {
-  test('renders the toolbar with one filter per present type and the canvas', () => {
-    const html = renderToStaticMarkup(<GraphPanel snapshot={snapshot} theme="light" onOpenRoute={() => {}} />);
+describe('graph layout', () => {
+  const overlaps = (
+    a: { x: number; y: number; w: number; h: number },
+    b: { x: number; y: number; w: number; h: number },
+  ) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
-    expect(html).toContain('Component graph');
-    expect(html).toContain('aria-label="Search components"');
-    expect(html).toContain('>Controller<');
-    expect(html).toContain('>Exception handler<');
-    expect(html).not.toContain('>Core service<');
-    expect(html).toContain(`${snapshot.components.length} of ${snapshot.components.length} nodes`);
-    expect(html).toContain('react-flow');
+  test('elk places every node, each lane right of the one before', async () => {
+    const graph = buildFullGraph(withCoreTarget);
+    const layout = await layoutGraph(graph);
+    const xs = (lane: number) =>
+      graph.nodes.filter((node) => laneOf(node) === lane).map((node) => layout.nodes.get(node.id)!.x);
+
+    expect([...layout.nodes.keys()].sort()).toEqual(graph.nodes.map((node) => node.id).sort());
+    expect(Math.max(...xs(0)) + NODE_WIDTH).toBeLessThanOrEqual(Math.min(...xs(1)));
+    expect(Math.max(...xs(1)) + NODE_WIDTH).toBeLessThanOrEqual(Math.min(...xs(2)));
+    expect(layout.lanes.map((lane) => [lane.label, lane.x])).toEqual([
+      ['Entry points', Math.min(...xs(0))],
+      ['Services & middleware', Math.min(...xs(1))],
+      ['Data & errors', Math.min(...xs(2))],
+    ]);
   });
 
-  test('the details panel lists scope, dependencies, @Value fields and route links', () => {
+  test('every edge is routed from its source to its target, and no label pill sits on a node', async () => {
+    const graph = buildFullGraph(withCoreTarget);
+    const layout = await layoutGraph(graph);
+    const boxes = [...layout.nodes.values()].map(({ x, y }) => ({ x, y, w: NODE_WIDTH, h: NODE_HEIGHT }));
+
+    for (const edge of graph.edges) {
+      const route = layout.edges.get(edge.id)!;
+
+      expect(route.points.length).toBeGreaterThanOrEqual(2);
+
+      if (edge.label === undefined) continue;
+
+      const width = labelWidth(edge.label);
+      const pill = { x: route.label!.x - width / 2, y: route.label!.y - LABEL_HEIGHT / 2, w: width, h: LABEL_HEIGHT };
+
+      expect(boxes.filter((box) => overlaps(pill, box))).toEqual([]);
+    }
+  });
+
+  test('the grid fallback places every node apart, by lane', () => {
     const graph = buildFullGraph(snapshot);
-    const node = graph.nodes.find((candidate) => candidate.name === 'ItemService')!;
-    const html = renderToStaticMarkup(
-      <ComponentDetails
-        snapshot={snapshot}
-        graph={graph}
-        node={node}
-        onSelect={() => {}}
-        onOpenRoute={() => {}}
-        onClose={() => {}}
-      />,
-    );
+    const layout = gridLayout(graph);
+    const cells = new Set([...layout.nodes.values()].map(({ x, y }) => `${x},${y}`));
+
+    expect(cells.size).toBe(graph.nodes.length);
+    expect(layout.edges.size).toBe(0);
+    expect(layout.lanes.map((lane) => lane.lane)).toEqual([0, 1, 2]);
+  });
+
+  test('an orthogonal route gets rounded corners', () => {
+    expect(
+      roundedPath([
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 40 },
+      ]),
+    ).toBe('M0 0 L12 0 Q20 0 20 8 L20 40');
+    expect(roundedPath([])).toBe('');
+  });
+});
+
+const inspect = (source: DevtoolsSnapshot, name: string) => {
+  const graph = buildFullGraph(source);
+
+  return renderToStaticMarkup(
+    <Inspector
+      snapshot={source}
+      graph={graph}
+      node={graph.nodes.find((node) => node.name === name) ?? null}
+      onSelect={() => {}}
+      onOpenRoute={() => {}}
+    />,
+  );
+};
+
+describe('graph panel rendering', () => {
+  test('renders the search, one chip per present type, the canvas, the legend and the inspector', () => {
+    const html = renderToStaticMarkup(<GraphPanel snapshot={snapshot} theme="light" onOpenRoute={() => {}} />);
+
+    expect(html).toContain('aria-label="Find a component"');
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain('Controller</button>');
+    expect(html).toContain('Exception handler</button>');
+    expect(html).not.toContain('Core service</button>');
+    expect(html).toContain(`${snapshot.components.length} of ${snapshot.components.length} components`);
+    expect(html).toContain('react-flow');
+    expect(html).toContain('guarded by middleware or validator');
+    expect(html).toContain('<h3 id="inspector-title">ItemController</h3>');
+  });
+
+  test('the inspector lists scope, injections, users, @Value keys and the strategy targets', () => {
+    const html = inspect(snapshot, 'ItemService');
 
     expect(html).toContain('singleton');
     expect(html).toContain('DollarFormatter');
+    expect(html).toContain('formatters');
+    expect(html).toContain('Used by');
     expect(html).toContain('ItemController');
     expect(html).toContain('DEVTOOLS_FIXTURE_PAGE_SIZE');
     expect(html).toContain('DEVTOOLS_FIXTURE_REGION');
-
-    const controller = renderToStaticMarkup(
-      <ComponentDetails
-        snapshot={snapshot}
-        graph={graph}
-        node={graph.nodes.find((candidate) => candidate.name === 'ItemController')!}
-        onSelect={() => {}}
-        onOpenRoute={() => {}}
-        onClose={() => {}}
-      />,
-    );
-
-    expect(controller).toContain('PUT /items/:id/name');
   });
 
-  test('a core node says the framework provides it', () => {
+  test('a controller lists its routes, with the route-only middleware as tags, and links to Endpoints', () => {
+    const html = inspect(snapshot, 'ItemController');
+
+    expect(html).toContain('/items/:id/name');
+    expect(html).toContain('<span class="tag mw">RequestTimer</span>');
+    expect(html).not.toContain('<span class="tag mw">AuditTrail</span>');
+    expect(html).toContain('Try these in Endpoints →');
+  });
+
+  test('type-specific details: catches, schedule, socket, events, messages and global middleware', () => {
+    expect(inspect(snapshot, 'ApiExceptionHandler')).toContain('everything else');
+    expect(inspect(snapshot, 'ApiExceptionHandler')).toContain('missingRoute()');
+    expect(inspect(snapshot, 'NightlyCleanup')).toContain('0 3 * * *');
+    expect(inspect(snapshot, 'ItemFeed')).toContain('/ws/items');
+    expect(inspect(snapshot, 'ItemEvents')).toContain('item.created');
+    expect(inspect(snapshot, 'InventoryHandler')).toContain('inventory.reserve');
+    expect(inspect(snapshot, 'CorsHeaders')).toContain('/health');
+    expect(inspect(snapshot, 'AppConfig')).toContain('onError');
+  });
+
+  test('a core node says the framework provides it; no selection asks for one', () => {
     const graph = buildFullGraph(withCoreTarget);
     const html = renderToStaticMarkup(
-      <ComponentDetails
+      <Inspector
         snapshot={withCoreTarget}
         graph={graph}
         node={graph.nodes.find((node) => node.id === coreNodeId('EventEmitter'))!}
         onSelect={() => {}}
         onOpenRoute={() => {}}
-        onClose={() => {}}
       />,
     );
 
     expect(html).toContain('Provided by the framework');
     expect(html).toContain('ItemService');
+    expect(inspect(snapshot, 'nobody')).toContain('Select a component');
   });
 
   test('kind labels read as words', () => {

@@ -1,5 +1,11 @@
 import '@xyflow/react/dist/style.css';
-import './styles.css';
+import './styles/fonts.css';
+import './styles/tokens.css';
+import './styles/base.css';
+import './styles/shell.css';
+import './styles/graph.css';
+import './styles/runtime.css';
+import './styles/endpoints.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';

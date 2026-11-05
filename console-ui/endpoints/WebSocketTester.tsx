@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatClock } from '../runtime/format';
+import { Card, MethodBadge, Pill, SegmentedControl } from '../ui/components';
 
 export type FrameDirection = 'out' | 'in' | 'info';
 
@@ -108,86 +109,119 @@ export const WebSocketTester = ({ namespace, component, port }: WebSocketTesterP
   const open = state === 'open';
   const busy = state === 'connecting' || open;
 
-  return (
-    <section className="ws-tester" aria-labelledby="ws-title">
-      <h3 id="ws-title">
-        <span className="mono">/{namespace}</span> <span className="muted">· {component}</span>
-      </h3>
-      {url ? (
-        <p className="mono muted">{url}</p>
-      ) : (
-        <p className="muted">The app has no HTTP port yet: it runs headless, or the current child has not reported.</p>
-      )}
-      <div className="ws-actions">
-        <button type="button" className="primary" disabled={!url || busy} onClick={connect}>
-          Connect
-        </button>
-        <button type="button" disabled={!busy} onClick={() => socket.current?.close(1000)}>
-          Disconnect
-        </button>
-        <span className="badge" data-tone={open ? 'ok' : state === 'connecting' ? 'warn' : 'idle'}>
-          {state}
-        </span>
-      </div>
-      <form
-        className="ws-send"
-        onSubmit={(event) => {
-          event.preventDefault();
-          send();
-        }}
-      >
-        <label className="field">
-          <span>Message</span>
-          <textarea
-            rows={4}
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-                event.preventDefault();
+  const tone = open ? 'ok' : state === 'connecting' ? 'warn' : 'neutral';
 
-                if (open) send();
-              }
+  return (
+    <section className="req" aria-labelledby="ws-title">
+      <h2 id="ws-title" className="visually-hidden">
+        WebSocket /{namespace}
+      </h2>
+      <Card>
+        <div className="urlbar">
+          <MethodBadge method="WS" className="method-sel" />
+          <div className="url" aria-label="Socket URL">
+            {url ? (
+              <>
+                <span className="host">ws://127.0.0.1:{port}</span>/{namespace.replace(/^\/+/, '')}
+              </>
+            ) : (
+              <span className="host">/{namespace}</span>
+            )}
+          </div>
+          {busy ? (
+            <button type="button" className="icon-btn" onClick={() => socket.current?.close(1000)}>
+              Disconnect
+            </button>
+          ) : (
+            <button type="button" className="send" disabled={!url} onClick={connect}>
+              Connect
+            </button>
+          )}
+        </div>
+      </Card>
+      <div className="req-info">
+        <span className="mono">{component}</span>
+        <Pill tone={tone} dot>
+          {state}
+        </Pill>
+        {url ? null : (
+          <span className="muted">
+            The app has no HTTP port yet: it runs headless, or the current child has not reported.
+          </span>
+        )}
+      </div>
+      <div className="panes">
+        <Card className="pane">
+          <form
+            className="pane-body fields"
+            onSubmit={(event) => {
+              event.preventDefault();
+              send();
             }}
-          />
-        </label>
-        <fieldset className="inline-choice">
-          <legend className="visually-hidden">Send as</legend>
-          <label>
-            <input type="radio" name="ws-mode" checked={mode === 'text'} onChange={() => setMode('text')} />
-            Text
-          </label>
-          <label>
-            <input type="radio" name="ws-mode" checked={mode === 'json'} onChange={() => setMode('json')} />
-            JSON
-          </label>
-        </fieldset>
-        <button type="submit" disabled={!open}>
-          Send
-        </button>
-        <button type="button" onClick={() => setFrames([])}>
-          Clear log
-        </button>
-        {error ? (
-          <p className="field-error" role="alert">
-            {error}
-          </p>
-        ) : null}
-      </form>
-      <ol className="frame-log" role="log" aria-label="Frames">
-        {frames.map((frame) => (
-          <li key={frame.id} data-direction={frame.direction}>
-            <span className="log-time">{formatClock(frame.at)}</span>
-            <span className="frame-direction">
-              {frame.direction === 'out' ? '→' : frame.direction === 'in' ? '←' : '·'}
-              <span className="visually-hidden">
-                {frame.direction === 'out' ? 'sent' : frame.direction === 'in' ? 'received' : 'status'}
-              </span>
-            </span>
-            <span className="frame-data">{frame.data}</span>
-          </li>
-        ))}
-      </ol>
+          >
+            <label className="visually-hidden" htmlFor="ws-message">
+              Message
+            </label>
+            <textarea
+              id="ws-message"
+              className="textarea"
+              rows={8}
+              placeholder="Message"
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                  event.preventDefault();
+
+                  if (open) send();
+                }
+              }}
+            />
+            <div className="ws-row">
+              <SegmentedControl
+                label="Send as"
+                options={[
+                  { id: 'text', label: 'Text' },
+                  { id: 'json', label: 'JSON' },
+                ]}
+                pressed={new Set([mode])}
+                onToggle={setMode}
+              />
+              <button type="submit" className="send" disabled={!open}>
+                Send <kbd aria-hidden="true">Ctrl ↵</kbd>
+              </button>
+            </div>
+            {error ? (
+              <p className="field-error" role="alert">
+                {error}
+              </p>
+            ) : null}
+          </form>
+        </Card>
+        <Card className="pane">
+          <div className="resp-meta">
+            <h3 className="section-title">Frames</h3>
+            <button type="button" className="link-btn quiet resp-run" onClick={() => setFrames([])}>
+              Clear
+            </button>
+          </div>
+          <ol className="frame-log pane-body" role="log" aria-label="Frames">
+            {frames.length === 0 ? <li className="muted">No frames yet.</li> : null}
+            {frames.map((frame) => (
+              <li key={frame.id} data-direction={frame.direction}>
+                <span className="ts">{formatClock(frame.at)}</span>
+                <span className="frame-direction">
+                  {frame.direction === 'out' ? '→' : frame.direction === 'in' ? '←' : '·'}
+                  <span className="visually-hidden">
+                    {frame.direction === 'out' ? 'sent' : frame.direction === 'in' ? 'received' : 'status'}
+                  </span>
+                </span>
+                <span className="frame-data">{frame.data}</span>
+              </li>
+            ))}
+          </ol>
+        </Card>
+      </div>
     </section>
   );
 };

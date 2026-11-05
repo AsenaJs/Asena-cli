@@ -1,12 +1,7 @@
-import type {
-  DevtoolsComponent,
-  DevtoolsComponentType,
-  DevtoolsRoute,
-  DevtoolsSnapshot,
-} from '../../lib/console/protocol';
+import type { DevtoolsComponent, DevtoolsRoute, DevtoolsSnapshot } from '../../lib/console/protocol';
+import type { ComponentKind } from '../ui/kinds';
 
-/** A component type, or `CORE` for a dependency target that no component of the app provides. */
-export type GraphNodeKind = DevtoolsComponentType | 'CORE';
+export type GraphNodeKind = ComponentKind;
 
 export const GRAPH_NODE_KINDS: readonly GraphNodeKind[] = [
   'CONTROLLER',
@@ -61,6 +56,19 @@ export const coreNodeId = (target: string): string => `core:${target}`;
 export const routeKey = (route: Pick<DevtoolsRoute, 'httpMethod' | 'path'>): string =>
   `${route.httpMethod} ${route.path}`;
 
+/** Where a controller's middleware runs: on all of its routes, or on the routes it names. */
+const softLabel = (snapshot: DevtoolsSnapshot, controller: string, middleware: string): string | undefined => {
+  const routes = snapshot.routes.filter((route) => route.controller === controller);
+  const guarded = routes.filter((route) => route.middlewares.includes(middleware));
+
+  if (guarded.length === 0) return undefined;
+  if (guarded.length === routes.length) return 'all routes';
+
+  const [first] = guarded;
+
+  return guarded.length === 1 && first ? routeKey(first) : `${guarded.length} routes`;
+};
+
 /** Every node and edge of the snapshot, before any filter. */
 export const buildFullGraph = (snapshot: DevtoolsSnapshot): Graph => {
   const byName = new Map(snapshot.components.map((component) => [component.name, component]));
@@ -106,7 +114,7 @@ export const buildFullGraph = (snapshot: DevtoolsSnapshot): Graph => {
         dependency.target,
         dependency.kind,
         dependency.field ?? '',
-        dependency.field ?? undefined,
+        dependency.field ?? softLabel(snapshot, component.name, dependency.target),
       );
     }
   }

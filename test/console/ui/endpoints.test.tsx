@@ -23,7 +23,8 @@ import {
   repeatedKeys,
   requestUrl,
 } from '../../../console-ui/endpoints/requestBuilder';
-import { ResponseView, RouteTester } from '../../../console-ui/endpoints/RouteTester';
+import { highlightJson } from '../../../console-ui/endpoints/highlight';
+import { ChainView, ResponseView, RouteTester } from '../../../console-ui/endpoints/RouteTester';
 import {
   describeIncoming,
   encodeOutgoing,
@@ -145,6 +146,18 @@ describe('buildRequest', () => {
       headers: { 'x-trace': ' a ' },
       body: '',
     });
+  });
+
+  test('an unticked query or header row stays in the form and is not sent', () => {
+    const rows = [
+      { key: 'q', value: 'lamp', enabled: false },
+      { key: 'q', value: 'desk' },
+    ];
+    const built = buildRequest(find, { ...draftFor(find), params: { id: '7' }, query: rows, headers: rows });
+
+    expect(built.ok && built.request.query).toEqual({ q: 'desk' });
+    expect(built.ok && built.request.headers).toEqual({ q: 'desk' });
+    expect(repeatedKeys(rows)).toEqual([]);
   });
 
   test('a GET or HEAD sends no body even when the draft has one', () => {
@@ -326,32 +339,38 @@ describe('endpoints panel rendering', () => {
     ]);
   });
 
-  test('lists every route, opens the first one and offers to send it', () => {
+  test('lists every route and socket in one list, opens the first route and offers to send it', () => {
     const html = panel();
 
     for (const route of snapshot.routes) expect(html).toContain(route.path);
 
-    expect(html).toContain('HTTP routes (4)');
-    expect(html).toContain('WebSockets (1)');
+    expect(html).toContain('<span>ItemController</span><span>4</span>');
+    expect(html).toContain('<span>WebSockets</span><span>1</span>');
+    expect(html).toContain('/ws/items');
     expect(html).toContain('ItemController.create');
     expect(html).toContain('validator CreateItemValidator');
+    expect(html).toContain('<span class="host">http://127.0.0.1:3000</span>');
     expect(html).toMatch(/<textarea[^>]*>\{\}<\/textarea>/);
-    expect(html).not.toMatch(/<button type="submit" class="primary" disabled/);
+    expect(html).toMatch(/<button type="button" class="send">/);
+    expect(html).toContain('Send the request to see the response.');
+    expect(html).toContain('Handled by');
   });
 
-  test('opens the route the graph linked to, with its path parameter', () => {
+  test('opens the route the graph linked to, with its path parameter marked in the URL', () => {
     const html = panel({ focusedRoute: 'PUT /items/:id/name' });
 
     expect(html).toContain('ItemController.rename');
     expect(html).toContain('contract RenameItemContext');
     expect(html).toContain('Fill in :id');
+    expect(html).toContain('<span class="param" title=":id">:id</span>');
+    expect(html).toMatch(/aria-selected="true"[^>]*>Body</);
   });
 
   test('says why it cannot send without a running app or a token', () => {
     expect(panel({ hello: null })).toContain('Waiting for the app to start');
     expect(panel({ token: null })).toContain('No session token');
     expect(panel({ hello: { ...hello, adapter: null, port: null } })).toContain('runs headless');
-    expect(panel({ hello: null })).toMatch(/<button type="submit" class="primary" disabled/);
+    expect(panel({ hello: null })).toMatch(/<button type="button" class="send" disabled/);
   });
 
   test('shows the stored history of the route', () => {
@@ -368,7 +387,7 @@ describe('endpoints panel rendering', () => {
     expect(html).toContain('Clear history');
   });
 
-  test('a GET route has no body to edit', () => {
+  test('a GET route opens on its path parameters, with no body to edit', () => {
     const html = renderToStaticMarkup(
       <RouteTester
         route={find}
@@ -380,35 +399,59 @@ describe('endpoints panel rendering', () => {
       />,
     );
 
-    expect(html).toContain('GET sends no body');
-    expect(html).toMatch(/<textarea[^>]*disabled/);
+    expect(html).toMatch(/aria-selected="true"[^>]*>Params<span class="badge">1<\/span>/);
+    expect(html).toContain('from the route path');
+    expect(html).not.toContain('<textarea');
   });
 
-  test('a response shows status, duration, headers and the body pretty-printed', () => {
+  test('a response shows the status pill, time, size, run, and the body highlighted', () => {
     const html = renderToStaticMarkup(
       <ResponseView
         outcome={{
           ok: true,
-          response: { status: 409, headers: { 'x-app': 'items' }, body: '{"error":"taken"}', durationMs: 2.25 },
+          response: { status: 409, headers: { 'x-app': 'items' }, body: '{"error":"taken","n":2}', durationMs: 2.25 },
         }}
+        gen={3}
       />,
     );
 
-    expect(html).toContain('>409<');
-    expect(html).toContain('data-tone="warn"');
+    expect(html).toContain('<span class="pill warn">');
+    expect(html).toContain('409 Conflict');
     expect(html).toContain('2.3 ms');
-    expect(html).toContain('x-app');
-    expect(html).toContain('{\n  &quot;error&quot;: &quot;taken&quot;\n}');
+    expect(html).toContain('<b>23 B</b>');
+    expect(html).toContain('Run 3');
+    expect(html).toContain('Headers<span class="badge">1</span>');
+    expect(html).toContain('<span class="k">&quot;error&quot;</span>: <span class="s">&quot;taken&quot;</span>');
+    expect(html).toContain('<span class="n">2</span>');
     expect(renderToStaticMarkup(<ResponseView outcome={{ ok: false, reason: 'down' }} />)).toContain('role="alert"');
+    expect(renderToStaticMarkup(<ResponseView outcome={null} />)).toContain('Send the request');
+  });
+
+  test('a body that is not JSON is shown as it came', () => {
+    expect(highlightJson('plain <text>')).toEqual(['plain <text>']);
+  });
+
+  test('the chain area waits for the request inspector, and shows a chain it is given', () => {
+    expect(renderToStaticMarkup(<ChainView chain={null} />)).toContain('the request inspector shows the chain');
+
+    const steps = [
+      { kind: 'middleware' as const, name: 'AuditTrail' },
+      { kind: 'controller' as const, name: 'ItemController.find' },
+      { kind: 'catch' as const, name: 'ApiExceptionHandler.known' },
+    ];
+    const html = renderToStaticMarkup(<ChainView chain={{ steps, answeredBy: steps[2]! }} />);
+
+    expect(html).toContain('<span class="step ">AuditTrail</span>');
+    expect(html).toContain('<span class="step win">ApiExceptionHandler.known</span>');
   });
 
   test('the WebSocket tester targets the app port, or says there is none', () => {
     const ready = renderToStaticMarkup(<WebSocketTester namespace="ws/items" component="ItemFeed" port={3000} />);
     const headless = renderToStaticMarkup(<WebSocketTester namespace="ws/items" component="ItemFeed" port={null} />);
 
-    expect(ready).toContain('ws://127.0.0.1:3000/ws/items');
+    expect(ready).toContain('<span class="host">ws://127.0.0.1:3000</span>/ws/items');
     expect(ready).toContain('ItemFeed');
     expect(headless).toContain('The app has no HTTP port yet');
-    expect(headless).toMatch(/<button type="button" class="primary" disabled/);
+    expect(headless).toMatch(/<button type="button" class="send" disabled/);
   });
 });

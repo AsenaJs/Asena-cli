@@ -11,7 +11,13 @@ const storedTheme = (): ThemeChoice => {
   return value === 'light' || value === 'dark' ? value : 'system';
 };
 
-/** The theme choice, applied as `data-theme` on `<html>`; `system` leaves it to `prefers-color-scheme`. */
+const systemTheme = (): 'light' | 'dark' =>
+  typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+
+/** The theme on screen: the choice, or the system's when there is none. */
+export const effectiveTheme = (choice: ThemeChoice): 'light' | 'dark' => (choice === 'system' ? systemTheme() : choice);
+
+/** The choice applied as `data-theme` on `<html>`; `system` leaves it to `prefers-color-scheme`. */
 export const useTheme = (): [ThemeChoice, (theme: ThemeChoice) => void] => {
   const [theme, setTheme] = useState<ThemeChoice>(storedTheme);
 

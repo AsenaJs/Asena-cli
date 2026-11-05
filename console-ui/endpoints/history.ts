@@ -10,6 +10,8 @@ export interface HistoryEntry {
   outcome: HttpOutcome;
   /** Set when the stored response body was cut to `HISTORY_BODY_LIMIT` characters. */
   truncated?: true;
+  /** The app run that answered. */
+  gen?: number;
 }
 
 /** By route key. Newest entry first. */

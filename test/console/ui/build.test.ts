@@ -46,6 +46,18 @@ describe('console UI build', () => {
     expect(texts.filter((text) => remote.test(text))).toEqual([]);
   });
 
+  test('ships Inter and JetBrains Mono inside the bundle, the families the design tokens name', async () => {
+    const css = await readFile(outputs.find((output) => output.endsWith('.css')) ?? '', 'utf8');
+    const faces = [...css.matchAll(/@font-face\{[^}]*\}/g)].map(([face]) => face);
+    const family = (name: string) => faces.filter((face) => face.includes(`font-family:${name}`));
+
+    expect(family('Inter')).toHaveLength(2);
+    expect(family('JetBrains Mono')).toHaveLength(2);
+    expect(faces.every((face) => /src:url\((?:"|')?(?:data:font\/woff2|\/assets\/)/.test(face))).toBe(true);
+    expect(css).toMatch(/--font-ui:\s*"?Inter"?,/);
+    expect(css).toMatch(/--font-mono:\s*"?JetBrains Mono"?,/);
+  });
+
   test('bundles React for production', async () => {
     const script = outputs.find((output) => output.endsWith('.js'));
     const source = await readFile(script ?? '', 'utf8');

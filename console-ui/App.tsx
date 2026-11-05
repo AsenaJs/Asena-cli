@@ -1,12 +1,15 @@
 import { type ReactNode, useEffect, useState } from 'react';
+import type { ConsoleBrowserMessage } from '../lib/console/hostProtocol';
 import type { DevtoolsSnapshot } from '../lib/console/protocol';
 import { EndpointsPanel } from './endpoints/EndpointsPanel';
 import { GraphPanel } from './graph/GraphPanel';
 import { RuntimePanel } from './runtime/RuntimePanel';
 import { Placeholder, StaleNotice, WaitingForSnapshot } from './shell/Placeholder';
-import { StatusBar } from './shell/StatusBar';
+import { Sidebar } from './shell/Sidebar';
+import { appStatus } from './shell/status';
 import { type ThemeChoice, useTheme } from './shell/theme';
-import { VIEWS, type ViewId, viewFromHash, viewHash } from './shell/views';
+import { TopBar } from './shell/TopBar';
+import { type ViewId, viewFromHash, viewHash } from './shell/views';
 import { type ConsoleState, isSnapshotStale } from './state/store';
 import { useConsole } from './state/useConsole';
 
@@ -14,6 +17,7 @@ export interface ShellProps {
   state: ConsoleState;
   token: string | null;
   initialView?: ViewId;
+  send?: (message: ConsoleBrowserMessage) => boolean;
 }
 
 const currentHash = () => (typeof location === 'undefined' ? '' : location.hash);
@@ -28,7 +32,6 @@ interface PanelProps {
 }
 
 const Panel = ({ view, state, token, theme, focusedRoute, onOpenRoute }: PanelProps) => {
-  const title = VIEWS.find((entry) => entry.id === view)?.label ?? view;
   const withSnapshot = (render: (snapshot: DevtoolsSnapshot) => ReactNode) =>
     state.snapshot ? (
       <>
@@ -36,7 +39,7 @@ const Panel = ({ view, state, token, theme, focusedRoute, onOpenRoute }: PanelPr
         {render(state.snapshot)}
       </>
     ) : (
-      <WaitingForSnapshot title={title} />
+      <WaitingForSnapshot view={view} />
     );
 
   switch (view) {
@@ -46,17 +49,24 @@ const Panel = ({ view, state, token, theme, focusedRoute, onOpenRoute }: PanelPr
       return <RuntimePanel state={state} />;
     case 'endpoints':
       return withSnapshot((snapshot) => (
-        <EndpointsPanel snapshot={snapshot} hello={state.hello} token={token} focusedRoute={focusedRoute} />
+        <EndpointsPanel
+          snapshot={snapshot}
+          hello={state.hello}
+          gen={state.child?.gen ?? null}
+          token={token}
+          focusedRoute={focusedRoute}
+        />
       ));
     default:
-      return <Placeholder title={title} />;
+      return <Placeholder view={view} />;
   }
 };
 
-export const Shell = ({ state, token, initialView }: ShellProps) => {
+export const Shell = ({ state, token, initialView, send }: ShellProps) => {
   const [view, setView] = useState<ViewId>(() => initialView ?? viewFromHash(currentHash()));
   const [theme, setTheme] = useTheme();
   const [focusedRoute, setFocusedRoute] = useState<string | null>(null);
+  const status = appStatus(state, token);
 
   useEffect(() => {
     const onHashChange = () => setView((current) => viewFromHash(location.hash, current));
@@ -72,52 +82,45 @@ export const Shell = ({ state, token, initialView }: ShellProps) => {
     location.hash = viewHash('endpoints');
   };
 
+  const canRestart = send !== undefined && token !== null && state.connection === 'open';
+
   return (
-    <div className="shell">
+    <div className="app">
       <a className="skip-link" href="#main">
         Skip to panel
       </a>
-      <header className="shell-header">
-        <h1 className="shell-title">Asena Console</h1>
-        <nav className="shell-nav" aria-label="Panels">
-          {VIEWS.map((entry) => (
-            <a
-              key={entry.id}
-              href={viewHash(entry.id)}
-              className="shell-nav-link"
-              aria-current={entry.id === view ? 'page' : undefined}
-              onClick={() => setView(entry.id)}
-            >
-              {entry.label}
-            </a>
-          ))}
-        </nav>
-        <label className="theme-switch">
-          <span className="visually-hidden">Theme</span>
-          <select value={theme} onChange={(event) => setTheme(event.target.value as ThemeChoice)}>
-            <option value="system">System theme</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-        </label>
-      </header>
-      <main id="main" className="shell-main" tabIndex={-1}>
-        <Panel
+      <Sidebar view={view} snapshot={state.snapshot} hello={state.hello} onNavigate={setView} />
+      <div className="main">
+        <TopBar
           view={view}
           state={state}
           token={token}
           theme={theme}
-          focusedRoute={focusedRoute}
-          onOpenRoute={openRoute}
+          onTheme={setTheme}
+          onRestart={canRestart ? () => send({ v: 1, type: 'restart' }) : null}
         />
-      </main>
-      <StatusBar state={state} token={token} />
+        <main id="main" className={`view view-${view}`} tabIndex={-1}>
+          {!token || state.connection === 'closed' ? (
+            <p className="notice bad" role="alert">
+              {status.detail}
+            </p>
+          ) : null}
+          <Panel
+            view={view}
+            state={state}
+            token={token}
+            theme={theme}
+            focusedRoute={focusedRoute}
+            onOpenRoute={openRoute}
+          />
+        </main>
+      </div>
     </div>
   );
 };
 
 export const App = () => {
-  const { state, token } = useConsole();
+  const { state, token, send } = useConsole();
 
-  return <Shell state={state} token={token} />;
+  return <Shell state={state} token={token} send={send} />;
 };

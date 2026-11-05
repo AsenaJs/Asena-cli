@@ -4,7 +4,11 @@ import type { DevtoolsRoute } from '../../lib/console/protocol';
 export interface KeyValue {
   key: string;
   value: string;
+  /** Unticked rows stay in the form but are not sent; absent means sent. */
+  enabled?: boolean;
 }
+
+const isSent = (row: KeyValue): boolean => row.enabled !== false && row.key.trim() !== '';
 
 /** What the request form holds for one route. */
 export interface RequestDraft {
@@ -79,7 +83,7 @@ export const fillPath = (path: string, params: Record<string, string>): { path: 
 };
 
 const toRecord = (rows: KeyValue[]): Record<string, string> =>
-  Object.fromEntries(rows.filter((row) => row.key.trim() !== '').map((row) => [row.key.trim(), row.value]));
+  Object.fromEntries(rows.filter(isSent).map((row) => [row.key.trim(), row.value]));
 
 /** Keys that appear more than once; the contract carries a record, so only the last value of each is sent. */
 export const repeatedKeys = (rows: KeyValue[]): string[] => {
@@ -89,7 +93,7 @@ export const repeatedKeys = (rows: KeyValue[]): string[] => {
   for (const row of rows) {
     const key = row.key.trim();
 
-    if (key === '') continue;
+    if (!isSent(row)) continue;
     if (seen.has(key)) repeated.add(key);
 
     seen.add(key);
