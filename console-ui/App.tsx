@@ -1,8 +1,10 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import type { ConsoleBrowserMessage } from '../lib/console/hostProtocol';
-import type { DevtoolsSnapshot } from '../lib/console/protocol';
+import type { DevtoolsCommandRequest, DevtoolsSnapshot } from '../lib/console/protocol';
 import { EndpointsPanel } from './endpoints/EndpointsPanel';
 import { GraphPanel } from './graph/GraphPanel';
+import { commandBlockedReason } from './messaging/commands';
+import { MessagingPanel } from './messaging/MessagingPanel';
 import type { EndpointFocus } from './requests/records';
 import { RequestsPanel } from './requests/RequestsPanel';
 import { RuntimePanel } from './runtime/RuntimePanel';
@@ -31,9 +33,21 @@ interface PanelProps {
   theme: ThemeChoice;
   focus: EndpointFocus | null;
   onOpenEndpoint: (focus: EndpointFocus) => void;
+  send: ShellProps['send'];
 }
 
-const Panel = ({ view, state, token, theme, focus, onOpenEndpoint }: PanelProps) => {
+const Panel = ({ view, state, token, theme, focus, onOpenEndpoint, send }: PanelProps) => {
+  const blockedReason = commandBlockedReason({
+    canSend: send !== undefined,
+    token,
+    connected: state.connection === 'open',
+    hello: state.hello,
+  });
+  const sendCommand =
+    send && blockedReason === null
+      ? (command: DevtoolsCommandRequest) => send({ v: 1, type: 'command', command })
+      : null;
+
   const withSnapshot = (render: (snapshot: DevtoolsSnapshot) => ReactNode) =>
     state.snapshot ? (
       <>
@@ -72,6 +86,18 @@ const Panel = ({ view, state, token, theme, focus, onOpenEndpoint }: PanelProps)
           onReplay={onOpenEndpoint}
         />
       );
+    case 'messaging':
+      return withSnapshot((snapshot) => (
+        <MessagingPanel
+          snapshot={snapshot}
+          hello={state.hello}
+          metrics={state.metrics}
+          requests={state.requests}
+          commandResults={state.commandResults}
+          send={sendCommand}
+          blockedReason={blockedReason}
+        />
+      ));
     default:
       return <Placeholder view={view} />;
   }
@@ -120,7 +146,15 @@ export const Shell = ({ state, token, initialView, send }: ShellProps) => {
               {status.detail}
             </p>
           ) : null}
-          <Panel view={view} state={state} token={token} theme={theme} focus={focus} onOpenEndpoint={openEndpoint} />
+          <Panel
+            view={view}
+            state={state}
+            token={token}
+            theme={theme}
+            focus={focus}
+            onOpenEndpoint={openEndpoint}
+            send={send}
+          />
         </main>
       </div>
     </div>

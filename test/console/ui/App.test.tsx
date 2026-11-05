@@ -57,7 +57,23 @@ describe('console UI shell', () => {
     expect(html).toContain('Requests, newest first');
   });
 
-  test.each(['messaging', 'config', 'exceptions'] as const)('%s routes to a placeholder for now', (view) => {
+  test('messaging lists what can be run, and enables the actions only with a sender and a running app', () => {
+    const send = () => true;
+    const live = renderToStaticMarkup(<Shell state={running} token="t" initialView="messaging" send={send} />);
+    const silent = renderToStaticMarkup(<Shell state={running} token="t" initialView="messaging" />);
+    const starting = renderToStaticMarkup(
+      <Shell state={{ ...running, hello: null }} token="t" initialView="messaging" send={send} />,
+    );
+
+    expect(live).toContain('<h1>Messaging</h1>');
+    expect(live).toContain('NightlyCleanup');
+    expect(live).toMatch(/<button type="button" class="icon-btn">.*Run now<\/button>/);
+    expect(silent).toContain('Not connected to the console host');
+    expect(silent).not.toMatch(/<button type="button" class="icon-btn">/);
+    expect(starting).toContain('The app has not started yet');
+  });
+
+  test.each(['config', 'exceptions'] as const)('%s routes to a placeholder for now', (view) => {
     const html = renderToStaticMarkup(<Shell state={running} token="t" initialView={view} />);
 
     expect(html).toContain('This panel is not built yet.');

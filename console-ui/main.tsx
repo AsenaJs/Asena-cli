@@ -7,6 +7,7 @@ import './styles/graph.css';
 import './styles/runtime.css';
 import './styles/endpoints.css';
 import './styles/requests.css';
+import './styles/messaging.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
