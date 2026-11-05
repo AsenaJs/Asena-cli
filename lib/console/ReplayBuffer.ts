@@ -17,6 +17,11 @@ export class ReplayBuffer<T> {
     this.start = (this.start + 1) % this.limit;
   }
 
+  public clear(): void {
+    this.items.length = 0;
+    this.start = 0;
+  }
+
   public toArray(): T[] {
     return [...this.items.slice(this.start), ...this.items.slice(0, this.start)];
   }

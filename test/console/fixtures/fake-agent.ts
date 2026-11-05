@@ -75,3 +75,15 @@ send('hello', {
 });
 
 send('snapshot', snapshot);
+
+for (let i = 0; i < Number(process.env['FAKE_METRICS'] ?? 0); i++) {
+  send('metrics', {
+    rss: process.pid,
+    heapUsed: 1,
+    heapTotal: 2,
+    cpuPercent: 0,
+    eventLoopLagMs: 0,
+    uptimeSeconds: i,
+    readiness: { status: 'up' },
+  });
+}

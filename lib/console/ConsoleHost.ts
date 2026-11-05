@@ -182,9 +182,11 @@ export class ConsoleHost {
   }
 
   private onStatus(status: ConsoleChildStatus): void {
-    if (status.state === 'starting') {
+    // A failed start reports only `exited` for its generation, so the boundary is the generation, not `starting`.
+    if (status.gen !== this.child.gen) {
       this.hello = undefined;
       this.snapshot = undefined;
+      this.metrics.clear();
     }
 
     this.child = status;

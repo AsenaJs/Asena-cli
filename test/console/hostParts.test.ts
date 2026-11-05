@@ -30,6 +30,18 @@ describe('ReplayBuffer', () => {
     expect(buffer.size).toBe(3);
   });
 
+  it('starts over after clear()', () => {
+    const buffer = new ReplayBuffer<number>(3);
+
+    for (let i = 1; i <= 5; i++) buffer.push(i);
+
+    buffer.clear();
+    buffer.push(9);
+
+    expect(buffer.toArray()).toEqual([9]);
+    expect(buffer.size).toBe(1);
+  });
+
   it('returns a copy', () => {
     const buffer = new ReplayBuffer<number>(2);
 

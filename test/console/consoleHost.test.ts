@@ -298,6 +298,48 @@ describe('ConsoleHost with a fake agent child', () => {
     await client.waitFor(isChild('running', 2));
   });
 
+  it('replays only the current child metrics to a browser that connects after a restart', async () => {
+    const { host } = await startHost({ FAKE_METRICS: '2' });
+    const client = await connect();
+
+    await client.waitFor(isChild('running', 1));
+    await host.restart();
+    await waitUntil(() => client.messages.filter(isAgent('metrics')).length === 4, 5000, 'the second child metrics');
+
+    const replay = await (await connect()).replay();
+
+    expect(replay.child.gen).toBe(2);
+    expect(replay.metrics.map((sample) => sample.rss)).toEqual([host.supervisor.pid, host.supervisor.pid] as number[]);
+  });
+
+  it('drops the previous child hello and snapshot when the next generation fails to start', async () => {
+    let attempts = 0;
+    const { host } = await startHost(
+      { FAKE_METRICS: '1' },
+      {
+        app: {
+          cwd: import.meta.dir,
+          prepare: () => {
+            if (++attempts === 2) throw new Error('Failed to import src/broken.ts: Unexpected token');
+
+            return [process.execPath, FAKE_AGENT];
+          },
+        },
+      },
+    );
+    const client = await connect();
+
+    await client.waitFor(isAgent('metrics'));
+    await host.restart();
+
+    const replay = await (await connect()).replay();
+
+    expect(replay.child).toEqual({ gen: 2, state: 'exited' });
+    expect(replay.hello).toBeUndefined();
+    expect(replay.snapshot).toBeUndefined();
+    expect(replay.metrics).toEqual([]);
+  });
+
   it('drops an IPC message that fails the protocol check and warns once', async () => {
     const { warnings } = await startHost({ FAKE_SEND_INVALID: '1' });
     const client = await connect();
