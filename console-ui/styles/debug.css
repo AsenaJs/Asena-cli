@@ -131,6 +131,44 @@
   margin: 0;
 }
 
+/* ---------- config ---------- */
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.config-body {
+  padding: 12px 14px;
+}
+
+.cell-component {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cell-component .glyph {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-size: 9.5px;
+}
+
+.cell-tag {
+  margin-left: 8px;
+}
+
+.foot-note {
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 860px) {
+  .config-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 640px) {
   .cmd-head {
     flex-wrap: wrap;

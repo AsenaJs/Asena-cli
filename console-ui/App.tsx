@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import type { ConsoleBrowserMessage } from '../lib/console/hostProtocol';
 import type { DevtoolsCommandRequest, DevtoolsSnapshot } from '../lib/console/protocol';
+import { ConfigPanel } from './config/ConfigPanel';
 import { EndpointsPanel } from './endpoints/EndpointsPanel';
 import { GraphPanel } from './graph/GraphPanel';
 import { commandBlockedReason } from './messaging/commands';
@@ -97,6 +98,10 @@ const Panel = ({ view, state, token, theme, focus, onOpenEndpoint, send }: Panel
           send={sendCommand}
           blockedReason={blockedReason}
         />
+      ));
+    case 'config':
+      return withSnapshot((snapshot) => (
+        <ConfigPanel snapshot={snapshot} hello={state.hello} metrics={state.metrics} />
       ));
     default:
       return <Placeholder view={view} />;

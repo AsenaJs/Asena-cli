@@ -73,7 +73,14 @@ describe('console UI shell', () => {
     expect(starting).toContain('The app has not started yet');
   });
 
-  test.each(['config', 'exceptions'] as const)('%s routes to a placeholder for now', (view) => {
+  test('config shows the @Value fields of the running app', () => {
+    const html = renderToStaticMarkup(<Shell state={running} token="t" initialView="config" />);
+
+    expect(html).toContain('<h1>Config</h1>');
+    expect(html).toContain('DEVTOOLS_FIXTURE_REGION');
+  });
+
+  test.each(['exceptions'] as const)('%s routes to a placeholder for now', (view) => {
     const html = renderToStaticMarkup(<Shell state={running} token="t" initialView={view} />);
 
     expect(html).toContain('This panel is not built yet.');
