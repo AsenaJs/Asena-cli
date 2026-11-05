@@ -14,6 +14,8 @@ const server =
         fetch: async (request) => {
           const url = new URL(request.url);
 
+          if (url.pathname === '/slow') await Bun.sleep(Number(process.env['FAKE_SLOW_MS'] ?? 0));
+
           return Response.json(
             {
               method: request.method,

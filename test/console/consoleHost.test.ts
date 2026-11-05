@@ -456,6 +456,25 @@ describe('ConsoleHost with a fake agent child', () => {
       });
     });
 
+    // Bun checks idle connections every few seconds, so the app answers well after the 1 s timeout.
+    it('keeps a proxied request open past the server idle timeout', async () => {
+      const { host } = await startHost(
+        { FAKE_APP_PORT: String(randomPort()), FAKE_SLOW_MS: '5000' },
+        { idleTimeoutSeconds: 1 },
+      );
+      const client = await connect();
+
+      await client.waitFor(isChild('running', 1));
+
+      const response = await get(`/api/http?t=${host.token}`, {
+        method: 'POST',
+        body: JSON.stringify({ method: 'GET', path: '/slow', query: {}, headers: {}, body: '' }),
+      });
+
+      expect(response.status).toBe(200);
+      expect(((await response.json()) as { status: number }).status).toBe(201);
+    }, 15_000);
+
     it('answers 400 to a body that is not a console HTTP request', async () => {
       const { host } = await startHost();
       const post = (body: string) => get(`/api/http?t=${host.token}`, { method: 'POST', body });

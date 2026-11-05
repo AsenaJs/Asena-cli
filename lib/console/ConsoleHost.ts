@@ -41,6 +41,8 @@ export interface ConsoleHostOptions {
   /** Restarts the app on a change below this directory. */
   watchDir?: string;
   watchDebounceMs?: number;
+  /** Bun's idle timeout for the console's own connections; proxied app requests are exempt. */
+  idleTimeoutSeconds?: number;
   app: Omit<AppSupervisorOptions, 'onStatus' | 'onLog' | 'onAgentMessage' | 'onInvalidMessage'>;
   /** Where the host's own warnings go; defaults to `console.warn`. */
   warn?: (message: string) => void;
@@ -136,6 +138,7 @@ export class ConsoleHost {
     this.server = Bun.serve<unknown>({
       hostname: '127.0.0.1',
       port: this.options.port ?? 0,
+      ...(this.options.idleTimeoutSeconds === undefined ? {} : { idleTimeout: this.options.idleTimeoutSeconds }),
       fetch: (request, server) => this.handle(request, server),
       websocket: {
         open: (ws) => this.onBrowserOpen(ws),
@@ -297,9 +300,14 @@ export class ConsoleHost {
     }
 
     if (url.pathname === CONSOLE_HTTP_PROXY_PATH) {
-      return request.method === 'POST'
-        ? this.proxy(request)
-        : new Response('Method Not Allowed', { status: 405, headers: { Allow: 'POST' } });
+      if (request.method !== 'POST') {
+        return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'POST' } });
+      }
+
+      // The proxy's own timeout bounds the request, not the console server's idle timeout.
+      server.timeout(request, 0);
+
+      return this.proxy(request);
     }
 
     if (url.pathname === '/' && (request.method === 'GET' || request.method === 'HEAD')) {
