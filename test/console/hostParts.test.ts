@@ -225,6 +225,79 @@ describe('watchSourceFolder', () => {
     expect(isIgnoredChange('services/ItemService.ts')).toBe(false);
   });
 
+  it('ignores the temp, swap and backup files editors write around a save', () => {
+    for (const file of [
+      'index.ts.tmp.868698.1730000000',
+      'index.ts.tmp',
+      'services/4913',
+      '4913',
+      'index.ts.crswap',
+      'index.ts.swp',
+      'index.ts.swx',
+      'index.ts.swo',
+      '.#index.ts',
+      '.index.ts.kate-swp',
+      '#index.ts#',
+      'index.ts___jb_tmp___',
+      'index.ts___jb_old___',
+    ]) {
+      expect(isIgnoredChange(file), file).toBe(true);
+    }
+
+    for (const file of ['index.ts', 'tmp/index.ts', 'services/temp.ts', 'contemplate.ts', 'v4913.ts']) {
+      expect(isIgnoredChange(file), file).toBe(false);
+    }
+  });
+
+  it('names the real file of an atomic save, relative to the project', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'asena-watch-'));
+    const src = path.join(root, 'src');
+
+    dir = root;
+    fs.mkdirSync(src);
+    fs.writeFileSync(path.join(src, 'index.ts'), 'export {};');
+
+    const calls: string[][] = [];
+    const watcher = watchSourceFolder(src, (files) => calls.push(files), 50, root);
+
+    try {
+      await Bun.sleep(50);
+
+      const temp = path.join(src, 'index.ts.tmp.868698.1730000000');
+
+      fs.writeFileSync(temp, 'export const x = 1;');
+      fs.renameSync(temp, path.join(src, 'index.ts'));
+
+      await waitUntil(() => calls.length > 0, 2000, 'the watcher');
+      await Bun.sleep(150);
+
+      expect(calls).toEqual([['src/index.ts']]);
+    } finally {
+      watcher.close();
+    }
+  });
+
+  it('a temp file alone triggers nothing', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'asena-watch-'));
+
+    dir = root;
+
+    const calls: string[][] = [];
+    const watcher = watchSourceFolder(root, (files) => calls.push(files), 50);
+
+    try {
+      await Bun.sleep(50);
+      fs.writeFileSync(path.join(root, '4913'), '');
+      fs.rmSync(path.join(root, '4913'));
+      fs.writeFileSync(path.join(root, 'index.ts.crswap'), '');
+      await Bun.sleep(250);
+
+      expect(calls).toEqual([]);
+    } finally {
+      watcher.close();
+    }
+  });
+
   it('reports a burst of changes, nested ones included, as one call', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'asena-watch-'));
 

@@ -163,6 +163,7 @@ export class ConsoleHost {
         this.options.watchDir,
         (files) => void this.restart({ kind: 'change', files }),
         this.options.watchDebounceMs,
+        this.options.app.cwd,
       );
     }
   }

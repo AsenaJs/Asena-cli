@@ -1,7 +1,5 @@
 import type { ConsoleRun, ConsoleRunCause } from '../../lib/console/hostProtocol';
 
-const fileName = (file: string): string => file.split(/[\\/]/).pop() ?? file;
-
 export const causeText = (cause: ConsoleRunCause): string => {
   switch (cause.kind) {
     case 'start':
@@ -13,7 +11,7 @@ export const causeText = (cause: ConsoleRunCause): string => {
 
       if (!first) return 'source changed';
 
-      return `${fileName(first)}${cause.files.length > 1 ? ` +${cause.files.length - 1}` : ''} saved`;
+      return `${first}${cause.files.length > 1 ? ` +${cause.files.length - 1} more` : ''} saved`;
     }
   }
 };

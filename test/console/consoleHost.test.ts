@@ -240,6 +240,32 @@ describe('ConsoleHost with a fake agent child', () => {
     expect(replay.logs.some((line) => line.gen === 1)).toBe(true);
   });
 
+  it('names the saved file relative to the project, not the temp file an atomic save renames', async () => {
+    const project = tmpDir('asena-console-project-');
+    const src = path.join(project, 'src');
+
+    fs.mkdirSync(src);
+    fs.writeFileSync(path.join(src, 'index.ts'), 'export {};\n');
+
+    await startHost(
+      {},
+      { watchDir: src, watchDebounceMs: 50, app: { cwd: project, prepare: () => [process.execPath, FAKE_AGENT] } },
+    );
+
+    const client = await connect();
+
+    await client.waitFor(isChild('running', 1));
+
+    const temp = path.join(src, 'index.ts.tmp.868698.1730000000');
+
+    fs.writeFileSync(temp, 'export const saved = true;\n');
+    fs.renameSync(temp, path.join(src, 'index.ts'));
+
+    expect(await client.waitFor(isChild('starting', 2))).toMatchObject({
+      cause: { kind: 'change', files: ['src/index.ts'] },
+    });
+  });
+
   it('folds restarts requested during a restart into one more generation', async () => {
     const { host } = await startHost();
     const client = await connect();

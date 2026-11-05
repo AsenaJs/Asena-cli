@@ -183,8 +183,10 @@ describe('formatting', () => {
   test('a run says why it started and how it ended', () => {
     expect(causeText({ kind: 'start' })).toBe('started');
     expect(causeText({ kind: 'restart' })).toBe('restarted from the console');
-    expect(causeText({ kind: 'change', files: ['services/ItemService.ts'] })).toBe('ItemService.ts saved');
-    expect(causeText({ kind: 'change', files: ['a.ts', 'b.ts', 'c.ts'] })).toBe('a.ts +2 saved');
+    expect(causeText({ kind: 'change', files: ['src/services/ItemService.ts'] })).toBe(
+      'src/services/ItemService.ts saved',
+    );
+    expect(causeText({ kind: 'change', files: ['src/a.ts', 'src/b.ts', 'src/c.ts'] })).toBe('src/a.ts +2 more saved');
 
     const run = { gen: 2, startedAt: 0, cause: { kind: 'restart' as const } };
 
