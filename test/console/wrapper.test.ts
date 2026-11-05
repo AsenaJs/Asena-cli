@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { isSupportedCoreVersion, resolveDevtoolsAgent } from '../../lib/console/coreVersion';
+import { resolveDevtoolsAgent } from '../../lib/console/coreVersion';
 import { appCommand, DEVTOOLS_PRELUDE_FILE, writeConsoleWrapper } from '../../lib/console/wrapper';
 import { toImportPath } from '../../lib/helpers/wrapperHelper';
 import { FIXTURE_DIR } from '../utils/fixtureCopy';
@@ -138,16 +138,5 @@ describe('console wrapper', () => {
 
   it('finds no devtools agent in a core that predates it', () => {
     expect(resolveDevtoolsAgent(FIXTURE_DIR)).toBeNull();
-  });
-});
-
-describe('isSupportedCoreVersion', () => {
-  it('accepts the 0.13 line, prereleases included, and nothing else', () => {
-    expect(isSupportedCoreVersion('0.13.0')).toBe(true);
-    expect(isSupportedCoreVersion('0.13.7')).toBe(true);
-    expect(isSupportedCoreVersion('0.13.0-next.1')).toBe(true);
-    expect(isSupportedCoreVersion('0.12.4')).toBe(false);
-    expect(isSupportedCoreVersion('0.14.0')).toBe(false);
-    expect(isSupportedCoreVersion('not a version')).toBe(false);
   });
 });

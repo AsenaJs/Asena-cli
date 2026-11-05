@@ -61,8 +61,12 @@ process.on('message', (message: { type?: string; payload?: Record<string, unknow
   send('commandResult', { id: command['id'], ok: true, result: { echo: command } });
 });
 
-if (process.env['FAKE_SEND_INVALID'] === '1') {
+if (process.env['FAKE_SEND_INVALID'] === 'v2') {
   process.send?.({ v: 2, type: 'hello', payload: {} });
+}
+
+if (process.env['FAKE_SEND_INVALID'] === 'type') {
+  process.send?.({ v: 1, type: 'bogus', payload: {} });
 }
 
 console.log(`fake app up pid=${process.pid}`);

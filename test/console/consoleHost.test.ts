@@ -341,7 +341,7 @@ describe('ConsoleHost with a fake agent child', () => {
   });
 
   it('drops an IPC message that fails the protocol check and warns once', async () => {
-    const { warnings } = await startHost({ FAKE_SEND_INVALID: '1' });
+    const { warnings } = await startHost({ FAKE_SEND_INVALID: 'type' });
     const client = await connect();
 
     await client.waitFor(isChild('running', 1));
@@ -351,16 +351,29 @@ describe('ConsoleHost with a fake agent child', () => {
     expect(host?.snapshotState().logs.some((line) => line.line.includes('does not understand'))).toBe(true);
   });
 
-  it('warns in the terminal and the UI when the core version is outside the supported range', async () => {
-    const { warnings } = await startHost({ FAKE_CORE_VERSION: '0.12.4' });
+  it('names both protocol versions when the agent speaks another one', async () => {
+    const { warnings } = await startHost({ FAKE_SEND_INVALID: 'v2' });
     const client = await connect();
 
     await client.waitFor(isChild('running', 1));
 
-    const log = (await client.waitFor(isLog('0.12.4 is outside the range'))) as Message<'log'>;
+    const log = (await client.waitFor(isLog('protocol v2'))) as Message<'log'>;
 
     expect(log).toMatchObject({ gen: 1, stream: 'stderr' });
-    expect(warnings.some((warning) => warning.includes('0.12.4 is outside the range'))).toBe(true);
+    expect(log.line).toContain('this CLI speaks v1');
+    expect(warnings).toHaveLength(1);
+  });
+
+  it('shows a core version outside 0.13 without warning, since the protocol version decides', async () => {
+    const { warnings } = await startHost({ FAKE_CORE_VERSION: '0.12.4' });
+    const client = await connect();
+
+    await client.waitFor(isChild('running', 1));
+    await Bun.sleep(50);
+
+    expect(host?.snapshotState().hello?.coreVersion).toBe('0.12.4');
+    expect(warnings).toEqual([]);
+    expect(client.messages.filter((message) => message.type === 'log' && message.stream === 'stderr')).toEqual([]);
   });
 
   it('replays no more log lines than the contract allows, keeping the newest', async () => {

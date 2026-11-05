@@ -2,7 +2,6 @@ import fs from 'fs';
 import path from 'path';
 import type { Server, ServerWebSocket } from 'bun';
 import { AppSupervisor, type AppSupervisorOptions } from './AppSupervisor';
-import { CONSOLE_CORE_RANGE, isSupportedCoreVersion } from './coreVersion';
 import {
   CONSOLE_ASSETS_PREFIX,
   CONSOLE_HTTP_PROXY_PATH,
@@ -26,6 +25,7 @@ import {
   type DevtoolsRequestRecord,
   type DevtoolsSnapshot,
   agentMessage,
+  DEVTOOLS_PROTOCOL_VERSION,
   hostMessage,
 } from './protocol';
 import { ReplayBuffer } from './ReplayBuffer';
@@ -120,7 +120,7 @@ export class ConsoleHost {
       onStatus: (status) => this.onStatus(status),
       onLog: (line) => this.onLog(line),
       onAgentMessage: (message, gen) => this.onAgentMessage(message, gen),
-      onInvalidMessage: (_message, gen) => this.onInvalidMessage(gen),
+      onInvalidMessage: (message, gen) => this.onInvalidMessage(message, gen),
     });
   }
 
@@ -227,27 +227,23 @@ export class ConsoleHost {
 
     this.broadcast({ v: CONSOLE_PROTOCOL_VERSION, type: 'agent', message });
 
-    if (message.type === 'hello') {
-      if (this.child.gen === gen && this.child.state === 'starting') {
-        this.onStatus({ gen, state: 'running', pid: message.payload.pid });
-      }
-
-      if (!isSupportedCoreVersion(message.payload.coreVersion)) {
-        this.hostWarning(
-          gen,
-          `[asena console] @asenajs/asena ${message.payload.coreVersion} is outside the range this CLI supports (${CONSOLE_CORE_RANGE}); some panels may be wrong or empty.`,
-        );
-      }
+    if (message.type === 'hello' && this.child.gen === gen && this.child.state === 'starting') {
+      this.onStatus({ gen, state: 'running', pid: message.payload.pid });
     }
   }
 
-  private onInvalidMessage(gen: number): void {
+  private onInvalidMessage(message: unknown, gen: number): void {
     if (this.warnedInvalid.has(gen)) return;
 
     this.warnedInvalid.add(gen);
+
+    const version = typeof message === 'object' && message !== null ? (message as { v?: unknown }).v : undefined;
+
     this.hostWarning(
       gen,
-      '[asena console] Dropped a devtools message this CLI does not understand; the app and the CLI may speak different protocol versions.',
+      typeof version === 'number' && version !== DEVTOOLS_PROTOCOL_VERSION
+        ? `[asena console] The app's devtools agent speaks protocol v${version}; this CLI speaks v${DEVTOOLS_PROTOCOL_VERSION}. Its messages are dropped; update @asenajs/asena-cli or @asenajs/asena so both speak the same version.`
+        : '[asena console] Dropped a devtools message this CLI does not understand.',
     );
   }
 
