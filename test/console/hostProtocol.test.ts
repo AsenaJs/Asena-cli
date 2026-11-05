@@ -275,6 +275,23 @@ describe('console fixtures', () => {
     expect(requests.filter((record) => !isRequestRecordValid(record))).toEqual([]);
   });
 
+  test('recorded requests are answered by every step kind the fixture app can produce, and by non-HTTP dispatches', () => {
+    const messages = hostMessages as ConsoleHostMessage[];
+    const requests = messages.flatMap((message) => {
+      if (message.type === 'snapshotState') return message.requests;
+
+      return message.type === 'agent' && message.message.type === 'request' ? [message.message.payload] : [];
+    });
+    // The fixture app declares no @Config.onError, so no record can be answered by it.
+    const reachable = STEP_KINDS.filter((kind) => kind !== 'global-middleware' && kind !== 'config-onError');
+
+    expect(snapshot.config.hasOnError).toBe(false);
+    expect(new Set(requests.map((record) => record.answeredBy.kind))).toEqual(new Set(reachable));
+    expect(new Set(requests.map((record) => record.method))).toEqual(
+      new Set(['GET', 'POST', 'PUT', '@Schedule', '@On', '@MessagePattern']),
+    );
+  });
+
   test('generations never go backwards', () => {
     const gens = (hostMessages as ConsoleHostMessage[]).flatMap((message) => {
       if (message.type === 'snapshotState') return [message.child.gen];

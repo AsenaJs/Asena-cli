@@ -91,9 +91,10 @@ describe('consoleReducer over the recorded host messages', () => {
     expect(state.metrics.map((sample) => sample.uptimeSeconds)).toEqual([1]);
     expect(state.logs).toHaveLength(6 + logLines);
     expect(state.logs.map((entry) => entry.seq)).toEqual(state.logs.map((_, i) => i));
-    expect(state.requests.map((record) => record.id)).toEqual(['r-1', 'r-2', 'r-3', 'r-4', 'r-5']);
+    expect(state.requests.map((record) => record.id)).toEqual(Array.from({ length: 11 }, (_, i) => `r-${i + 1}`));
     expect(state.commandResults['c-1']).toEqual({ id: 'c-1', ok: true, result: { ran: 'NightlyCleanup' } });
     expect(state.commandResults['c-2']?.ok).toBe(false);
+    expect(Object.keys(state.commandResults)).toEqual(['c-1', 'c-2', 'c-3', 'c-4']);
     expect(runSummary(state)).toEqual([
       { gen: 1, state: 'exited', code: 0, cause: 'start' },
       { gen: 2, state: 'exited', code: 1, cause: 'change' },
@@ -173,7 +174,10 @@ describe('consoleReducer generations', () => {
       clearedThrough,
     });
 
-    expect(reconnected.logs.map((entry) => entry.seq)).toEqual([...live.logs.map((entry) => entry.seq), 13]);
+    expect(reconnected.logs.map((entry) => entry.seq)).toEqual([
+      ...live.logs.map((entry) => entry.seq),
+      clearedThrough + 1,
+    ]);
     expect(shown.map((entry) => entry.line)).toEqual(['after the reconnect']);
   });
 });
