@@ -7,14 +7,15 @@ export const LOG_LEVELS: readonly LogLevel[] = ['error', 'warn', 'info'];
 
 const ANSI_ESCAPE = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*[A-Za-z]`, 'g');
 
+// Multiline, since an entry can hold a whole Bun error report, whose `error: msg` line follows the source excerpt.
 const ERROR_MARKERS = [
   /\[(?:[\w.-]+:)?(?:error|err|fatal)\]/i,
-  /^\s*(?:error|fatal)\b/i,
+  /^[^\S\n]*(?:error|fatal)\b/im,
   /\b[A-Z]\w*Error\b:/,
   /\bERROR\b/,
 ];
 
-const WARN_MARKERS = [/\[(?:[\w.-]+:)?warn(?:ing)?\]/i, /^\s*warn(?:ing)?\b/i, /\bWARN(?:ING)?\b/];
+const WARN_MARKERS = [/\[(?:[\w.-]+:)?warn(?:ing)?\]/i, /^[^\S\n]*warn(?:ing)?\b/im, /\bWARN(?:ING)?\b/];
 
 export const stripAnsi = (line: string): string => line.replace(ANSI_ESCAPE, '');
 

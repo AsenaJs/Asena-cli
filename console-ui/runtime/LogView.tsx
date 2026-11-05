@@ -3,7 +3,16 @@ import type { ConsoleRun } from '../../lib/console/hostProtocol';
 import type { LogEntry } from '../state/store';
 import { Card, IconButton, SearchField, SegmentedControl } from '../ui/components';
 import { formatClock } from './format';
-import { filterLogs, LOG_LEVELS, type LogLevel, logLevel, rowOffsets, visibleWindow, withRunSeparators } from './logs';
+import {
+  filterLogs,
+  LOG_LEVELS,
+  type LogLevel,
+  logLevel,
+  type LogRow,
+  rowOffsets,
+  visibleWindow,
+  withRunSeparators,
+} from './logs';
 import { causeText } from './runs';
 
 export const LOG_ROW_HEIGHT = 21;
@@ -18,6 +27,9 @@ const STICK_DISTANCE = 24;
 const LEVEL_LABELS: Record<LogLevel, string> = { info: 'Info', warn: 'Warnings', error: 'Errors' };
 
 const LEVEL_ORDER: LogLevel[] = ['info', 'warn', 'error'];
+
+const rowHeight = (row: LogRow): number =>
+  row.kind === 'run' ? RUN_ROW_HEIGHT : LOG_ROW_HEIGHT * row.entry.text.split('\n').length;
 
 export const LogView = ({ logs, runs = [] }: { logs: LogEntry[]; runs?: ConsoleRun[] }) => {
   const [levels, setLevels] = useState<ReadonlySet<LogLevel>>(() => new Set(LOG_LEVELS));
@@ -44,10 +56,7 @@ export const LogView = ({ logs, runs = [] }: { logs: LogEntry[]; runs?: ConsoleR
     return byLevel;
   }, [logs, clearedThrough]);
   const rows = useMemo(() => withRunSeparators(shown), [shown]);
-  const offsets = useMemo(
-    () => rowOffsets(rows.map((row) => (row.kind === 'run' ? RUN_ROW_HEIGHT : LOG_ROW_HEIGHT))),
-    [rows],
-  );
+  const offsets = useMemo(() => rowOffsets(rows.map(rowHeight)), [rows]);
   const view = visibleWindow(offsets, scrollTop, viewportHeight);
   const waiting = pausedAt === null ? 0 : logs.filter((entry) => entry.seq > pausedAt).length;
 
@@ -143,7 +152,7 @@ export const LogView = ({ logs, runs = [] }: { logs: LogEntry[]; runs?: ConsoleR
                   className="log-row"
                   data-level={row.entry.level}
                   data-stream={row.entry.stream}
-                  style={{ height: LOG_ROW_HEIGHT }}
+                  style={{ height: rowHeight(row) }}
                   title={row.entry.text}
                 >
                   <span className="ts">{formatClock(row.entry.at)}</span>

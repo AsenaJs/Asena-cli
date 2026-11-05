@@ -276,6 +276,18 @@ describe('runtime panel rendering', () => {
     expect(RUN_ROW_HEIGHT).toBeGreaterThan(LOG_ROW_HEIGHT);
   });
 
+  test('a multi-line entry is one row as tall as its lines, and a Bun error report counts as an error', () => {
+    const report =
+      '10 |   console.error(new Error("boom"));\n                         ^\nerror: boom\n      at /app/x.ts:10:21';
+    const html = renderToStaticMarkup(<LogView logs={[entry(0, 'before'), entry(1, report, 'stderr')]} />);
+
+    expect(logLevel(report, 'stderr')).toBe('error');
+    expect(html.match(/class="log-row"/g)).toHaveLength(2);
+    expect(html).toContain(`height:${4 * LOG_ROW_HEIGHT}px`);
+    expect(html).toContain(`height:${5 * LOG_ROW_HEIGHT}px`);
+    expect(html).toContain('2 of 2 lines');
+  });
+
   test('the level filter counts the lines of each level', () => {
     const html = renderToStaticMarkup(
       <LogView logs={[entry(0, 'ok'), entry(1, '[warn] slow'), entry(2, 'TypeError: x', 'stderr')]} />,

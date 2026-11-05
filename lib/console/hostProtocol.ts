@@ -67,7 +67,7 @@ export interface ConsoleLogLine {
   seq: number;
   gen: number;
   stream: ConsoleLogStream;
-  /** One line of output, without its line break. */
+  /** One line of output without its line break, or several when they belong together, e.g. a stack trace. */
   line: string;
   /** Epoch milliseconds. */
   at: number;

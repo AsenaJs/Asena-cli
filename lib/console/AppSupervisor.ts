@@ -1,6 +1,6 @@
 import type { Subprocess } from 'bun';
 import type { ConsoleChildStatus, ConsoleLogLine, ConsoleLogStream } from './hostProtocol';
-import { pipeLines } from './lines';
+import { LogGrouper, pipeLines } from './lines';
 import { type DevtoolsAgentMessage, type DevtoolsHostMessage, isDevtoolsAgentMessage } from './protocol';
 
 export interface AppSupervisorOptions {
@@ -168,15 +168,18 @@ export class AppSupervisor {
 
   private async pipe(stream: ReadableStream<Uint8Array>, name: ConsoleLogStream, gen: number): Promise<void> {
     const terminal = name === 'stdout' ? process.stdout : process.stderr;
+    const grouper = new LogGrouper((line, at) => this.options.onLog({ gen, stream: name, line, at }));
 
     try {
       await pipeLines(
         stream,
-        (line) => this.options.onLog({ gen, stream: name, line, at: Date.now() }),
+        (line) => grouper.push(line, Date.now()),
         this.options.echo ? (chunk) => terminal.write(chunk) : undefined,
       );
     } catch {
       // A pipe torn down with the child has nothing more to deliver.
+    } finally {
+      grouper.flush();
     }
   }
 

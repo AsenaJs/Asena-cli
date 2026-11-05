@@ -1,0 +1,12 @@
+request failed  9 | }
+10 | 
+11 | const logger = { error: (message: string, ...rest: unknown[]) => console.error(message, ...rest) };
+12 | 
+13 | function failing(): never {
+14 |   throw new Error('boom');
+                 ^
+error: boom
+      at failing (/app/errors.ts:14:13)
+      at attempt (/app/errors.ts:24:5)
+      at /app/errors.ts:41:5
+

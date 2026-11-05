@@ -1,0 +1,24 @@
+32 |     console.log('before');
+33 |     console.error(new Error('boom'));
+34 |     console.log('after');
+35 |     break;
+36 |   case 'cause':
+37 |     attempt(failing, (error) => console.error(new Error('wrapped', { cause: error })));
+                                                       ^
+error: wrapped
+      at <anonymous> (/app/errors.ts:37:51)
+      at attempt (/app/errors.ts:26:5)
+      at /app/errors.ts:37:5
+
+ 9 | }
+10 | 
+11 | const logger = { error: (message: string, ...rest: unknown[]) => console.error(message, ...rest) };
+12 | 
+13 | function failing(): never {
+14 |   throw new Error('boom');
+                 ^
+error: boom
+      at failing (/app/errors.ts:14:13)
+      at attempt (/app/errors.ts:24:5)
+      at /app/errors.ts:37:5
+
