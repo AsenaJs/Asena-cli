@@ -16,6 +16,7 @@
 
 .rq-table {
   table-layout: fixed;
+  min-width: 640px;
 }
 
 .rq-table .c-time {
