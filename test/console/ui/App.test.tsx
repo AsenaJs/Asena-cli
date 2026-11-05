@@ -80,10 +80,18 @@ describe('console UI shell', () => {
     expect(html).toContain('DEVTOOLS_FIXTURE_REGION');
   });
 
-  test.each(['exceptions'] as const)('%s routes to a placeholder for now', (view) => {
-    const html = renderToStaticMarkup(<Shell state={running} token="t" initialView={view} />);
+  test('exceptions maps the caught types of the running app', () => {
+    const html = renderToStaticMarkup(<Shell state={running} token="t" initialView="exceptions" />);
 
-    expect(html).toContain('This panel is not built yet.');
+    expect(html).toContain('<h1>Exceptions</h1>');
+    expect(html).toContain('Who catches this?');
+    expect(html).toContain('ApiExceptionHandler.conflict');
+  });
+
+  test.each(['messaging', 'config', 'exceptions'] as const)('%s waits for the snapshot', (view) => {
+    const html = renderToStaticMarkup(<Shell state={initialConsoleState} token="t" initialView={view} />);
+
+    expect(html).toContain('Waiting for the app to report its components');
     expect(html).toContain(`<h1>${VIEWS.find((entry) => entry.id === view)!.label}</h1>`);
   });
 

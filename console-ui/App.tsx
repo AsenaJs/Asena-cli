@@ -3,13 +3,14 @@ import type { ConsoleBrowserMessage } from '../lib/console/hostProtocol';
 import type { DevtoolsCommandRequest, DevtoolsSnapshot } from '../lib/console/protocol';
 import { ConfigPanel } from './config/ConfigPanel';
 import { EndpointsPanel } from './endpoints/EndpointsPanel';
+import { ExceptionsPanel } from './exceptions/ExceptionsPanel';
 import { GraphPanel } from './graph/GraphPanel';
 import { commandBlockedReason } from './messaging/commands';
 import { MessagingPanel } from './messaging/MessagingPanel';
 import type { EndpointFocus } from './requests/records';
 import { RequestsPanel } from './requests/RequestsPanel';
 import { RuntimePanel } from './runtime/RuntimePanel';
-import { Placeholder, StaleNotice, WaitingForSnapshot } from './shell/Placeholder';
+import { StaleNotice, WaitingForSnapshot } from './shell/Placeholder';
 import { Sidebar } from './shell/Sidebar';
 import { appStatus } from './shell/status';
 import { type ThemeChoice, useTheme } from './shell/theme';
@@ -103,8 +104,8 @@ const Panel = ({ view, state, token, theme, focus, onOpenEndpoint, send }: Panel
       return withSnapshot((snapshot) => (
         <ConfigPanel snapshot={snapshot} hello={state.hello} metrics={state.metrics} />
       ));
-    default:
-      return <Placeholder view={view} />;
+    case 'exceptions':
+      return withSnapshot((snapshot) => <ExceptionsPanel snapshot={snapshot} hello={state.hello} />);
   }
 };
 
