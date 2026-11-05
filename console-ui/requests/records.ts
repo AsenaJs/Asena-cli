@@ -7,7 +7,6 @@ import type {
 } from '../../lib/console/protocol';
 import { PARAM_SEGMENT, WILDCARD } from '../endpoints/requestBuilder';
 import { routeKey } from '../graph/buildGraph';
-import type { LogEntry } from '../state/store';
 
 export const STEP_LABELS: Record<DevtoolsStepKind, string> = {
   'global-middleware': 'Global middleware',
@@ -85,20 +84,6 @@ export const runOfRecord = (record: DevtoolsRequestRecord, runs: ConsoleRun[]): 
   }
 
   return gen;
-};
-
-/**
- * The host stamps a log line when it reads the pipe, a little after the app wrote it, so a line written as
- * the request ends may be stamped just past `startedAt + durationMs`.
- */
-export const LOG_STAMP_SLACK_MS = 50;
-
-/** The lines the app's run wrote between the request's start and its end, by time: concurrent requests share them. */
-export const logsDuring = (record: DevtoolsRequestRecord, logs: LogEntry[], runs: ConsoleRun[]): LogEntry[] => {
-  const gen = runOfRecord(record, runs);
-  const end = record.startedAt + record.durationMs + LOG_STAMP_SLACK_MS;
-
-  return logs.filter((entry) => (gen === null || entry.gen === gen) && entry.at >= record.startedAt && entry.at <= end);
 };
 
 const trimSlash = (path: string): string => (path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path);

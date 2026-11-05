@@ -82,7 +82,6 @@ const Panel = ({ view, state, token, theme, focus, onOpenEndpoint, send }: Panel
       return (
         <RequestsPanel
           requests={state.requests}
-          logs={state.logs}
           runs={state.runs}
           routes={state.snapshot?.routes ?? []}
           onReplay={onOpenEndpoint}

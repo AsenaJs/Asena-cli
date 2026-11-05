@@ -5,8 +5,6 @@ import type { DevtoolsRequestRecord, DevtoolsRoute } from '../../../lib/console/
 import {
   countByClass,
   filterRequests,
-  LOG_STAMP_SLACK_MS,
-  logsDuring,
   matchRoute,
   methodsOf,
   recordForResponse,
@@ -57,41 +55,6 @@ describe('request records', () => {
     expect(runOfRecord(record('r-6'), state.runs)).toBe(1);
     expect(runOfRecord(record('r-7'), state.runs)).toBe(3);
     expect(runOfRecord(record('r-7'), [])).toBeNull();
-  });
-
-  test('attaches the lines its run wrote between its start and its end', () => {
-    const lines = (id: string) => logsDuring(record(id), state.logs, state.runs).map((entry) => entry.line);
-
-    expect(lines('r-1')).toEqual(['Item 1 created']);
-    expect(lines('r-4')).toEqual(['Rename of item 7 rejected: name taken']);
-    expect(lines('r-5')).toEqual(["TypeError: undefined is not an object (evaluating 'item.name')"]);
-    expect(lines('r-6')).toEqual(['NightlyCleanup removed 3 drafts']);
-    expect(lines('r-10')).toEqual(['Item 12 created, notifying listeners']);
-    expect(lines('r-3')).toEqual([]);
-  });
-
-  test('a line stamped just after the end still counts, a later one or one from another run does not', () => {
-    const request = { ...record('r-7'), startedAt: 1000, durationMs: 10 };
-    const runs = [
-      { gen: 1, startedAt: 0, cause: { kind: 'start' as const }, state: 'exited' as const },
-      { gen: 2, startedAt: 500, cause: { kind: 'restart' as const }, state: 'running' as const },
-    ];
-    const line = (seq: number, gen: number, at: number) => ({
-      seq,
-      gen,
-      stream: 'stdout' as const,
-      line: `line ${seq}`,
-      at,
-    });
-    const logs = [
-      line(0, 2, 999),
-      line(1, 2, 1000),
-      line(2, 2, 1010 + LOG_STAMP_SLACK_MS),
-      line(3, 2, 1011 + LOG_STAMP_SLACK_MS),
-      line(4, 1, 1005),
-    ];
-
-    expect(logsDuring(request, logs, runs).map((entry) => entry.seq)).toEqual([1, 2]);
   });
 });
 
@@ -169,14 +132,7 @@ describe('matching a request to its route', () => {
 describe('requests panel rendering', () => {
   const panel = (props: Partial<Parameters<typeof RequestsPanel>[0]> = {}) =>
     renderToStaticMarkup(
-      <RequestsPanel
-        requests={state.requests}
-        logs={state.logs}
-        runs={state.runs}
-        routes={routes}
-        onReplay={() => {}}
-        {...props}
-      />,
+      <RequestsPanel requests={state.requests} runs={state.runs} routes={routes} onReplay={() => {}} {...props} />,
     );
 
   test('says what appears here before the first request', () => {
@@ -199,7 +155,7 @@ describe('requests panel rendering', () => {
     expect(html).not.toContain('rq-drawer');
   });
 
-  test('the details show the chain with the answer marked, the output during the request, and the replay', () => {
+  test('the details show the chain with the answer marked, and the replay', () => {
     const html = panel({ initialSelected: 'r-4' });
 
     expect(html).toContain('rq-layout open');
@@ -210,13 +166,51 @@ describe('requests panel rendering', () => {
       '<span class="step-kind">Validator</span><span class="mono step-name">RenameItemContext</span>',
     );
     expect(html).toMatch(/<li class="answered">.*ApiExceptionHandler\.conflict.*answered<\/span><\/li>/);
-    expect(html).toContain('Rename of item 7 rejected: name taken');
     expect(html).toContain('Replay in Endpoints');
   });
 
   test('a record with nothing to replay says why', () => {
     expect(panel({ initialSelected: 'r-3' })).toContain('No route of the app serves GET /itemz');
     expect(panel({ initialSelected: 'r-10' })).toContain('A @On dispatch, not an HTTP request');
-    expect(panel({ initialSelected: 'r-8' })).toContain('Nothing was written while it ran');
+  });
+
+  describe('output during the request', () => {
+    const trace = 'ItemConflictError: name "Notebook" is taken\n      at rename (/app/src/items.ts:9:5)';
+    const scoped: DevtoolsRequestRecord = {
+      ...record('r-4'),
+      logs: [
+        { stream: 'stdout', text: 'renaming item 7', at: record('r-4').startedAt + 1 },
+        { stream: 'stderr', text: trace, at: record('r-4').startedAt + 2 },
+      ],
+    };
+    const drawer = (selected: DevtoolsRequestRecord) =>
+      panel({
+        requests: state.requests.map((candidate) => (candidate.id === selected.id ? selected : candidate)),
+        initialSelected: selected.id,
+      });
+
+    // The run's log has "Rename of item 7 rejected" inside r-4's time window, written by a request running alongside it.
+    test('shows what the app wrote in the request scope, not the run output of the same moment', () => {
+      const html = drawer(scoped);
+
+      expect(html).toContain('Output during the request (2)');
+      expect(html).toContain('renaming item 7');
+      expect(html).not.toContain('Rename of item 7 rejected');
+    });
+
+    test('keeps a multi-line write as one entry and marks the stderr ones', () => {
+      const html = drawer(scoped);
+      const entries = html.match(/<li class="rq-log"[^>]*>/g) ?? [];
+
+      expect(entries).toEqual(['<li class="rq-log" data-stream="stdout">', '<li class="rq-log" data-stream="stderr">']);
+      expect(html).toContain(`<pre class="rq-log-text">${trace.replaceAll('"', '&quot;')}</pre>`);
+      expect(html).toContain('<span class="rq-stream">stderr</span>');
+    });
+
+    test('a record without logs says nothing was written; a capped one says lines were dropped', () => {
+      expect(drawer(record('r-8'))).toContain('No output during this request');
+      expect(drawer({ ...scoped, logsTruncated: true })).toContain('truncated');
+      expect(drawer(scoped)).not.toContain('truncated');
+    });
   });
 });

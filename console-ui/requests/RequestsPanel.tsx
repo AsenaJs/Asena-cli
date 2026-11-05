@@ -4,7 +4,6 @@ import type { DevtoolsRequestRecord, DevtoolsRoute } from '../../lib/console/pro
 import { answerTone, STATUS_TEXT, statusTone } from '../endpoints/RouteTester';
 import { formatClock, formatMs } from '../runtime/format';
 import { logLevel, stripAnsi } from '../runtime/logs';
-import type { LogEntry } from '../state/store';
 import { Card, IconButton, MethodBadge, Pill, SearchField, Section, SegmentedControl } from '../ui/components';
 import { Icon } from '../ui/icons';
 import {
@@ -13,8 +12,6 @@ import {
   filterRequests,
   isAnswer,
   isDispatch,
-  LOG_STAMP_SLACK_MS,
-  logsDuring,
   methodsOf,
   replayFocus,
   runOfRecord,
@@ -24,7 +21,6 @@ import {
 
 export interface RequestsPanelProps {
   requests: DevtoolsRequestRecord[];
-  logs: LogEntry[];
   runs: ConsoleRun[];
   /** The app's routes, to find the one a request can be replayed on; empty before the first snapshot. */
   routes: DevtoolsRoute[];
@@ -35,21 +31,19 @@ export interface RequestsPanelProps {
 
 const RequestDetails = ({
   record,
-  logs,
   runs,
   routes,
   onReplay,
   onClose,
 }: {
   record: DevtoolsRequestRecord;
-  logs: LogEntry[];
   runs: ConsoleRun[];
   routes: DevtoolsRoute[];
   onReplay: (focus: EndpointFocus) => void;
   onClose: () => void;
 }) => {
   const run = runOfRecord(record, runs);
-  const lines = logsDuring(record, logs, runs);
+  const logs = record.logs ?? [];
   const focus = replayFocus(record, routes);
   const dispatch = isDispatch(record);
 
@@ -96,27 +90,28 @@ const RequestDetails = ({
             })}
           </ol>
         </Section>
-        <Section title={`Output during the request${lines.length > 0 ? ` (${lines.length})` : ''}`}>
-          {lines.length > 0 ? (
-            <ol className="rq-logs" aria-label="Log lines written during the request">
-              {lines.map((line) => {
-                const level = logLevel(line.line, line.stream);
+        <Section title={`Output during the request${logs.length > 0 ? ` (${logs.length})` : ''}`}>
+          {logs.length > 0 ? (
+            <ol className="rq-logs" aria-label="Output written during the request">
+              {logs.map((entry, index) => {
+                const level = logLevel(entry.text, entry.stream);
 
                 return (
-                  <li key={line.seq}>
-                    <span className="ts">{formatClock(line.at)}</span>
+                  <li key={index} className="rq-log" data-stream={entry.stream}>
+                    <span className="ts">{formatClock(entry.at)}</span>
                     <span className={`lv lv-${level}`}>{level}</span>
-                    <span>{stripAnsi(line.line)}</span>
+                    <pre className="rq-log-text">{stripAnsi(entry.text).replace(/\r?\n$/, '')}</pre>
+                    {entry.stream === 'stderr' ? <span className="rq-stream">stderr</span> : null}
                   </li>
                 );
               })}
             </ol>
           ) : (
-            <p className="muted pane-note">
-              Nothing was written while it ran (from its start to {LOG_STAMP_SLACK_MS} ms after its end, run{' '}
-              {run ?? '?'}).
-            </p>
+            <p className="muted pane-note">No output during this request.</p>
           )}
+          {record.logsTruncated ? (
+            <p className="muted pane-note">Output truncated: the agent keeps the first lines of a request only.</p>
+          ) : null}
         </Section>
         <div className="rq-actions">
           {focus ? (
@@ -136,14 +131,7 @@ const RequestDetails = ({
   );
 };
 
-export const RequestsPanel = ({
-  requests,
-  logs,
-  runs,
-  routes,
-  onReplay,
-  initialSelected = null,
-}: RequestsPanelProps) => {
+export const RequestsPanel = ({ requests, runs, routes, onReplay, initialSelected = null }: RequestsPanelProps) => {
   const [hiddenClasses, setHiddenClasses] = useState<ReadonlySet<string>>(() => new Set());
   const [method, setMethod] = useState('');
   const [text, setText] = useState('');
@@ -271,7 +259,6 @@ export const RequestsPanel = ({
         <RequestDetails
           key={selected.id}
           record={selected}
-          logs={logs}
           runs={runs}
           routes={routes}
           onReplay={onReplay}

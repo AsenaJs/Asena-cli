@@ -168,13 +168,32 @@
 
 .rq-logs li {
   display: grid;
-  grid-template-columns: 94px 44px minmax(0, 1fr);
+  grid-template-columns: 94px 44px minmax(0, 1fr) auto;
+  align-items: baseline;
   gap: 8px;
   overflow-wrap: anywhere;
 }
 
+.rq-logs li + li {
+  margin-top: 4px;
+}
+
 .rq-logs .ts {
   color: var(--ink-3);
+}
+
+.rq-log-text {
+  margin: 0;
+  font: inherit;
+  white-space: pre-wrap;
+}
+
+.rq-stream {
+  padding: 0 6px;
+  border-radius: var(--r-sm);
+  background: var(--bad-soft);
+  color: var(--bad);
+  font-size: 10.5px;
 }
 
 .rq-actions {
