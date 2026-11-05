@@ -69,6 +69,12 @@ describe('component scan for the console', () => {
     await expect(scan(root)).rejects.toThrow(/broken\.ts.*kaboom/);
   });
 
+  it('returns when a scanned module keeps a handle open at import time', async () => {
+    fs.writeFileSync(path.join(root, 'src', 'ticker.ts'), 'export const ticker = setInterval(() => {}, 1000);\n');
+
+    expect((await scan(root))['services/TestService.ts']).toEqual(['TestService']);
+  }, 10_000);
+
   it('leaves the cwd of the CLI process alone', async () => {
     const cwd = process.cwd();
 

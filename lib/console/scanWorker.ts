@@ -16,6 +16,8 @@ try {
   );
 
   fs.writeFileSync(out, JSON.stringify({ ok: true, components: names }));
+  // A scanned module may hold a timer or socket open from import time.
+  process.exit(0);
 } catch (error) {
   fs.writeFileSync(out, JSON.stringify({ ok: false, error: error instanceof Error ? error.message : String(error) }));
   process.exit(1);
