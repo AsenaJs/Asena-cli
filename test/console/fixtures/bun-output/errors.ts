@@ -49,6 +49,16 @@ switch (process.argv[2]) {
     console.trace('where am i');
     console.log('after');
     break;
+  case 'error-object':
+    attempt(failing, (error) =>
+      logger.error('Application error occurred:', {
+        message: (error as Error).message,
+        status: 500,
+        stack: (error as Error).stack,
+      }),
+    );
+    console.log('after');
+    break;
   case 'logs':
     console.log('one');
     console.log('two');

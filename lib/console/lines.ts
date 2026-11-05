@@ -10,9 +10,12 @@ const INDENTED = /^\s+\S/;
 const ERROR_HEAD = /^(?:error|(?:[A-Z]\w*)?(?:Error|Exception)):(?: |$)/;
 const BUN_TRAILER = /^Bun v\d/;
 const BLANK = /^\s*$/;
+// An object or array Bun prints over several lines: the head ends with the bracket, the closing one is unindented.
+const OBJECT_OPEN = /[{[]\s*$/;
+const OBJECT_CLOSE = /^[}\]]/;
 
 /** Where an open group is in a report, which decides the lines that continue it. */
-type GroupState = 'plain' | 'frames' | 'excerpt' | 'caret' | 'error' | 'error-blank';
+type GroupState = 'plain' | 'frames' | 'excerpt' | 'caret' | 'error' | 'error-blank' | 'object' | 'closed';
 
 const DEFAULT_QUIET_MS = 50;
 
@@ -20,8 +23,9 @@ const MAX_GROUP_LINES = 500;
 
 const startState = (text: string): GroupState => {
   if (EXCERPT_AFTER_TEXT.test(text)) return 'excerpt';
+  if (ERROR_HEAD.test(text)) return 'error';
 
-  return ERROR_HEAD.test(text) ? 'error' : 'plain';
+  return OBJECT_OPEN.test(text) ? 'object' : 'plain';
 };
 
 /** The state after `text` when it continues a group in `state`, or `null` when it starts a new entry. */
@@ -44,6 +48,12 @@ const continueState = (state: GroupState, text: string): GroupState | null => {
       if (FRAME.test(text) || INDENTED.test(text) || BUN_TRAILER.test(text)) return 'error';
 
       return state === 'error-blank' && ERROR_HEAD.test(text) ? 'error' : null;
+    case 'object':
+      if (OBJECT_CLOSE.test(text)) return 'closed';
+
+      return INDENTED.test(text) ? 'object' : null;
+    case 'closed':
+      return null;
   }
 };
 

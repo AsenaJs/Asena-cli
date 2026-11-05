@@ -2,7 +2,16 @@
 import fs from 'fs';
 import path from 'path';
 
-export const BUN_OUTPUT_CASES = ['console-error', 'cause', 'logger', 'custom', 'trace', 'logs', 'uncaught'] as const;
+export const BUN_OUTPUT_CASES = [
+  'console-error',
+  'cause',
+  'logger',
+  'custom',
+  'error-object',
+  'trace',
+  'logs',
+  'uncaught',
+] as const;
 
 export type BunOutputCase = (typeof BUN_OUTPUT_CASES)[number];
 

@@ -61,8 +61,16 @@ const EXPECTED: Record<BunOutputCase, (output: Grouped) => void> = {
     expect(stdout[1]).toBe('after');
     expect(stderr).toEqual([]);
   },
+  // How ergenecore's default error log prints a handler's error.
+  'error-object': ({ stdout, stderr }) => {
+    expect(stdout).toEqual(['after']);
+    expect(stderr).toHaveLength(1);
+    expect(stderr[0]).toStartWith('Application error occurred: {\n  message: "boom",\n');
+    expect(stderr[0]).toContain('  stack: "Error: boom\\n    at failing');
+    expect(lastLine(stderr[0])).toBe('}');
+  },
   logs: ({ stdout, stderr }) => {
-    expect(stdout).toEqual(['one', 'two', '{', '  a: 1,', '  nested: {', '    b: [ 1, 2, 3 ],', '  },', '}']);
+    expect(stdout).toEqual(['one', 'two', '{\n  a: 1,\n  nested: {\n    b: [ 1, 2, 3 ],\n  },\n}']);
     expect(stderr).toEqual(['[warn] three']);
   },
   uncaught: ({ stdout, stderr }) => {

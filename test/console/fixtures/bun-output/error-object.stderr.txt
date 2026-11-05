@@ -1,0 +1,5 @@
+Application error occurred: {
+  message: "boom",
+  status: 500,
+  stack: "Error: boom\n    at failing (/app/errors.ts:14:13)\n    at attempt (/app/errors.ts:24:5)\n    at /app/errors.ts:53:5",
+}

@@ -7,6 +7,6 @@
                  ^
 error: boom
       at failing (/app/errors.ts:14:13)
-      at /app/errors.ts:60:5
+      at /app/errors.ts:70:5
 
 Bun v1.4.4 (Linux x64)
