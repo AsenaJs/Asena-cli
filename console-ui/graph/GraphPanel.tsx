@@ -33,10 +33,33 @@ const LANE_OFFSET = 34;
 
 const VIEW_PADDING = 24;
 
-const MIN_START_ZOOM = 0.6;
+const MIN_ZOOM = 0.15;
+
+const FIT_BUTTON_OPTIONS = { padding: 0.08, maxZoom: 1 };
+
+export interface Bounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** The viewport that shows all of `bounds`, centred, in a canvas of `width` x `height`; never above 100%. */
+export const fitViewport = (bounds: Bounds, width: number, height: number) => {
+  const innerWidth = width - VIEW_PADDING * 2;
+  const innerHeight = height - VIEW_PADDING * 2;
+  const fit = Math.min(innerWidth / bounds.width, innerHeight / bounds.height);
+  const zoom = Math.min(1, Math.max(MIN_ZOOM, fit));
+
+  return {
+    x: VIEW_PADDING - bounds.x * zoom + Math.max(0, (innerWidth - bounds.width * zoom) / 2),
+    y: VIEW_PADDING - bounds.y * zoom + Math.max(0, (innerHeight - bounds.height * zoom) / 2),
+    zoom,
+  };
+};
 
 /** The box the nodes and lane headings take up. */
-const layoutBounds = (layout: GraphLayout) => {
+export const layoutBounds = (layout: GraphLayout): Bounds => {
   const positions = [...layout.nodes.values()];
   const x = Math.min(0, ...positions.map((position) => position.x));
   const y = Math.min(0, ...positions.map((position) => position.y)) - LANE_OFFSET;
@@ -162,10 +185,25 @@ const GraphView = ({ snapshot, theme, onOpenRoute }: GraphPanelProps) => {
   );
   const edges = useMemo(() => toFlowEdges(full, layout, visible, selectedId), [full, layout, visible, selectedId]);
   const { setViewport } = useReactFlow<FlowNode>();
-  const pendingFit = useRef(false);
+  const [ready, setReady] = useState(false);
+  const pendingFit = useRef(true);
+  const userMoved = useRef(false);
+  const shownLayout = useRef(layout);
   const canvas = useRef<HTMLDivElement>(null);
   const presentKinds = GRAPH_NODE_KINDS.filter((kind) => full.nodes.some((node) => node.kind === kind));
   const selected = full.nodes.find((node) => node.id === selectedId) ?? null;
+
+  shownLayout.current = layout;
+
+  // A canvas not laid out yet (0 x 0) keeps the fit pending until the resize observer reports a size.
+  const fit = useCallback(() => {
+    const element = canvas.current;
+
+    if (!element || element.clientWidth === 0 || element.clientHeight === 0) return;
+
+    pendingFit.current = false;
+    void setViewport(fitViewport(layoutBounds(shownLayout.current), element.clientWidth, element.clientHeight));
+  }, [setViewport]);
 
   useEffect(() => {
     let cancelled = false;
@@ -175,6 +213,7 @@ const GraphView = ({ snapshot, theme, onOpenRoute }: GraphPanelProps) => {
         if (cancelled) return;
 
         pendingFit.current = true;
+        userMoved.current = false;
         setLayout(next);
       })
       .catch((error: unknown) => {
@@ -186,27 +225,24 @@ const GraphView = ({ snapshot, theme, onOpenRoute }: GraphPanelProps) => {
     };
   }, [full]);
 
-  // Fitting before React Flow holds the new positions would fit the previous layout. The lanes are fitted to the
-  // width and shown from the top; a tall app scrolls instead of shrinking, and the fit button shows everything.
+  // React Flow drops a viewport set before its pan-zoom is initialised, hence `ready`.
+  useEffect(() => {
+    if (ready && pendingFit.current) fit();
+  }, [ready, layout, fit]);
+
   useEffect(() => {
     const element = canvas.current;
 
-    if (!pendingFit.current || !element) return;
+    if (!ready || !element || typeof ResizeObserver === 'undefined') return;
 
-    pendingFit.current = false;
-
-    const bounds = layoutBounds(layout);
-    const width = element.clientWidth - VIEW_PADDING * 2;
-    const height = element.clientHeight - VIEW_PADDING * 2;
-    const fit = width / bounds.width;
-    const zoom = Math.min(1, Math.max(MIN_START_ZOOM, fit));
-
-    void setViewport({
-      x: VIEW_PADDING - bounds.x * zoom + Math.max(0, (width - bounds.width * zoom) / 2),
-      y: VIEW_PADDING - bounds.y * zoom + Math.max(0, (height - bounds.height * zoom) / 2),
-      zoom,
+    const observer = new ResizeObserver(() => {
+      if (pendingFit.current || !userMoved.current) fit();
     });
-  }, [nodes, layout, setViewport]);
+
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [ready, fit]);
 
   const onNodesChange = useCallback((changes: NodeChange<FlowNode>[]) => {
     const picked = changes.find((change) => change.type === 'select' && change.selected);
@@ -258,13 +294,15 @@ const GraphView = ({ snapshot, theme, onOpenRoute }: GraphPanelProps) => {
             nodesDraggable={false}
             nodesConnectable={false}
             edgesFocusable={false}
-            fitView
-            fitViewOptions={{ padding: 0.08, maxZoom: 1 }}
-            minZoom={0.15}
+            onInit={() => setReady(true)}
+            onMoveStart={(event) => {
+              if (event) userMoved.current = true;
+            }}
+            minZoom={MIN_ZOOM}
             maxZoom={1.6}
           >
             <Background variant={BackgroundVariant.Dots} gap={22} size={1} />
-            <Controls showInteractive={false} />
+            <Controls showInteractive={false} fitViewOptions={FIT_BUTTON_OPTIONS} />
           </ReactFlow>
         </div>
         <div className="graph-foot">

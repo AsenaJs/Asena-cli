@@ -10,7 +10,7 @@ import {
   type GraphNodeKind,
   routesOf,
 } from '../../../console-ui/graph/buildGraph';
-import { GraphPanel, toFlowEdges, toFlowNodes } from '../../../console-ui/graph/GraphPanel';
+import { fitViewport, GraphPanel, layoutBounds, toFlowEdges, toFlowNodes } from '../../../console-ui/graph/GraphPanel';
 import { Inspector } from '../../../console-ui/graph/Inspector';
 import { laneOf, nodeMeta } from '../../../console-ui/graph/lanes';
 import {
@@ -216,6 +216,43 @@ describe('graph lanes', () => {
     expect(meta('ApiExceptionHandler')).toBe('Exception handler · 3 catches + 404');
     expect(meta('AppConfig')).toBe('Config · 1 global middleware');
     expect(meta('ItemEvents')).toBe('Event · audit.* +1');
+  });
+});
+
+describe('graph first view', () => {
+  // A laptop window with the inspector open leaves the canvas well under the three lanes' width at 0.6 zoom.
+  test.each([
+    [760, 520],
+    [1180, 640],
+    [420, 700],
+    [2400, 1400],
+  ])('every node and lane heading of the app fits a %ix%i canvas, inside the padding', async (width, height) => {
+    const graph = buildFullGraph(withCoreTarget);
+    const layout = await layoutGraph(graph);
+    const view = fitViewport(layoutBounds(layout), width, height);
+    const screen = (x: number, y: number) => ({ x: view.x + x * view.zoom, y: view.y + y * view.zoom });
+
+    for (const position of layout.nodes.values()) {
+      const topLeft = screen(position.x, position.y);
+      const bottomRight = screen(position.x + NODE_WIDTH, position.y + NODE_HEIGHT);
+
+      expect(topLeft.x).toBeGreaterThanOrEqual(0);
+      expect(topLeft.y).toBeGreaterThanOrEqual(0);
+      expect(bottomRight.x).toBeLessThanOrEqual(width);
+      expect(bottomRight.y).toBeLessThanOrEqual(height);
+    }
+
+    for (const lane of layout.lanes) expect(screen(lane.x, layoutBounds(layout).y).y).toBeGreaterThanOrEqual(0);
+
+    expect(view.zoom).toBeLessThanOrEqual(1);
+  });
+
+  test('a small app is shown at full size, centred', () => {
+    const view = fitViewport({ x: 0, y: -34, width: 300, height: 200 }, 1000, 600);
+
+    expect(view.zoom).toBe(1);
+    expect(view.x).toBe(350);
+    expect(view.y).toBe(34 + 200);
   });
 });
 
