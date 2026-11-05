@@ -2,7 +2,12 @@ import { describe, expect, test } from 'bun:test';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { type ConsoleHttpRequest, isConsoleHttpRequest } from '../../../lib/console/hostProtocol';
 import type { DevtoolsHello, DevtoolsRoute, DevtoolsSnapshot } from '../../../lib/console/protocol';
-import { EndpointsPanel, groupByController } from '../../../console-ui/endpoints/EndpointsPanel';
+import {
+  EndpointsPanel,
+  groupByController,
+  NoSelection,
+  reconcileSelection,
+} from '../../../console-ui/endpoints/EndpointsPanel';
 import {
   addToHistory,
   HISTORY_BODY_LIMIT,
@@ -332,6 +337,36 @@ describe('endpoints panel rendering', () => {
         {...props}
       />,
     );
+
+  describe('after a restart changes the routes', () => {
+    const http = { kind: 'http', key: 'PUT /items/:id/name' } as const;
+    const socket = { kind: 'ws', namespace: snapshot.websockets[0]!.namespace } as const;
+    const renamedValidator: DevtoolsSnapshot = {
+      ...snapshot,
+      routes: snapshot.routes.map((route) => (route === rename ? { ...route, validator: 'NewValidator' } : route)),
+    };
+    const withoutRename: DevtoolsSnapshot = {
+      ...snapshot,
+      routes: snapshot.routes.filter((route) => route !== rename),
+      websockets: [],
+    };
+
+    test('keeps the route selected by method and path, and drops one that is gone', () => {
+      expect(reconcileSelection(http, renamedValidator)).toEqual(http);
+      expect(reconcileSelection(socket, renamedValidator)).toEqual(socket);
+      expect(reconcileSelection(http, withoutRename)).toBeNull();
+      expect(reconcileSelection(socket, withoutRename)).toBeNull();
+      expect(reconcileSelection(null, snapshot)).toBeNull();
+    });
+
+    test('a selection that is gone shows what was open and that its history is kept', () => {
+      const html = renderToStaticMarkup(<NoSelection gone="PUT /items/:id/name" />);
+
+      expect(html).toContain('PUT /items/:id/name is gone after the restart');
+      expect(html).toContain('history');
+      expect(renderToStaticMarkup(<NoSelection gone={null} />)).toContain('Pick an endpoint');
+    });
+  });
 
   test('groups the routes by controller', () => {
     expect(groupByController(snapshot.routes).map(([controller, routes]) => [controller, routes.length])).toEqual([

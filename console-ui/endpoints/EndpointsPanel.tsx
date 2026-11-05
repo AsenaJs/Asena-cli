@@ -4,13 +4,14 @@ import type { DevtoolsHello, DevtoolsRequestRecord, DevtoolsRoute, DevtoolsSnaps
 import { routeKey } from '../graph/buildGraph';
 import type { EndpointFocus } from '../requests/records';
 import { browserStorage, type StorageLike } from '../state/storage';
-import { MethodBadge } from '../ui/components';
+import { Card, MethodBadge } from '../ui/components';
+import { Icon } from '../ui/icons';
 import { addToHistory, type HttpHistory, loadHistory, saveHistory } from './history';
 import { type HttpOutcome, sendHttp } from './http';
 import { RouteTester } from './RouteTester';
 import { WebSocketTester } from './WebSocketTester';
 
-type Selection = { kind: 'http'; key: string } | { kind: 'ws'; namespace: string };
+export type Selection = { kind: 'http'; key: string } | { kind: 'ws'; namespace: string };
 
 export interface EndpointsPanelProps {
   snapshot: DevtoolsSnapshot;
@@ -52,6 +53,36 @@ const initialSelection = (snapshot: DevtoolsSnapshot, focus: EndpointFocus | nul
   return socket ? { kind: 'ws', namespace: socket.namespace } : null;
 };
 
+/** The same route (method and path) or socket in a new snapshot, or `null` when it is gone. */
+export const reconcileSelection = (selection: Selection | null, snapshot: DevtoolsSnapshot): Selection | null => {
+  if (selection?.kind === 'http') {
+    return snapshot.routes.some((route) => routeKey(route) === selection.key) ? selection : null;
+  }
+
+  if (selection?.kind === 'ws') {
+    return snapshot.websockets.some((socket) => socket.namespace === selection.namespace) ? selection : null;
+  }
+
+  return null;
+};
+
+const selectionLabel = (selection: Selection): string =>
+  selection.kind === 'http' ? selection.key : `WS /${selection.namespace}`;
+
+export const NoSelection = ({ gone }: { gone: string | null }) => (
+  <Card className="empty" aria-labelledby="endpoint-none-title">
+    <span className="empty-icon">
+      <Icon name="endpoints" />
+    </span>
+    <h2 id="endpoint-none-title">{gone ? `${gone} is gone after the restart` : 'Pick an endpoint'}</h2>
+    <p>
+      {gone
+        ? 'The app no longer registers it. Pick another endpoint from the list; the request history of every route is kept.'
+        : 'Pick a route or a WebSocket from the list to send it a request.'}
+    </p>
+  </Card>
+);
+
 export const EndpointsPanel = ({
   snapshot,
   hello,
@@ -63,7 +94,24 @@ export const EndpointsPanel = ({
   send = sendHttp,
 }: EndpointsPanelProps) => {
   const [selection, setSelection] = useState<Selection | null>(() => initialSelection(snapshot, focus));
+  const [selectedIn, setSelectedIn] = useState(snapshot);
+  const [gone, setGone] = useState<string | null>(null);
   const [history, setHistory] = useState<HttpHistory>(() => loadHistory(storage));
+
+  if (snapshot !== selectedIn) {
+    const kept = reconcileSelection(selection, snapshot);
+
+    setSelectedIn(snapshot);
+    setSelection(kept);
+
+    if (selection && !kept) setGone(selectionLabel(selection));
+  }
+
+  const select = (next: Selection) => {
+    setSelection(next);
+    setGone(null);
+  };
+
   const route =
     selection?.kind === 'http' ? snapshot.routes.find((candidate) => routeKey(candidate) === selection.key) : undefined;
   const socket =
@@ -96,7 +144,7 @@ export const EndpointsPanel = ({
                 type="button"
                 className="route"
                 aria-current={candidate === route ? 'true' : undefined}
-                onClick={() => setSelection({ kind: 'http', key: routeKey(candidate) })}
+                onClick={() => select({ kind: 'http', key: routeKey(candidate) })}
               >
                 <MethodBadge method={candidate.httpMethod} />
                 <span className="route-path">{candidate.path}</span>
@@ -117,7 +165,7 @@ export const EndpointsPanel = ({
                 type="button"
                 className="route"
                 aria-current={candidate === socket ? 'true' : undefined}
-                onClick={() => setSelection({ kind: 'ws', namespace: candidate.namespace })}
+                onClick={() => select({ kind: 'ws', namespace: candidate.namespace })}
               >
                 <MethodBadge method="WS" />
                 <span className="route-path">/{candidate.namespace}</span>
@@ -151,6 +199,9 @@ export const EndpointsPanel = ({
           component={socket.component}
           port={hello?.port ?? null}
         />
+      ) : null}
+      {!route && !socket && (snapshot.routes.length > 0 || snapshot.websockets.length > 0) ? (
+        <NoSelection gone={gone} />
       ) : null}
     </div>
   );
