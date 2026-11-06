@@ -3,7 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { AppSupervisor } from '../../lib/console/AppSupervisor';
 import type { ConsoleLogLine } from '../../lib/console/hostProtocol';
-import { LogGrouper } from '../../lib/console/lines';
+import { LogGrouper, markedLevel, stripAnsi } from '../../lib/console/lines';
+import { logLevel } from '../../console-ui/runtime/logs';
 import { BUN_OUTPUT_CASES, type BunOutputCase, runCase } from './fixtures/bun-output/capture';
 import { waitUntil } from './helpers';
 
@@ -150,7 +151,127 @@ describe('LogGrouper timing', () => {
   });
 });
 
+describe('LogGrouper on the real asena-logger output', () => {
+  const entries = group(fs.readFileSync(path.join(import.meta.dir, 'fixtures/asena-logger/run.stdout.txt'), 'utf-8'));
+  const levelCount = (level: string) => entries.filter((entry) => logLevel(entry, 'stdout') === level).length;
+
+  it('makes one entry per logged error, so the counter says 9', () => {
+    expect(levelCount('error')).toBe(9);
+    expect(entries.filter((entry) => entry.startsWith('Error:'))).toEqual([]);
+  });
+
+  it('joins the stack the logger prints under the object to that object', () => {
+    const error = entries.find((entry) => stripAnsi(entry).includes('Auth error: User 0 not found')) ?? '';
+
+    expect(stripAnsi(error)).toMatch(/\[ERROR\]: \tAuth error: User 0 not found \{\n "path": /);
+    expect(error).toContain('\n}\nError: User not found\n    at failing (/app/write.ts:');
+    expect(lastLine(error)).toMatch(/^\s+at /);
+  });
+
+  it('a stack inside a [WARN] or [INFO] entry leaves the level alone', () => {
+    const levelOf = (text: string) =>
+      logLevel(entries.find((entry) => stripAnsi(entry).includes(text)) ?? '', 'stdout');
+
+    expect(levelOf('TaskQueue error: Queue is full')).toBe('warn');
+    expect(levelOf('Retry scheduled')).toBe('info');
+  });
+});
+
+describe('LogGrouper joining a stack to a marked entry', () => {
+  const STACK = ['Error: boom', '    at failing (/app/x.ts:1:1)', '    at /app/x.ts:2:2'];
+
+  const groupLines = (lines: string[]): string[] => group(lines.join('\n'));
+
+  it('joins a stack directly under a one-line entry with a marker', () => {
+    expect(groupLines(['[ERROR] request failed', ...STACK])).toEqual([['[ERROR] request failed', ...STACK].join('\n')]);
+  });
+
+  it('keeps a stack under an entry without a marker apart', () => {
+    expect(groupLines(['request failed', ...STACK])).toEqual(['request failed', STACK.join('\n')]);
+    expect(groupLines(['request failed {', '  a: 1,', '}', ...STACK])).toEqual([
+      'request failed {\n  a: 1,\n}',
+      STACK.join('\n'),
+    ]);
+  });
+
+  it('keeps an `Error:` line with no frame under it apart, whatever comes next', () => {
+    expect(groupLines(['[INFO] started', 'Error: not a stack', 'after'])).toEqual([
+      '[INFO] started',
+      'Error: not a stack',
+      'after',
+    ]);
+    expect(groupLines(['[INFO] started', 'Error: not a stack'])).toEqual(['[INFO] started', 'Error: not a stack']);
+  });
+
+  it('keeps a second stack apart from the one that joined', () => {
+    expect(groupLines(['[ERROR] request failed', ...STACK, ...STACK])).toEqual([
+      ['[ERROR] request failed', ...STACK].join('\n'),
+      STACK.join('\n'),
+    ]);
+  });
+
+  it('keeps a stack after a quiet period apart', async () => {
+    const entries: string[] = [];
+    const grouper = new LogGrouper((text) => entries.push(text), 10);
+
+    grouper.push('[ERROR] request failed', 0);
+
+    await waitUntil(() => entries.length > 0, 1000, 'the quiet flush');
+
+    for (const line of STACK) grouper.push(line, 0);
+
+    grouper.flush();
+
+    expect(entries).toEqual(['[ERROR] request failed', STACK.join('\n')]);
+  });
+
+  it('an `Error:` line released by the quiet period keeps its own time', async () => {
+    const entries: { text: string; at: number }[] = [];
+    const grouper = new LogGrouper((text, at) => entries.push({ text, at }), 10);
+
+    grouper.push('[INFO] started', 1);
+    grouper.push('Error: not a stack', 2);
+
+    await waitUntil(() => entries.length > 1, 1000, 'the quiet flush');
+
+    expect(entries).toEqual([
+      { text: '[INFO] started', at: 1 },
+      { text: 'Error: not a stack', at: 2 },
+    ]);
+  });
+
+  it('the marker of a source excerpt does not count', () => {
+    expect(markedLevel('10 |   logger.warn("[warn] x");')).toBeNull();
+    expect(markedLevel('request failed  9 | }')).toBeNull();
+  });
+});
+
 describe('AppSupervisor groups what the child writes', () => {
+  it('keeps a stack on the other stream apart from a marked entry', async () => {
+    const logs: Omit<ConsoleLogLine, 'seq'>[] = [];
+    let exited = false;
+    const supervisor = new AppSupervisor({
+      cwd: FIXTURES,
+      prepare: () => [
+        process.execPath,
+        '-e',
+        'console.log("[ERROR] request failed");console.error("Error: boom\\n    at failing (/app/x.ts:1:1)")',
+      ],
+      env: { ...process.env, NO_COLOR: '1' },
+      onStatus: (status) => {
+        if (status.state === 'exited') exited = true;
+      },
+      onLog: (line) => logs.push(line),
+      onAgentMessage: () => {},
+    });
+
+    await supervisor.start();
+    await waitUntil(() => exited, 5000, 'the child to exit');
+
+    expect(logs.find((line) => line.stream === 'stdout')?.line).toBe('[ERROR] request failed');
+    expect(logs.find((line) => line.stream === 'stderr')?.line).toBe('Error: boom\n    at failing (/app/x.ts:1:1)');
+  });
+
   it('hands the host one log entry per Bun error report', async () => {
     const logs: Omit<ConsoleLogLine, 'seq'>[] = [];
     let exited = false;

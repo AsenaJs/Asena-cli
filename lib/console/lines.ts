@@ -1,5 +1,31 @@
 const ANSI_ESCAPE = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*[A-Za-z]`, 'g');
 
+export const stripAnsi = (line: string): string => line.replace(ANSI_ESCAPE, '');
+
+export type MarkedLevel = 'error' | 'warn' | 'info';
+
+const MARKED_LEVELS: Record<string, MarkedLevel> = {
+  err: 'error',
+  error: 'error',
+  fatal: 'error',
+  warn: 'warn',
+  warning: 'warn',
+  info: 'info',
+  debug: 'info',
+  trace: 'info',
+  verbose: 'info',
+  silly: 'info',
+  http: 'info',
+  profile: 'info',
+};
+
+const LEVEL_MARKERS = [
+  /\[(?:[\w.-]+:)?(err|error|fatal|warn|warning|info|debug|trace|verbose|silly|http|profile)\]/i,
+  /^\s*(error|fatal|warn|warning)\b/i,
+  /\b(ERROR|FATAL|WARN|WARNING|INFO|DEBUG)\b/,
+  /\b(?:[A-Z]\w*)?(Error)\b:/,
+];
+
 // The shapes of Bun's error report: a source excerpt, a caret, `error: msg` (or `Name: msg`), indented
 // properties and `at` frames, a blank line, another excerpt for each `cause`, and `Bun vX (OS)` when uncaught.
 const EXCERPT = /^\s*\d+ \|(?: |$)/;
@@ -14,8 +40,31 @@ const BLANK = /^\s*$/;
 const OBJECT_OPEN = /[{[]\s*$/;
 const OBJECT_CLOSE = /^[}\]]/;
 
-/** Where an open group is in a report, which decides the lines that continue it. */
-type GroupState = 'plain' | 'frames' | 'excerpt' | 'caret' | 'error' | 'error-blank' | 'object' | 'closed';
+/**
+ * The level the first line of an ANSI-free entry states outright, the leftmost marker winning; `null` when it states
+ * none. A source excerpt is code, not a statement.
+ */
+export const markedLevel = (text: string): MarkedLevel | null => {
+  const firstLine = text.split('\n', 1)[0] ?? '';
+  const excerpt = firstLine.search(EXCERPT_AFTER_TEXT);
+  const stated = excerpt === -1 ? firstLine : firstLine.slice(0, excerpt);
+  let leftmost: RegExpExecArray | null = null;
+
+  for (const marker of LEVEL_MARKERS) {
+    const match = marker.exec(stated);
+
+    if (match && (!leftmost || match.index < leftmost.index)) leftmost = match;
+  }
+
+  return leftmost ? (MARKED_LEVELS[(leftmost[1] ?? '').toLowerCase()] ?? null) : null;
+};
+
+/**
+ * Where an open group is in a report, which decides the lines that continue it. `stack-head` is an `Error:` line
+ * under a marked entry: it joins that entry only if a frame comes next.
+ */
+type GroupState =
+  'plain' | 'frames' | 'excerpt' | 'caret' | 'error' | 'error-blank' | 'object' | 'closed' | 'stack-head';
 
 const DEFAULT_QUIET_MS = 50;
 
@@ -33,6 +82,7 @@ const continueState = (state: GroupState, text: string): GroupState | null => {
   switch (state) {
     case 'plain':
     case 'frames':
+    case 'stack-head':
       return FRAME.test(text) ? 'frames' : null;
     case 'excerpt':
       if (EXCERPT.test(text)) return 'excerpt';
@@ -58,8 +108,9 @@ const continueState = (state: GroupState, text: string): GroupState | null => {
 };
 
 /**
- * Joins the lines of one stream that belong together - a Bun error report, a stack under a message - into
- * one entry. A group ends at the next line that does not continue it, or after `quietMs` without a line.
+ * Joins the lines of one stream that belong together - a Bun error report, a stack under a message, the stack a logger
+ * prints under a marked entry - into one entry. A group ends at the next line that does not continue it, or after
+ * `quietMs` without a line.
  */
 export class LogGrouper {
   private lines: string[] = [];
@@ -67,6 +118,10 @@ export class LogGrouper {
   private at = 0;
 
   private state: GroupState = 'plain';
+
+  private marked = false;
+
+  private stackHeadAt = 0;
 
   private timer?: ReturnType<typeof setTimeout>;
 
@@ -78,14 +133,20 @@ export class LogGrouper {
   public push(line: string, at: number): void {
     clearTimeout(this.timer);
 
-    const text = line.replace(ANSI_ESCAPE, '');
-    const next = this.lines.length > 0 && this.lines.length < MAX_GROUP_LINES ? continueState(this.state, text) : null;
+    const text = stripAnsi(line);
+
+    if (this.state === 'stack-head' && !FRAME.test(text)) this.releaseStackHead();
+
+    const next = this.nextState(text);
 
     if (next === null) {
       this.flush();
       this.at = at;
       this.state = startState(text);
+      this.marked = markedLevel(text) !== null;
     } else {
+      if (next === 'stack-head') this.stackHeadAt = at;
+
       this.state = next;
     }
 
@@ -98,6 +159,35 @@ export class LogGrouper {
     clearTimeout(this.timer);
     this.timer = undefined;
 
+    if (this.state === 'stack-head') this.releaseStackHead();
+
+    this.emit();
+  }
+
+  private nextState(text: string): GroupState | null {
+    if (this.lines.length === 0 || this.lines.length >= MAX_GROUP_LINES) return null;
+
+    const next = continueState(this.state, text);
+
+    if (next !== null) return next;
+
+    const atEntryEnd = this.state === 'plain' || this.state === 'closed';
+
+    return this.marked && atEntryEnd && ERROR_HEAD.test(text) ? 'stack-head' : null;
+  }
+
+  /** No frame followed: the `Error:` line was a message, so what came before it closes and it opens its own group. */
+  private releaseStackHead(): void {
+    const head = this.lines.pop() ?? '';
+
+    this.emit();
+    this.lines = [head];
+    this.at = this.stackHeadAt;
+    this.state = 'error';
+    this.marked = false;
+  }
+
+  private emit(): void {
     const lines = this.lines;
 
     this.lines = [];
@@ -106,7 +196,7 @@ export class LogGrouper {
 
     let end = lines.length;
 
-    while (end > 1 && BLANK.test((lines[end - 1] ?? '').replace(ANSI_ESCAPE, ''))) end--;
+    while (end > 1 && BLANK.test(stripAnsi(lines[end - 1] ?? ''))) end--;
 
     this.onEntry(lines.slice(0, end).join('\n'), this.at);
   }

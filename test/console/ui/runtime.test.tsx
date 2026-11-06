@@ -63,6 +63,22 @@ describe('logLevel heuristics', () => {
       'stderr',
       'error',
     ],
+    ['plain text\nError: boom\n    at x (/app/x.ts:1:1)', 'stdout', 'error'],
+    ['plain text\nerror: boom', 'stdout', 'error'],
+    ['plain text\nWarning: careful', 'stdout', 'warn'],
+    ['[WARN] retry\nError: boom\n    at x (/app/x.ts:1:1)', 'stdout', 'warn'],
+    ['[warn] retry {\n "stack": "Error: boom"\n}', 'stdout', 'warn'],
+    ['[INFO] retry\nError: boom\n    at x (/app/x.ts:1:1)', 'stdout', 'info'],
+    [
+      `2026-11-05 10:00:00 [${ESC}[32mINFO${ESC}[0m]: \tretry\nTypeError: x\n    at x (/app/x.ts:1:1)`,
+      'stdout',
+      'info',
+    ],
+    [`2026-11-05 10:00:00 [${ESC}[32mINFO${ESC}[0m]: \tdone`, 'stderr', 'info'],
+    ['[INFO] rejected with TypeError: x', 'stdout', 'info'],
+    ['[DEBUG] retry\nError: boom', 'stderr', 'info'],
+    ['[ERROR] on the [warn] path', 'stdout', 'error'],
+    ['10 |   logger.warn("[warn] x");\n       ^\nerror: boom\n      at /app/x.ts:10:21', 'stderr', 'error'],
   ] as const)('%s on %s is %s', (line, stream, level) => {
     expect(logLevel(line, stream)).toBe(level);
   });

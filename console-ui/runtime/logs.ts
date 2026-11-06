@@ -1,11 +1,12 @@
 import type { ConsoleLogStream } from '../../lib/console/hostProtocol';
+import { markedLevel, type MarkedLevel, stripAnsi } from '../../lib/console/lines';
 import type { LogEntry } from '../state/store';
 
-export type LogLevel = 'error' | 'warn' | 'info';
+export { stripAnsi };
+
+export type LogLevel = MarkedLevel;
 
 export const LOG_LEVELS: readonly LogLevel[] = ['error', 'warn', 'info'];
-
-const ANSI_ESCAPE = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*[A-Za-z]`, 'g');
 
 // Multiline, since an entry can hold a whole Bun error report, whose `error: msg` line follows the source excerpt.
 const ERROR_MARKERS = [
@@ -17,15 +18,16 @@ const ERROR_MARKERS = [
 
 const WARN_MARKERS = [/\[(?:[\w.-]+:)?warn(?:ing)?\]/i, /^[^\S\n]*warn(?:ing)?\b/im, /\bWARN(?:ING)?\b/];
 
-export const stripAnsi = (line: string): string => line.replace(ANSI_ESCAPE, '');
-
 /**
- * A guess from the text, since the host only knows the stream: a level marker (`[warn]`, `[ERROR]:`,
- * `error:`, `TypeError:`) wins; an unmarked stderr line counts as a warning, an unmarked stdout line as info.
+ * A guess from the text, since the host only knows the stream. The first line's marker (`[warn]`, `[ERROR]:`, `error:`,
+ * `TypeError:`) decides, as an entry can hold a stack whatever its level. Without one, a marker in the body wins; an
+ * unmarked stderr entry counts as a warning, an unmarked stdout entry as info.
  */
 export const logLevel = (line: string, stream: ConsoleLogStream): LogLevel => {
   const text = stripAnsi(line);
+  const marked = markedLevel(text);
 
+  if (marked) return marked;
   if (ERROR_MARKERS.some((marker) => marker.test(text))) return 'error';
   if (WARN_MARKERS.some((marker) => marker.test(text))) return 'warn';
 
