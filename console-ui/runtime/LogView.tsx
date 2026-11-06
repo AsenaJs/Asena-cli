@@ -7,9 +7,10 @@ import {
   filterLogs,
   LOG_LEVELS,
   type LogLevel,
-  logLevel,
   type LogRow,
   rowOffsets,
+  stripAnsi,
+  tallyLogs,
   visibleWindow,
   withRunSeparators,
 } from './logs';
@@ -46,19 +47,13 @@ export const LogView = ({ logs, runs = [] }: { logs: LogEntry[]; runs?: ConsoleR
     () => filterLogs(logs, { levels, search, pausedAt, clearedThrough }),
     [logs, levels, search, pausedAt, clearedThrough],
   );
-  const counts = useMemo(() => {
-    const byLevel: Record<LogLevel, number> = { info: 0, warn: 0, error: 0 };
-
-    for (const entry of logs) {
-      if (entry.seq > clearedThrough) byLevel[logLevel(entry.line, entry.stream)]++;
-    }
-
-    return byLevel;
-  }, [logs, clearedThrough]);
+  const { byLevel, total, waiting } = useMemo(
+    () => tallyLogs(logs, { pausedAt, clearedThrough }),
+    [logs, pausedAt, clearedThrough],
+  );
   const rows = useMemo(() => withRunSeparators(shown), [shown]);
   const offsets = useMemo(() => rowOffsets(rows.map(rowHeight)), [rows]);
   const view = visibleWindow(offsets, scrollTop, viewportHeight);
-  const waiting = pausedAt === null ? 0 : logs.filter((entry) => entry.seq > pausedAt).length;
 
   useEffect(() => {
     const element = viewport.current;
@@ -104,14 +99,14 @@ export const LogView = ({ logs, runs = [] }: { logs: LogEntry[]; runs?: ConsoleR
         </h2>
         <SegmentedControl
           label="Log levels"
-          options={LEVEL_ORDER.map((level) => ({ id: level, label: LEVEL_LABELS[level], count: counts[level] }))}
+          options={LEVEL_ORDER.map((level) => ({ id: level, label: LEVEL_LABELS[level], count: byLevel[level] }))}
           pressed={levels}
           onToggle={toggleLevel}
         />
         <SearchField label="Filter output" value={search} onChange={setSearch} className="log-search" />
         <div className="log-actions">
           <span className="muted log-count" aria-live="polite">
-            {shown.length} of {logs.length} lines
+            {shown.length} of {total} lines
           </span>
           <IconButton
             icon={pausedAt === null ? 'pause' : 'play'}
@@ -153,7 +148,7 @@ export const LogView = ({ logs, runs = [] }: { logs: LogEntry[]; runs?: ConsoleR
                   data-level={row.entry.level}
                   data-stream={row.entry.stream}
                   style={{ height: rowHeight(row) }}
-                  title={row.entry.text}
+                  title={stripAnsi(row.entry.line)}
                 >
                   <span className="ts">{formatClock(row.entry.at)}</span>
                   <span className="g" title={`Run ${row.entry.gen}`}>
@@ -167,7 +162,7 @@ export const LogView = ({ logs, runs = [] }: { logs: LogEntry[]; runs?: ConsoleR
           </div>
         </div>
         {rows.length === 0 ? (
-          <p className="log-empty muted">{logs.length === 0 ? 'No output yet.' : 'No line matches the filter.'}</p>
+          <p className="log-empty muted">{total === 0 ? 'No output yet.' : 'No line matches the filter.'}</p>
         ) : null}
       </div>
     </Card>

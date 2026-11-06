@@ -1,5 +1,5 @@
 import type { ConsoleLogStream } from '../../lib/console/hostProtocol';
-import { markedLevel, type MarkedLevel, stripAnsi } from '../../lib/console/lines';
+import { LOG_TIMESTAMP, markedLevel, type MarkedLevel, stripAnsi } from '../../lib/console/lines';
 import type { LogEntry } from '../state/store';
 
 export { stripAnsi };
@@ -34,6 +34,43 @@ export const logLevel = (line: string, stream: ConsoleLogStream): LogLevel => {
   return stream === 'stderr' ? 'warn' : 'info';
 };
 
+// A level in brackets, an upper-case word, or any case before a colon: `2026-11-06 01:19:47 info about` is a message.
+const LOG_PREFIX = new RegExp(
+  String.raw`^[ \t]*${LOG_TIMESTAMP}[ \t]+(?:\[[ \t]*([A-Za-z]+)[ \t]*\]|([A-Z]+)\b|([A-Za-z]+)(?=:))[ \t]*:?\s*`,
+);
+
+// DEBUG or FATAL say more than the level column does, so they stay.
+const PREFIX_LEVELS: Record<string, LogLevel> = {
+  err: 'error',
+  error: 'error',
+  warn: 'warn',
+  warning: 'warn',
+  info: 'info',
+};
+
+/**
+ * `text` without a leading timestamp and level, when the console's own columns already say both; `null` when that
+ * prefix was all of it. `text` is free of ANSI codes.
+ */
+export const withoutLogPrefix = (text: string, level: LogLevel): string | null => {
+  const prefix = LOG_PREFIX.exec(text);
+  const stated = (prefix?.[1] ?? prefix?.[2] ?? prefix?.[3] ?? '').toLowerCase();
+
+  if (!prefix || PREFIX_LEVELS[stated] !== level) return text;
+
+  const message = text.slice(prefix[0].length);
+
+  return message === '' ? null : message;
+};
+
+/** The level and the message the console shows for a raw entry; `null` when there is nothing to show. */
+export const shownLog = (line: string, stream: ConsoleLogStream): { level: LogLevel; text: string } | null => {
+  const level = logLevel(line, stream);
+  const text = withoutLogPrefix(stripAnsi(line), level);
+
+  return text === null ? null : { level, text };
+};
+
 export interface LogFilter {
   levels: ReadonlySet<LogLevel>;
   search: string;
@@ -56,16 +93,42 @@ export const filterLogs = (logs: LogEntry[], filter: LogFilter): ShownLogEntry[]
     if (entry.seq <= filter.clearedThrough) continue;
     if (filter.pausedAt !== null && entry.seq > filter.pausedAt) break;
 
-    const level = logLevel(entry.line, entry.stream);
-    const text = stripAnsi(entry.line);
+    const log = shownLog(entry.line, entry.stream);
 
-    if (!filter.levels.has(level)) continue;
-    if (query !== '' && !text.toLowerCase().includes(query)) continue;
+    if (log === null || !filter.levels.has(log.level)) continue;
+    // The shown text is a part of the raw one, so this covers both.
+    if (query !== '' && !stripAnsi(entry.line).toLowerCase().includes(query)) continue;
 
-    shown.push({ ...entry, level, text });
+    shown.push({ ...entry, ...log });
   }
 
   return shown;
+};
+
+export interface LogTally {
+  /** Per level, what is newer than `clearedThrough`. */
+  byLevel: Record<LogLevel, number>;
+  total: number;
+  /** What came in after `pausedAt`. */
+  waiting: number;
+}
+
+/** Counts the entries that have something to show. */
+export const tallyLogs = (logs: LogEntry[], filter: Pick<LogFilter, 'pausedAt' | 'clearedThrough'>): LogTally => {
+  const tally: LogTally = { byLevel: { info: 0, warn: 0, error: 0 }, total: 0, waiting: 0 };
+
+  for (const entry of logs) {
+    const log = shownLog(entry.line, entry.stream);
+
+    if (log === null) continue;
+
+    tally.total++;
+
+    if (entry.seq > filter.clearedThrough) tally.byLevel[log.level]++;
+    if (filter.pausedAt !== null && entry.seq > filter.pausedAt) tally.waiting++;
+  }
+
+  return tally;
 };
 
 export type LogRow = { kind: 'line'; entry: ShownLogEntry } | { kind: 'run'; gen: number; key: string };

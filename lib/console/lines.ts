@@ -19,9 +19,15 @@ const MARKED_LEVELS: Record<string, MarkedLevel> = {
   profile: 'info',
 };
 
+/** `YYYY-MM-DD HH:MM:SS` or ISO 8601, with optional fractions and zone. */
+export const LOG_TIMESTAMP = String.raw`\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}(?::?\d{2})?)?`;
+
+const LINE_START = String.raw`^\s*(?:${LOG_TIMESTAMP}[ \t]+)?`;
+
 const LEVEL_MARKERS = [
   /\[(?:[\w.-]+:)?(err|error|fatal|warn|warning|info|debug|trace|verbose|silly|http|profile)\]/i,
-  /^\s*(error|fatal|warn|warning)\b/i,
+  new RegExp(String.raw`${LINE_START}(error|fatal|warn|warning)\b`, 'i'),
+  new RegExp(String.raw`${LINE_START}(info|debug)\b:`, 'i'),
   /\b(ERROR|FATAL|WARN|WARNING|INFO|DEBUG)\b/,
   /\b(?:[A-Z]\w*)?(Error)\b:/,
 ];

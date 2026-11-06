@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { ConsoleHostMessage } from '../../../lib/console/hostProtocol';
+import { LogGrouper } from '../../../lib/console/lines';
 import {
   formatBytes,
   formatElapsed,
@@ -16,8 +19,10 @@ import {
   type LogFilter,
   logLevel,
   rowOffsets,
+  shownLog,
   stripAnsi,
   visibleWindow,
+  withoutLogPrefix,
   withRunSeparators,
 } from '../../../console-ui/runtime/logs';
 import { healthDetail, RunTimeline, RuntimePanel } from '../../../console-ui/runtime/RuntimePanel';
@@ -79,6 +84,11 @@ describe('logLevel heuristics', () => {
     ['[DEBUG] retry\nError: boom', 'stderr', 'info'],
     ['[ERROR] on the [warn] path', 'stdout', 'error'],
     ['10 |   logger.warn("[warn] x");\n       ^\nerror: boom\n      at /app/x.ts:10:21', 'stderr', 'error'],
+    ['2026-11-06 01:19:47 warn: retry\nError: boom\n    at x (/app/x.ts:1:1)', 'stdout', 'warn'],
+    ['2026-11-06T01:19:47Z error: boom', 'stdout', 'error'],
+    ['2026-11-06 01:19:47 errors resolved: 0', 'stdout', 'info'],
+    ['info: retry\nError: boom\n    at x (/app/x.ts:1:1)', 'stdout', 'info'],
+    ['2026-11-06T01:19:47Z info: done', 'stderr', 'info'],
   ] as const)('%s on %s is %s', (line, stream, level) => {
     expect(logLevel(line, stream)).toBe(level);
   });
@@ -97,6 +107,123 @@ describe('logLevel heuristics', () => {
     ]);
     expect(levelOf('warn')).toEqual(['[warn] CORS allows every origin']);
     expect(levelOf('info')).toHaveLength(recorded.logs.length - 3);
+  });
+});
+
+describe('withoutLogPrefix', () => {
+  test.each([
+    ['2026-11-06 01:19:47 [INFO]: \tmessage', 'info'],
+    ['2026-11-06 01:19:47 [ERROR]: message', 'error'],
+    ['2026-11-06 01:19:47 [warn] message', 'warn'],
+    ['  2026-11-06 01:19:47\t[WARNING]\t message', 'warn'],
+    ['2026-11-06T01:19:47 [INFO] message', 'info'],
+    ['2026-11-06T01:19:47Z [INFO]: message', 'info'],
+    ['2026-11-06T01:19:47.123Z [ERR] message', 'error'],
+    ['2026-11-06T01:19:47.123+03:00 [INFO] message', 'info'],
+    ['2026-11-06T01:19:47-0500 INFO message', 'info'],
+    ['2026-11-06 01:19:47 ERROR message', 'error'],
+    ['2026-11-06 01:19:47 warn: message', 'warn'],
+    ['2026-11-06 01:19:47,123 [INFO] : message', 'info'],
+  ] as const)('drops the prefix of %s', (text, level) => {
+    expect(withoutLogPrefix(text, level)).toBe('message');
+  });
+
+  test.each([
+    ['a timestamp with no level', '2026-11-06 01:19:47 message', 'info'],
+    ['a level with no timestamp', '[INFO]: message', 'info'],
+    ['a date in the middle', 'Backup of 2026-11-06 01:19:47 finished', 'info'],
+    ['a date with no time', '2026-11-06 [INFO] message', 'info'],
+    ['a level the console disagrees with', '2026-11-06 01:19:47 [INFO]: message', 'error'],
+    ['a level the columns cannot show', '2026-11-06 01:19:47 [DEBUG]: message', 'info'],
+    ['a word that only looks like a level', '2026-11-06 01:19:47 info about the job', 'info'],
+    ['a longer upper-case word', '2026-11-06 01:19:47 INFO_CODE 7', 'info'],
+    ['a named error', '2026-11-06 01:19:47 TypeError: boom', 'error'],
+    ['a level with a logger name', '2026-11-06 01:19:47 [app:warn] message', 'warn'],
+    ['a level on the next line', '2026-11-06 01:19:47\n[INFO] message', 'info'],
+  ] as const)('keeps %s', (_name, text, level) => {
+    expect(withoutLogPrefix(text, level)).toBe(text);
+  });
+
+  test('the level a timestamped word states agrees with its own prefix', () => {
+    expect(shownLog('2026-11-06 01:19:47 warn: message', 'stdout')).toEqual({ level: 'warn', text: 'message' });
+    expect(shownLog('2026-11-06T01:19:47Z info: message', 'stderr')).toEqual({ level: 'info', text: 'message' });
+  });
+
+  test('only the first line of an entry is touched', () => {
+    expect(
+      withoutLogPrefix('2026-11-06 01:19:47 [ERROR]: \tboom {\n "a": 1\n}\n2026-11-06 01:19:47 [ERROR]: x', 'error'),
+    ).toBe('boom {\n "a": 1\n}\n2026-11-06 01:19:47 [ERROR]: x');
+  });
+
+  test('a prefix with nothing after it leaves nothing to show', () => {
+    expect(withoutLogPrefix('2026-11-06 01:19:47 [INFO]: \t', 'info')).toBeNull();
+    expect(withoutLogPrefix('2026-11-06 01:19:47 [INFO]: \t\n', 'info')).toBeNull();
+    expect(withoutLogPrefix('', 'info')).toBe('');
+    expect(withoutLogPrefix('   ', 'info')).toBe('   ');
+  });
+});
+
+describe('shownLog on the real asena-logger output', () => {
+  const grouped: string[] = [];
+  const grouper = new LogGrouper((text) => grouped.push(text), 60_000);
+
+  for (const line of readFileSync(join(import.meta.dir, '../fixtures/asena-logger/run.stdout.txt'), 'utf-8')
+    .trimEnd()
+    .split('\n')) {
+    grouper.push(line, 0);
+  }
+
+  grouper.flush();
+
+  const logs = grouped.map((line, seq) => entry(seq, line));
+  const shown = filterLogs(logs, live);
+
+  test('the banner line that only holds the prefix is gone, and the rest of the banner stays', () => {
+    expect(shownLog(logs[0]!.line, 'stdout')).toBeNull();
+    expect(shown[0]?.text).toBe('    ___    _____  ______ _   __ ___ ');
+    expect(shown).toHaveLength(logs.length - 1);
+  });
+
+  test('a message loses the prefix, and a date in it stays', () => {
+    const texts = shown.map((line) => line.text);
+
+    expect(texts).toContain('Server running at http://localhost:3000');
+    expect(texts).toContain('Backup of 2026-11-06 01:19:47 finished');
+    expect(texts).toContain('2026-01-01 00:00:00 was the last backup');
+    expect(texts).toContain('Config.onError() is deprecated');
+    expect(texts).toContain('Lost the connection to the broker');
+  });
+
+  test('a merged entry opens on its message and keeps its stack', () => {
+    const error = shown.find((line) => line.text.startsWith('Auth error: User 0 not found'));
+
+    expect(error?.level).toBe('error');
+    expect(error?.text).toContain('\n}\nError: User not found\n    at failing (/app/write.ts:');
+    expect(error?.line).toMatch(/^2026-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \[/);
+  });
+
+  test('the search finds the raw text and the shown text alike', () => {
+    const ofSearch = (search: string) => filterLogs(logs, { ...live, search }).map((line) => line.text);
+
+    expect(ofSearch('[warn]: \tconfig.onerror')).toEqual(['Config.onError() is deprecated']);
+    expect(ofSearch('config.onerror')).toEqual(['Config.onError() is deprecated']);
+    expect(ofSearch('2026-01-01')).toEqual(['2026-01-01 00:00:00 was the last backup']);
+  });
+
+  test('the log view neither renders nor counts the empty row', () => {
+    const html = renderToStaticMarkup(<LogView logs={logs.slice(0, 6)} />);
+
+    expect(html).toContain('5 of 5 lines');
+    expect(html).toContain('Info<span class="n">5</span>');
+    expect(html.match(/class="log-row"/g)).toHaveLength(5);
+    expect(html).toContain('>Server running at http://localhost:3000</span>');
+  });
+
+  test('a row keeps the raw text on hover', () => {
+    const html = renderToStaticMarkup(<LogView logs={[entry(0, '2026-11-06 01:19:47 [INFO]: \tready')]} />);
+
+    expect(html).toContain('title="2026-11-06 01:19:47 [INFO]: \tready"');
+    expect(html).toContain('<span class="text">ready</span>');
   });
 });
 

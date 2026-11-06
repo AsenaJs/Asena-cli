@@ -3,7 +3,7 @@ import type { ConsoleRun } from '../../lib/console/hostProtocol';
 import type { DevtoolsRequestRecord, DevtoolsRoute } from '../../lib/console/protocol';
 import { answerTone, STATUS_TEXT, statusTone } from '../endpoints/RouteTester';
 import { formatClock, formatMs } from '../runtime/format';
-import { logLevel, stripAnsi } from '../runtime/logs';
+import { shownLog } from '../runtime/logs';
 import { Card, IconButton, MethodBadge, Pill, SearchField, Section, SegmentedControl } from '../ui/components';
 import { Icon } from '../ui/icons';
 import {
@@ -43,7 +43,11 @@ const RequestDetails = ({
   onClose: () => void;
 }) => {
   const run = runOfRecord(record, runs);
-  const logs = record.logs ?? [];
+  const logs = (record.logs ?? []).flatMap((entry) => {
+    const log = shownLog(entry.text, entry.stream);
+
+    return log ? [{ ...entry, ...log }] : [];
+  });
   const focus = replayFocus(record, routes);
   const dispatch = isDispatch(record);
 
@@ -93,18 +97,14 @@ const RequestDetails = ({
         <Section title={`Output during the request${logs.length > 0 ? ` (${logs.length})` : ''}`}>
           {logs.length > 0 ? (
             <ol className="rq-logs" aria-label="Output written during the request">
-              {logs.map((entry, index) => {
-                const level = logLevel(entry.text, entry.stream);
-
-                return (
-                  <li key={index} className="rq-log" data-stream={entry.stream}>
-                    <span className="ts">{formatClock(entry.at)}</span>
-                    <span className={`lv lv-${level}`}>{level}</span>
-                    <pre className="rq-log-text">{stripAnsi(entry.text).replace(/\r?\n$/, '')}</pre>
-                    {entry.stream === 'stderr' ? <span className="rq-stream">stderr</span> : null}
-                  </li>
-                );
-              })}
+              {logs.map((entry, index) => (
+                <li key={index} className="rq-log" data-stream={entry.stream}>
+                  <span className="ts">{formatClock(entry.at)}</span>
+                  <span className={`lv lv-${entry.level}`}>{entry.level}</span>
+                  <pre className="rq-log-text">{entry.text.replace(/\r?\n$/, '')}</pre>
+                  {entry.stream === 'stderr' ? <span className="rq-stream">stderr</span> : null}
+                </li>
+              ))}
             </ol>
           ) : (
             <p className="muted pane-note">No output during this request.</p>

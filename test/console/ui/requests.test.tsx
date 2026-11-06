@@ -207,6 +207,41 @@ describe('requests panel rendering', () => {
       expect(html).toContain('<span class="rq-stream">stderr</span>');
     });
 
+    test("drops the logger's prefix through the same helper as the log view, and a row with nothing else", () => {
+      const at = record('r-4').startedAt;
+      const logged = {
+        ...record('r-4'),
+        logs: [
+          { stream: 'stdout' as const, text: '2026-11-06 01:19:47 [\u001B[32mINFO\u001B[0m]: \t\n', at },
+          {
+            stream: 'stdout' as const,
+            text: '2026-11-06 01:19:47 [\u001B[31mERROR\u001B[0m]: \tAuth error: x {\n "stack": "Error: x"\n}\nError: x\n    at f (/a.ts:1:1)\n',
+            at,
+          },
+          { stream: 'stdout' as const, text: 'Backup of 2026-11-06 01:19:47 finished\n', at },
+        ],
+      };
+      const html = drawer(logged);
+
+      expect(html).toContain('Output during the request (2)');
+      expect(html.match(/<li class="rq-log"/g)).toHaveLength(2);
+      expect(html).toContain('<span class="lv lv-error">error</span>');
+      expect(html).toContain(
+        '<pre class="rq-log-text">Auth error: x {\n &quot;stack&quot;: &quot;Error: x&quot;\n}\nError: x\n    at f (/a.ts:1:1)</pre>',
+      );
+      expect(html).toContain('<pre class="rq-log-text">Backup of 2026-11-06 01:19:47 finished</pre>');
+    });
+
+    test('a record whose only output was a bare prefix says nothing was written', () => {
+      const at = record('r-4').startedAt;
+      const html = drawer({
+        ...record('r-4'),
+        logs: [{ stream: 'stdout', text: '2026-11-06 01:19:47 [INFO]: \t\n', at }],
+      });
+
+      expect(html).toContain('No output during this request');
+    });
+
     test('a record without logs says nothing was written; a capped one says lines were dropped', () => {
       expect(drawer(record('r-8'))).toContain('No output during this request');
       expect(drawer({ ...scoped, logsTruncated: true })).toContain('truncated');
