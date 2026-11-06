@@ -64,7 +64,7 @@ const EdgeList = ({
 
       return (
         <li key={edge.id}>
-          <span className="grow">
+          <span className="grow wraps">
             {end === 'target' && field && edge.label ? <span className="mono muted">{edge.label} → </span> : null}
             <button type="button" className="link-btn quiet" onClick={() => onSelect(edge[end])}>
               {nameOf(edge[end])}

@@ -383,6 +383,12 @@
   margin: 0;
 }
 
+/* A field name and a component name on one line would clip the component, the part the row is for. */
+.inspector .list .grow.wraps {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .insp-head {
   display: flex;
   gap: 12px;
