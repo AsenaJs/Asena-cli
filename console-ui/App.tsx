@@ -4,6 +4,7 @@ import type { DevtoolsCommandRequest, DevtoolsSnapshot } from '../lib/console/pr
 import { ConfigPanel } from './config/ConfigPanel';
 import { EndpointsPanel } from './endpoints/EndpointsPanel';
 import { ExceptionsPanel } from './exceptions/ExceptionsPanel';
+import type { GraphViewChoice } from './graph/focus';
 import { GraphPanel } from './graph/GraphPanel';
 import { browserTimeZone, commandBlockedReason } from './messaging/commands';
 import { MessagingPanel } from './messaging/MessagingPanel';
@@ -35,10 +36,12 @@ interface PanelProps {
   theme: ThemeChoice;
   focus: EndpointFocus | null;
   onOpenEndpoint: (focus: EndpointFocus) => void;
+  graphView: GraphViewChoice | null;
+  onGraphView: (choice: GraphViewChoice | null) => void;
   send: ShellProps['send'];
 }
 
-const Panel = ({ view, state, token, theme, focus, onOpenEndpoint, send }: PanelProps) => {
+const Panel = ({ view, state, token, theme, focus, onOpenEndpoint, graphView, onGraphView, send }: PanelProps) => {
   const blockedReason = commandBlockedReason({
     canSend: send !== undefined,
     token,
@@ -63,7 +66,13 @@ const Panel = ({ view, state, token, theme, focus, onOpenEndpoint, send }: Panel
   switch (view) {
     case 'graph':
       return withSnapshot((snapshot) => (
-        <GraphPanel snapshot={snapshot} theme={theme} onOpenRoute={(key) => onOpenEndpoint({ key })} />
+        <GraphPanel
+          snapshot={snapshot}
+          theme={theme}
+          viewChoice={graphView}
+          onViewChoice={onGraphView}
+          onOpenRoute={(key) => onOpenEndpoint({ key })}
+        />
       ));
     case 'runtime':
       return <RuntimePanel state={state} />;
@@ -113,6 +122,7 @@ export const Shell = ({ state, token, initialView, send }: ShellProps) => {
   const [view, setView] = useState<ViewId>(() => initialView ?? viewFromHash(currentHash()));
   const [theme, setTheme] = useTheme();
   const [focus, setFocus] = useState<EndpointFocus | null>(null);
+  const [graphView, setGraphView] = useState<GraphViewChoice | null>(null);
   const status = appStatus(state, token);
 
   useEffect(() => {
@@ -159,6 +169,8 @@ export const Shell = ({ state, token, initialView, send }: ShellProps) => {
             theme={theme}
             focus={focus}
             onOpenEndpoint={openEndpoint}
+            graphView={graphView}
+            onGraphView={setGraphView}
             send={send}
           />
         </main>

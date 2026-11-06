@@ -10,7 +10,16 @@ import {
   type GraphNodeKind,
   routesOf,
 } from '../../../console-ui/graph/buildGraph';
-import { fitViewport, GraphPanel, layoutBounds, toFlowEdges, toFlowNodes } from '../../../console-ui/graph/GraphPanel';
+import type { GraphViewChoice } from '../../../console-ui/graph/focus';
+import {
+  fitViewport,
+  GraphPanel,
+  layoutBounds,
+  toFlowEdges,
+  toFlowNodes,
+  viewportFor,
+  widthFitViewport,
+} from '../../../console-ui/graph/GraphPanel';
 import { Inspector } from '../../../console-ui/graph/Inspector';
 import { laneOf, nodeMeta } from '../../../console-ui/graph/lanes';
 import {
@@ -105,7 +114,7 @@ describe('buildFullGraph over snapshot.json', () => {
 
 describe('graph filters', () => {
   test('hiding a type drops its nodes and every edge that touches them', () => {
-    const graph = buildGraph(snapshot, { hidden: new Set(['MIDDLEWARE']), search: '' });
+    const graph = buildGraph(snapshot, { hidden: new Set(['MIDDLEWARE', 'VALIDATOR']), search: '' });
 
     expect(graph.nodes.some((node) => node.kind === 'MIDDLEWARE')).toBe(false);
     expect(edgeList(graph).sort()).toEqual([
@@ -254,6 +263,57 @@ describe('graph first view', () => {
     expect(view.x).toBe(350);
     expect(view.y).toBe(34 + 200);
   });
+
+  describe('fit floors', () => {
+    const tall = { x: 0, y: -34, width: 900, height: 5000 };
+    const wide = { x: 0, y: -34, width: 4000, height: 3000 };
+
+    test('the fit that shows everything still goes down to the old minimum', () => {
+      expect(viewportFor('all', { x: 0, y: 0, width: 20000, height: 20000 }, 800, 600).zoom).toBe(0.15);
+    });
+
+    test('Focus stops at 60% and is anchored at the top, whatever the height', () => {
+      const view = viewportFor('focus', tall, 800, 600);
+
+      expect(view.zoom).toBe(0.6);
+      expect(view.y).toBe(24 + 34 * 0.6);
+    });
+
+    test('Focus on a neighbourhood wider than the canvas at the floor starts at its left edge', () => {
+      expect(viewportFor('focus', wide, 800, 600).x).toBe(24);
+    });
+
+    test('Focus fits a small neighbourhood above the floor, centred, never above 100%', () => {
+      const small = viewportFor('focus', { x: 0, y: -34, width: 300, height: 200 }, 1000, 600);
+
+      expect(small.zoom).toBe(1);
+      expect(small.x).toBe(350);
+      expect(viewportFor('focus', { x: 0, y: 0, width: 1000, height: 300 }, 800, 600).zoom).toBeCloseTo(0.752);
+    });
+
+    test('Full on a large app fits the width with a 35% floor, ignoring the height', () => {
+      expect(widthFitViewport(wide, 800).zoom).toBe(0.35);
+      expect(widthFitViewport({ ...tall, width: 1432 }, 800).zoom).toBeCloseTo(0.5);
+      expect(viewportFor('width', { ...tall, width: 1432 }, 800, 600).zoom).toBeCloseTo(0.5);
+    });
+
+    test('Full on a large app is anchored at the top, also when it is shorter than the canvas', () => {
+      const short = widthFitViewport({ x: 0, y: -34, width: 1432, height: 100 }, 800);
+
+      expect(short.y).toBeCloseTo(24 + 34 * 0.5);
+    });
+
+    test('Full on a large app starts its first lane clear of the zoom controls', () => {
+      expect(widthFitViewport(wide, 800).x).toBe(60);
+    });
+
+    test('Full on a large app never shows above 100% and centres what is narrower', () => {
+      const narrow = widthFitViewport({ x: 0, y: -34, width: 300, height: 200 }, 1000);
+
+      expect(narrow.zoom).toBe(1);
+      expect(narrow.x).toBe(368);
+    });
+  });
 });
 
 describe('graph layout', () => {
@@ -370,9 +430,20 @@ describe('graph selection and filter on the canvas', () => {
   });
 });
 
+const panel = (source: DevtoolsSnapshot, viewChoice: GraphViewChoice | null = null) =>
+  renderToStaticMarkup(
+    <GraphPanel
+      snapshot={source}
+      theme="light"
+      viewChoice={viewChoice}
+      onViewChoice={() => {}}
+      onOpenRoute={() => {}}
+    />,
+  );
+
 describe('graph panel rendering', () => {
   test('renders the search, one chip per present type, the canvas, the legend and the inspector', () => {
-    const html = renderToStaticMarkup(<GraphPanel snapshot={snapshot} theme="light" onOpenRoute={() => {}} />);
+    const html = panel(snapshot);
 
     expect(html).toContain('aria-label="Find a component"');
     expect(html).toContain('aria-pressed="true"');
@@ -383,6 +454,57 @@ describe('graph panel rendering', () => {
     expect(html).toContain('react-flow');
     expect(html).toContain('guarded by middleware or validator');
     expect(html).toContain('<h3 id="inspector-title">ItemController</h3>');
+  });
+
+  const pressed = (html: string, label: string) =>
+    new RegExp(`aria-pressed="true"[^>]*>(<i[^>]*></i>)?${label}(<|$)`).test(html);
+
+  /** The fixture repeated past the size limit, with a service that injects a core service. */
+  const largeApp: DevtoolsSnapshot = {
+    ...withCoreTarget,
+    components: [
+      ...withCoreTarget.components,
+      ...Array.from({ length: 41 }, (_, i) => ({
+        ...withCoreTarget.components.find((component) => component.name === 'ItemDraft')!,
+        name: `Extra${i}`,
+        className: `Extra${i}`,
+      })),
+    ],
+  };
+
+  test("a small app opens in Full with today's chips and every component on", () => {
+    const html = panel(snapshot);
+
+    expect(pressed(html, 'Full')).toBe(true);
+    expect(pressed(html, 'Focus')).toBe(false);
+    expect(html).toContain('role="group" aria-label="Graph view"');
+    expect(html).not.toContain('</i>Validator</button>');
+    expect(pressed(html, 'Middleware')).toBe(true);
+  });
+
+  test('a large app opens in Focus on the first wired controller, showing only its neighbourhood', () => {
+    const html = panel(largeApp);
+
+    expect(pressed(html, 'Focus')).toBe(true);
+    expect(html).toContain('<h3 id="inspector-title">ItemController</h3>');
+    expect(pressed(html, 'Validator')).toBe(true);
+    expect(pressed(html, 'Core service')).toBe(true);
+    expect(html).toContain('5 of 61 components');
+  });
+
+  test('a large app in Full shows the core and validator chips off', () => {
+    const html = panel(largeApp, { view: 'full', large: true });
+
+    expect(pressed(html, 'Full')).toBe(true);
+    expect(pressed(html, 'Validator')).toBe(false);
+    expect(pressed(html, 'Core service')).toBe(false);
+    expect(pressed(html, 'Middleware')).toBe(true);
+    expect(html).toContain('58 of 61 components');
+  });
+
+  test('a choice made on the other side of the limit does not apply', () => {
+    expect(pressed(panel(largeApp, { view: 'full', large: false }), 'Focus')).toBe(true);
+    expect(pressed(panel(snapshot, { view: 'focus', large: true }), 'Full')).toBe(true);
   });
 
   test('the inspector lists scope, injections, users, @Value keys and the strategy targets', () => {

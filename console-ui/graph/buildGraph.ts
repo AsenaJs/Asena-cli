@@ -19,7 +19,12 @@ export const GRAPH_NODE_KINDS: readonly GraphNodeKind[] = [
   'CORE',
 ];
 
+/** What a kind chip switches: a node kind, or the validators, which are middleware to the container. */
+export type GraphChipKind = GraphNodeKind | 'VALIDATOR';
+
 export type GraphEdgeKind = 'inject' | 'soft' | 'strategy' | 'validator' | 'global-middleware';
+
+export type GraphGroupKey = 'validators' | 'core';
 
 export interface GraphNode {
   id: string;
@@ -29,6 +34,10 @@ export interface GraphNode {
   component?: DevtoolsComponent;
   /** Whether the node matches the search; only set while searching. */
   matched: boolean;
+  /** Whether some route runs this middleware as its validator. */
+  validator: boolean;
+  /** Set on a node that stands for several collapsed neighbours in the Focus view. */
+  group?: { key: GraphGroupKey; members: string[] };
 }
 
 export interface GraphEdge {
@@ -45,9 +54,11 @@ export interface Graph {
 }
 
 export interface GraphFilter {
-  hidden: ReadonlySet<GraphNodeKind>;
+  hidden: ReadonlySet<GraphChipKind>;
   search: string;
 }
+
+export const chipKindOf = (node: GraphNode): GraphChipKind => (node.validator ? 'VALIDATOR' : node.kind);
 
 export const componentNodeId = (name: string): string => `component:${name}`;
 
@@ -75,7 +86,14 @@ export const buildFullGraph = (snapshot: DevtoolsSnapshot): Graph => {
   const nodes = new Map<string, GraphNode>(
     snapshot.components.map((component) => [
       componentNodeId(component.name),
-      { id: componentNodeId(component.name), name: component.name, kind: component.type, component, matched: false },
+      {
+        id: componentNodeId(component.name),
+        name: component.name,
+        kind: component.type,
+        component,
+        matched: false,
+        validator: false,
+      },
     ]),
   );
   const edges: GraphEdge[] = [];
@@ -90,7 +108,7 @@ export const buildFullGraph = (snapshot: DevtoolsSnapshot): Graph => {
 
     const id = coreNodeId(target);
 
-    if (!nodes.has(id)) nodes.set(id, { id, name: target, kind: 'CORE', matched: false });
+    if (!nodes.has(id)) nodes.set(id, { id, name: target, kind: 'CORE', matched: false, validator: false });
 
     return [id];
   };
@@ -133,10 +151,16 @@ export const buildFullGraph = (snapshot: DevtoolsSnapshot): Graph => {
     }
   }
 
+  for (const edge of edges) {
+    const target = nodes.get(edge.target);
+
+    if (edge.kind === 'validator' && target) target.validator = target.kind === 'MIDDLEWARE';
+  }
+
   return { nodes: [...nodes.values()], edges };
 };
 
-const matches = (node: GraphNode, query: string): boolean =>
+export const matches = (node: GraphNode, query: string): boolean =>
   [node.name, node.component?.className ?? '', ...(node.component?.interfaces ?? [])].some((text) =>
     text.toLowerCase().includes(query),
   );
@@ -146,7 +170,7 @@ const matches = (node: GraphNode, query: string): boolean =>
  * neighbours, so a match is shown with what it depends on and what depends on it.
  */
 export const filterGraph = (graph: Graph, filter: GraphFilter): Graph => {
-  const visible = graph.nodes.filter((node) => !filter.hidden.has(node.kind));
+  const visible = graph.nodes.filter((node) => !filter.hidden.has(chipKindOf(node)));
   const visibleIds = new Set(visible.map((node) => node.id));
   const edges = graph.edges.filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
   const query = filter.search.trim().toLowerCase();

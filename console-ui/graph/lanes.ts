@@ -35,6 +35,7 @@ export const nodeMeta = (snapshot: DevtoolsSnapshot, node: GraphNode): string =>
   const { component } = node;
   const label = kindLabel(node.kind);
 
+  if (node.group) return `${label} · click to expand`;
   if (!component) return `${label} · from the framework`;
 
   const fact = (() => {

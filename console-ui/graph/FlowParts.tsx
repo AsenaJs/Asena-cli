@@ -8,7 +8,9 @@ import {
   type NodeProps,
   Position,
 } from '@xyflow/react';
+import type { CSSProperties } from 'react';
 import { Glyph } from '../ui/components';
+import { KIND_STYLES } from '../ui/kinds';
 import type { GraphEdgeKind, GraphNode } from './buildGraph';
 import { type EdgeRoute, roundedPath } from './layout';
 
@@ -26,13 +28,16 @@ export type RoutedFlowEdge = Edge<
 export const ComponentNode = ({ data, selected }: NodeProps<ComponentFlowNode>) => (
   <div
     className="node"
+    style={{ '--c': KIND_STYLES[data.node.kind].color } as CSSProperties}
     data-selected={selected ? 'true' : undefined}
     data-dim={data.dim ? 'true' : undefined}
     data-matched={data.node.matched ? 'true' : undefined}
   >
     <Handle type="target" position={Position.Left} isConnectable={false} />
     <Glyph kind={data.node.kind} />
-    <span className="name">{data.node.name}</span>
+    <span className="name" title={data.node.name}>
+      {data.node.name}
+    </span>
     <span className="meta">{data.meta}</span>
     <Handle type="source" position={Position.Right} isConnectable={false} />
   </div>

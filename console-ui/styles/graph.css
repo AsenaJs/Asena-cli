@@ -27,6 +27,45 @@
   border-bottom: 1px solid var(--line);
 }
 
+.graph-search {
+  position: relative;
+}
+
+.graph-results {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 320px;
+  max-width: 70vw;
+  max-height: 280px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-solid);
+}
+
+.graph-results p {
+  margin: 0;
+  padding: 6px;
+  font-size: 12.5px;
+}
+
+.graph-results .list {
+  gap: 2px;
+}
+
+.graph-results .list li {
+  flex-wrap: nowrap;
+  border: 0;
+  padding: 5px 6px;
+}
+
+.graph-results .list li:hover {
+  background: var(--hover);
+}
+
 .chips {
   display: flex;
   gap: 6px;
@@ -172,6 +211,34 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Zoomed out on a large app: the name alone, enlarged against the zoom, with the kind as the colour of its edge. */
+.canvas-wrap[data-far='true'] .node {
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0 12px;
+  border-left: 8px solid var(--c);
+}
+
+.canvas-wrap[data-far='true'] .node .glyph,
+.canvas-wrap[data-far='true'] .node .meta {
+  display: none;
+}
+
+.canvas-wrap[data-far='true'] .node .name {
+  font-size: 26px;
+}
+
+.canvas-wrap[data-far='true'] .lane-label {
+  font-size: 26px;
+}
+
+.canvas-wrap[data-far='true'] .edge .edge-line {
+  stroke-width: 3;
+}
+
+.canvas-wrap[data-far='true'] .edge[data-state='active'] .edge-line {
+  stroke-width: 5;
 }
 
 /* ---------- edges ---------- */
