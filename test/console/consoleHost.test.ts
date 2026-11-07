@@ -237,6 +237,27 @@ describe('ConsoleHost with a fake agent child', () => {
     expect((await (await connect()).replay()).commandResults).toEqual([failed.message.payload as never]);
   });
 
+  it('forgets a command when its result arrives, not when the child exits', async () => {
+    const { host } = await startHost();
+    const client = await connect();
+    const pending = () => (host as unknown as { pendingCommands: Map<string, number> }).pendingCommands;
+
+    await client.waitFor(isChild('running', 1));
+
+    client.send({ v: 1, type: 'command', command: { id: 'c-1', command: 'emitEvent', event: 'x' } });
+    await client.waitFor(isResult('c-1'));
+
+    expect(pending().size).toBe(0);
+
+    client.send({ v: 1, type: 'command', command: { id: 'c-2', command: 'runSchedule', name: 'hang' } });
+    await waitUntil(() => pending().has('c-2'), 5000, 'the command to be forwarded');
+    await host.restart();
+    await client.waitFor(isResult('c-2'));
+
+    expect(pending().size).toBe(0);
+    expect(client.messages.filter(isResult('c-1'))).toHaveLength(1);
+  });
+
   it('respawns the child with the next generation when a watched file changes', async () => {
     const watchDir = tmpDir('asena-console-src-');
     const prepared: number[] = [];
