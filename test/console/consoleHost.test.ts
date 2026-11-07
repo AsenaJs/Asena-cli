@@ -496,7 +496,7 @@ describe('ConsoleHost with a fake agent child', () => {
     await client.waitFor(isChild('running', 1));
 
     expect(warnings.filter((warning) => warning.includes('does not understand'))).toHaveLength(1);
-    expect(client.messages.filter(isAgent('hello'))).toHaveLength(1);
+    expect(host?.snapshotState().hello).toBeDefined();
     expect(host?.snapshotState().logs.some((line) => line.line.includes('does not understand'))).toBe(true);
   });
 
@@ -506,11 +506,23 @@ describe('ConsoleHost with a fake agent child', () => {
 
     await client.waitFor(isChild('running', 1));
 
-    const log = (await client.waitFor(isLog('protocol v2'))) as Message<'log'>;
+    // The child sends it right after it starts, which can be before this client connects: then it is in the replay.
+    const replayed = (await client.replay()).logs.find((line) => line.line.includes('protocol v2'));
+    const log = replayed ?? ((await client.waitFor(isLog('protocol v2'))) as Message<'log'>);
 
     expect(log).toMatchObject({ gen: 1, stream: 'stderr' });
     expect(log.line).toContain('this CLI speaks v1');
     expect(warnings).toHaveLength(1);
+  });
+
+  it('replays that warning to a browser that connects after it was logged', async () => {
+    const { warnings } = await startHost({ FAKE_SEND_INVALID: 'v2', FAKE_HELLO_DELAY_MS: '300' });
+
+    await waitUntil(() => warnings.length === 1, 5000, 'the warning');
+
+    const replay = await (await connect()).replay();
+
+    expect(replay.logs.some((line) => line.stream === 'stderr' && line.line.includes('protocol v2'))).toBe(true);
   });
 
   it('shows a core version outside 0.13 without warning, since the protocol version decides', async () => {
