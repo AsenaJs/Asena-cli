@@ -121,6 +121,13 @@
   overflow: hidden;
 }
 
+/* React Flow fills its buttons' icons; the console's are stroked. */
+.canvas-wrap .react-flow__controls-button .icon {
+  max-width: 14px;
+  max-height: 14px;
+  fill: none;
+}
+
 .canvas-wrap .react-flow__node {
   padding: 0;
   border: 0;

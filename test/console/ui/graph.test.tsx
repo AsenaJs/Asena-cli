@@ -32,6 +32,7 @@ import {
   NODE_WIDTH,
   roundedPath,
 } from '../../../console-ui/graph/layout';
+import { Icon } from '../../../console-ui/ui/icons';
 import { kindLabel } from '../../../console-ui/ui/kinds';
 import snapshotJson from '../fixtures/snapshot.json';
 
@@ -521,6 +522,15 @@ describe('graph panel rendering', () => {
     expect(pressed(html, 'Core service')).toBe(false);
     expect(pressed(html, 'Middleware')).toBe(true);
     expect(html).toContain('58 of 59 components · 0 of 2 core services');
+  });
+
+  test("every view's fit button carries the console's own icon, none of React Flow's", () => {
+    const icon = renderToStaticMarkup(<Icon name="fit" />);
+
+    for (const html of [panel(snapshot), panel(largeApp), panel(largeApp, { view: 'full', large: true })]) {
+      expect(html).toContain(icon);
+      expect(html).not.toContain('viewBox="0 0 32 30"');
+    }
   });
 
   test('a choice made on the other side of the limit does not apply', () => {

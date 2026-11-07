@@ -14,6 +14,7 @@ import { type FocusEvent, type KeyboardEvent, useCallback, useEffect, useMemo, u
 import type { DevtoolsSnapshot } from '../../lib/console/protocol';
 import type { ThemeChoice } from '../shell/theme';
 import { Card, Chip, Glyph, List, SearchField, SegmentedControl } from '../ui/components';
+import { Icon } from '../ui/icons';
 import { kindLabel } from '../ui/kinds';
 import { buildFullGraph, filterGraph, type Graph, type GraphChipKind, type GraphGroupKey } from './buildGraph';
 import {
@@ -62,8 +63,6 @@ const FULL_FIT_FLOOR = 0.35;
 
 // Below this a node's 13.5px name is too small to read, so a large app's nodes switch to their name alone, enlarged.
 const FAR_ZOOM = 0.55;
-
-const FIT_BUTTON_OPTIONS = { padding: 0.08, maxZoom: 1 };
 
 const NO_KINDS: ReadonlySet<GraphChipKind> = new Set();
 
@@ -216,12 +215,6 @@ interface Rendered {
   view: GraphView;
   fit: FitMode;
 }
-
-const FitIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 30" aria-hidden="true">
-    <path d="M3.692 4.63c0-.53.4-.938.939-.938h5.215V0H4.708C2.13 0 0 2.054 0 4.63v5.216h3.692V4.631zM27.354 0h-5.2v3.692h5.17c.53 0 .984.4.984.939v5.215H32V4.631A4.624 4.624 0 0027.354 0zm.954 24.83c0 .532-.4.94-.939.94h-5.215v3.768h5.215c2.577 0 4.631-2.13 4.631-4.707v-5.139h-3.692v5.139zm-23.677.94c-.531 0-.939-.4-.939-.94v-5.138H0v5.139c0 2.577 2.13 4.707 4.708 4.707h5.138V25.77H4.631z" />
-  </svg>
-);
 
 const Legend = () => (
   <ul className="legend" aria-label="Edge kinds">
@@ -501,21 +494,15 @@ const GraphCanvasView = ({ snapshot, theme, viewChoice, onViewChoice, onOpenRout
             maxZoom={1.6}
           >
             <Background variant={BackgroundVariant.Dots} gap={22} size={1} />
-            <Controls
-              showInteractive={false}
-              showFitView={rendered.view !== 'focus'}
-              fitViewOptions={FIT_BUTTON_OPTIONS}
-            >
-              {rendered.view === 'focus' ? (
-                <ControlButton
-                  className="react-flow__controls-fitview"
-                  title="Fit view"
-                  aria-label="Fit view"
-                  onClick={fit}
-                >
-                  <FitIcon />
-                </ControlButton>
-              ) : null}
+            <Controls showInteractive={false} showFitView={false}>
+              <ControlButton
+                className="react-flow__controls-fitview"
+                title="Fit view"
+                aria-label="Fit view"
+                onClick={fit}
+              >
+                <Icon name="fit" />
+              </ControlButton>
             </Controls>
           </ReactFlow>
         </div>

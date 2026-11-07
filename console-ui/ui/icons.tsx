@@ -60,6 +60,12 @@ const PATHS = {
   play: <path d="M7 5l12 7-12 7z" />,
   clear: <path d="M5 7h14M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />,
   close: <path d="M6 6l12 12M18 6L6 18" />,
+  fit: (
+    <>
+      <path d="M4 9V6a2 2 0 0 1 2-2h3M15 4h3a2 2 0 0 1 2 2v3M20 15v3a2 2 0 0 1-2 2h-3M9 20H6a2 2 0 0 1-2-2v-3" />
+      <circle cx="12" cy="12" r="2" />
+    </>
+  ),
   plug: (
     <>
       <path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0z" />
