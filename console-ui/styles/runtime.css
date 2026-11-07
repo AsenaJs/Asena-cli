@@ -184,8 +184,7 @@
 
 .log-body {
   position: relative;
-  flex: 1;
-  height: 420px;
+  flex: 1 1 420px;
   overflow: auto;
   padding: 8px 0;
   font: 400 12.5px/1.65 var(--font-mono);

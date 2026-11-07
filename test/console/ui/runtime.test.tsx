@@ -381,6 +381,15 @@ describe('formatting', () => {
 });
 
 describe('runtime panel rendering', () => {
+  // `flex: 1` is a basis of 0%, which in this auto-height column resolves to the content: every row, no inner scroll.
+  test('the log body has a set height to scroll in, however many lines it holds', () => {
+    const css = readFileSync(join(import.meta.dir, '../../../console-ui/styles/runtime.css'), 'utf-8');
+    const body = css.match(/^\.log-body \{([^}]*)\}/m)?.[1] ?? '';
+
+    expect(body).toMatch(/flex: 1 1 \d+px;/);
+    expect(body).toContain('overflow: auto');
+  });
+
   test('shows the health card, the timeline, the four metric cards and the log', () => {
     const replay = consoleReducer(initialConsoleState, { kind: 'message', message: recording[0]! });
     const html = renderToStaticMarkup(<RuntimePanel state={replay} />);
