@@ -8,6 +8,7 @@ import {
   ReactFlowProvider,
   useReactFlow,
   useStore,
+  type Viewport,
 } from '@xyflow/react';
 import { type FocusEvent, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DevtoolsSnapshot } from '../../lib/console/protocol';
@@ -118,6 +119,13 @@ export const viewportFor = (mode: FitMode, bounds: Bounds, width: number, height
 
   return fitViewport(bounds, width, height, mode === 'focus' ? FOCUS_FIT_FLOOR : MIN_ZOOM);
 };
+
+/** Whether the view is where the last fit put it. The zoom buttons move it with no input event to tell by. */
+export const isAtFit = (current: Viewport, fitted: Viewport | null): boolean =>
+  fitted !== null &&
+  Math.abs(current.x - fitted.x) < 0.5 &&
+  Math.abs(current.y - fitted.y) < 0.5 &&
+  Math.abs(current.zoom - fitted.zoom) < 0.001;
 
 /** The box the nodes and lane headings take up. */
 export const layoutBounds = (layout: GraphLayout): Bounds => {
@@ -299,11 +307,11 @@ const GraphCanvasView = ({ snapshot, theme, viewChoice, onViewChoice, onOpenRout
     () => toFlowEdges(rendered.graph, rendered.layout, visible, selectedId),
     [rendered, visible, selectedId],
   );
-  const { setViewport } = useReactFlow<FlowNode>();
+  const { getViewport, setViewport } = useReactFlow<FlowNode>();
   const far = useStore((store) => store.transform[2] < FAR_ZOOM);
   const [ready, setReady] = useState(false);
   const pendingFit = useRef(true);
-  const userMoved = useRef(false);
+  const fitted = useRef<Viewport | null>(null);
   const onCanvas = useRef(rendered);
   const canvas = useRef<HTMLDivElement>(null);
   const chips = useMemo(() => kindChips(full, large), [full, large]);
@@ -322,21 +330,19 @@ const GraphCanvasView = ({ snapshot, theme, viewChoice, onViewChoice, onOpenRout
     if (!element || element.clientWidth === 0 || element.clientHeight === 0) return;
 
     pendingFit.current = false;
-    void setViewport(
-      viewportFor(
-        onCanvas.current.fit,
-        layoutBounds(onCanvas.current.layout),
-        element.clientWidth,
-        element.clientHeight,
-      ),
+    fitted.current = viewportFor(
+      onCanvas.current.fit,
+      layoutBounds(onCanvas.current.layout),
+      element.clientWidth,
+      element.clientHeight,
     );
+    void setViewport(fitted.current);
   }, [setViewport]);
 
   useEffect(() => {
     let cancelled = false;
     const show = (layout: GraphLayout) => {
       pendingFit.current = true;
-      userMoved.current = false;
       setRendered({ graph: shown, layout, view, fit: fitMode });
     };
 
@@ -365,13 +371,13 @@ const GraphCanvasView = ({ snapshot, theme, viewChoice, onViewChoice, onOpenRout
     if (!ready || !element || typeof ResizeObserver === 'undefined') return;
 
     const observer = new ResizeObserver(() => {
-      if (pendingFit.current || !userMoved.current) fit();
+      if (pendingFit.current || isAtFit(getViewport(), fitted.current)) fit();
     });
 
     observer.observe(element);
 
     return () => observer.disconnect();
-  }, [ready, fit]);
+  }, [ready, fit, getViewport]);
 
   const select = (id: string) => {
     if (id === selectedId) return;
@@ -491,9 +497,6 @@ const GraphCanvasView = ({ snapshot, theme, viewChoice, onViewChoice, onOpenRout
             nodesConnectable={false}
             edgesFocusable={false}
             onInit={() => setReady(true)}
-            onMoveStart={(event) => {
-              if (event) userMoved.current = true;
-            }}
             minZoom={MIN_ZOOM}
             maxZoom={1.6}
           >
@@ -508,10 +511,7 @@ const GraphCanvasView = ({ snapshot, theme, viewChoice, onViewChoice, onOpenRout
                   className="react-flow__controls-fitview"
                   title="Fit view"
                   aria-label="Fit view"
-                  onClick={() => {
-                    userMoved.current = false;
-                    fit();
-                  }}
+                  onClick={fit}
                 >
                   <FitIcon />
                 </ControlButton>

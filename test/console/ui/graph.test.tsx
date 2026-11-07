@@ -14,6 +14,7 @@ import type { GraphViewChoice } from '../../../console-ui/graph/focus';
 import {
   fitViewport,
   GraphPanel,
+  isAtFit,
   layoutBounds,
   toFlowEdges,
   toFlowNodes,
@@ -313,6 +314,25 @@ describe('graph first view', () => {
       expect(narrow.zoom).toBe(1);
       expect(narrow.x).toBe(368);
     });
+  });
+});
+
+describe('a resize and the zoom the user made', () => {
+  const fitted = { x: 12, y: -40, zoom: 0.35 };
+
+  test('a view still at its fit follows the resize', () => {
+    expect(isAtFit({ ...fitted }, fitted)).toBe(true);
+    expect(isAtFit({ x: 12.1, y: -40.1, zoom: 0.3501 }, fitted)).toBe(true);
+  });
+
+  test('a view zoomed or panned since keeps where the user put it', () => {
+    expect(isAtFit({ ...fitted, zoom: 0.42 }, fitted)).toBe(false);
+    expect(isAtFit({ ...fitted, x: 40 }, fitted)).toBe(false);
+    expect(isAtFit({ ...fitted, y: 40 }, fitted)).toBe(false);
+  });
+
+  test('nothing is at a fit that has not happened', () => {
+    expect(isAtFit(fitted, null)).toBe(false);
   });
 });
 
