@@ -452,7 +452,14 @@ describe('ConsoleHost with a fake agent child', () => {
 
     await client.waitFor(isChild('running', 1));
     await host.restart();
-    await waitUntil(() => client.messages.filter(isAgent('metrics')).length === 4, 5000, 'the second child metrics');
+
+    // The first child's samples can come in the client's replay, so only the second child's are counted.
+    const fromCurrentChild = (message: ConsoleHostMessage) =>
+      message.type === 'agent' &&
+      message.message.type === 'metrics' &&
+      message.message.payload.rss === host.supervisor.pid;
+
+    await waitUntil(() => client.messages.filter(fromCurrentChild).length === 2, 5000, 'the second child metrics');
 
     const replay = await (await connect()).replay();
 
