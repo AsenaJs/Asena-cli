@@ -7,8 +7,9 @@ export interface SourceWatcher {
 
 const DEFAULT_DEBOUNCE_MS = 100;
 
-// 4913 is the probe file vim writes to test a directory; ___jb_*___ are JetBrains' safe-write files.
-const EDITOR_TEMP_FILE = /(?:\.tmp(?:\..*)?|~|\.sw[a-z]|\.crswap|___jb_(?:tmp|old)___)$|^#.*#$|^4913$/;
+// 4913 is the probe file vim writes to test a directory; ___jb_*___ are JetBrains' safe-write files. What follows `.tmp`
+// must hold a digit, as a generated token does and a file extension hardly ever does: `x.tmp.ts` is a real source.
+const EDITOR_TEMP_FILE = /(?:\.tmp(?:\.\w*\d\w*)*|~|\.sw[a-z]|\.crswap|___jb_(?:tmp|old)___)$|^#.*#$|^4913$/;
 
 /** Editor temp, swap and backup files, and anything under a dot directory. */
 export const isIgnoredChange = (file: string): boolean => {

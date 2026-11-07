@@ -249,6 +249,16 @@ describe('watchSourceFolder', () => {
     }
   });
 
+  it('a temp suffix is a generated token, so a real source named like a temp file still counts', () => {
+    for (const file of ['index.ts.tmp.868698', 'index.ts.tmp.a1b2c3', 'services/index.ts.tmp.868698.1730000000']) {
+      expect(isIgnoredChange(file), file).toBe(true);
+    }
+
+    for (const file of ['x.tmp.ts', 'services/x.tmp.tsx', 'x.tmp.json', 'x.tmp.config.ts', 'x.tmp.v2.ts']) {
+      expect(isIgnoredChange(file), file).toBe(false);
+    }
+  });
+
   it('names the real file of an atomic save, relative to the project', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'asena-watch-'));
     const src = path.join(root, 'src');
