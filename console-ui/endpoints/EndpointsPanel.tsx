@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import type { ConsoleHttpRequest } from '../../lib/console/hostProtocol';
 import type { DevtoolsHello, DevtoolsRequestRecord, DevtoolsRoute, DevtoolsSnapshot } from '../../lib/console/protocol';
 import { routeKey } from '../graph/buildGraph';
@@ -68,6 +68,17 @@ export const reconcileSelection = (selection: Selection | null, snapshot: Devtoo
 
 const selectionLabel = (selection: Selection): string =>
   selection.kind === 'http' ? selection.key : `WS /${selection.namespace}`;
+
+const RoutePath = ({ path }: { path: string }) => (
+  <span className="route-path" title={path}>
+    {path.split(/(?=\/)/).map((part, index) => (
+      <Fragment key={index}>
+        {index > 0 ? <wbr /> : null}
+        {part}
+      </Fragment>
+    ))}
+  </span>
+);
 
 export const NoSelection = ({ gone }: { gone: string | null }) => (
   <Card className="empty" aria-labelledby="endpoint-none-title">
@@ -147,7 +158,7 @@ export const EndpointsPanel = ({
                 onClick={() => select({ kind: 'http', key: routeKey(candidate) })}
               >
                 <MethodBadge method={candidate.httpMethod} />
-                <span className="route-path">{candidate.path}</span>
+                <RoutePath path={candidate.path} />
                 {candidate.validator ? <span className="tag mw">validated</span> : null}
               </button>
             ))}
@@ -168,7 +179,7 @@ export const EndpointsPanel = ({
                 onClick={() => select({ kind: 'ws', namespace: candidate.namespace })}
               >
                 <MethodBadge method="WS" />
-                <span className="route-path">/{candidate.namespace}</span>
+                <RoutePath path={`/${candidate.namespace}`} />
               </button>
             ))}
           </div>

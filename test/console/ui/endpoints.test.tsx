@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { type ConsoleHttpRequest, isConsoleHttpRequest } from '../../../lib/console/hostProtocol';
 import type { DevtoolsHello, DevtoolsRoute, DevtoolsSnapshot } from '../../../lib/console/protocol';
@@ -387,6 +389,23 @@ describe('endpoints panel rendering', () => {
         {...props}
       />,
     );
+
+  test('a route shows its whole path, wrapping at the slashes', () => {
+    const html = panel();
+
+    expect(html).toContain('<span class="route-path" title="/items/:id/name">/items<wbr/>/:id<wbr/>/name</span>');
+  });
+
+  test('a long route list scrolls in its own card, so a picked route keeps its tester in view', () => {
+    const css = readFileSync(join(import.meta.dir, '../../../console-ui/styles/endpoints.css'), 'utf-8');
+    const block = (selector: string) => css.match(new RegExp(`^${selector} \\{([^}]*)\\}`, 'm'))?.[1] ?? '';
+
+    expect(block('\\.ep-layout')).toContain('grid-template-rows: minmax(0, 1fr)');
+    expect(block('\\.routes')).toContain('overflow: auto');
+    expect(block('\\.routes')).toContain('max-height: 100%');
+    expect(block('\\.req')).toContain('overflow: auto');
+    expect(block('\\.req')).toContain('max-height: 100%');
+  });
 
   describe('after a restart changes the routes', () => {
     const http = { kind: 'http', key: 'PUT /items/:id/name' } as const;
