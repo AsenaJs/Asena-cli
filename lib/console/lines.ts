@@ -19,16 +19,21 @@ const MARKED_LEVELS: Record<string, MarkedLevel> = {
   profile: 'info',
 };
 
-/** `YYYY-MM-DD HH:MM:SS` or ISO 8601, with optional fractions and zone. */
-export const LOG_TIMESTAMP = String.raw`\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}(?::?\d{2})?)?`;
+const TIME_OF_DAY = String.raw`\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}(?::?\d{2})?)?`;
 
-const LINE_START = String.raw`^\s*(?:${LOG_TIMESTAMP}[ \t]+)?`;
+const DATE = String.raw`\d{4}-\d{2}-\d{2}[ T]`;
+
+/** `YYYY-MM-DD HH:MM:SS` or ISO 8601, with optional fractions and zone. */
+export const LOG_TIMESTAMP = `${DATE}${TIME_OF_DAY}`;
+
+/** What may stand before a level word at the start of a line: indent and a time, with or without date and brackets. */
+export const LINE_LEAD = String.raw`[^\S\n]*(?:\[?(?:${DATE})?${TIME_OF_DAY}\]?[ \t]+)?`;
 
 const LEVEL_MARKERS = [
   /\[(?:[\w.-]+:)?(err|error|fatal|warn|warning|info|debug|trace|verbose|silly|http|profile)\]/i,
-  new RegExp(String.raw`${LINE_START}(error|fatal|warn|warning)\b`, 'i'),
-  new RegExp(String.raw`${LINE_START}(info|debug)\b:`, 'i'),
-  /\b(ERROR|FATAL|WARN|WARNING|INFO|DEBUG)\b/,
+  new RegExp(String.raw`^${LINE_LEAD}(error|fatal|warn|warning)\b`, 'i'),
+  new RegExp(String.raw`^${LINE_LEAD}(info|debug)\b:`, 'i'),
+  new RegExp(String.raw`^${LINE_LEAD}(INFO|DEBUG)\b`),
   /\b(?:[A-Z]\w*)?(Error)\b:/,
 ];
 

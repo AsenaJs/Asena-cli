@@ -1,5 +1,5 @@
 import type { ConsoleLogStream } from '../../lib/console/hostProtocol';
-import { LOG_TIMESTAMP, markedLevel, type MarkedLevel, stripAnsi } from '../../lib/console/lines';
+import { LINE_LEAD, LOG_TIMESTAMP, markedLevel, type MarkedLevel, stripAnsi } from '../../lib/console/lines';
 import type { LogEntry } from '../state/store';
 
 export { stripAnsi };
@@ -11,12 +11,11 @@ export const LOG_LEVELS: readonly LogLevel[] = ['error', 'warn', 'info'];
 // Multiline, since an entry can hold a whole Bun error report, whose `error: msg` line follows the source excerpt.
 const ERROR_MARKERS = [
   /\[(?:[\w.-]+:)?(?:error|err|fatal)\]/i,
-  /^[^\S\n]*(?:error|fatal)\b/im,
+  new RegExp(String.raw`^${LINE_LEAD}(?:error|fatal)\b`, 'im'),
   /\b(?:[A-Z]\w*)?Error\b:/,
-  /\bERROR\b/,
 ];
 
-const WARN_MARKERS = [/\[(?:[\w.-]+:)?warn(?:ing)?\]/i, /^[^\S\n]*warn(?:ing)?\b/im, /\bWARN(?:ING)?\b/];
+const WARN_MARKERS = [/\[(?:[\w.-]+:)?warn(?:ing)?\]/i, new RegExp(String.raw`^${LINE_LEAD}warn(?:ing)?\b`, 'im')];
 
 /**
  * A guess from the text, since the host only knows the stream. The first line's marker (`[warn]`, `[ERROR]:`, `error:`,
