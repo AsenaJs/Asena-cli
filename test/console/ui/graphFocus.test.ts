@@ -15,6 +15,7 @@ import {
   firstSelection,
   fitModeFor,
   focusGraph,
+  graphCountLabel,
   groupNodeId,
   isGroupNode,
   isLargeApp,
@@ -25,6 +26,7 @@ import {
   withoutEdgeLabels,
 } from '../../../console-ui/graph/focus';
 import { nodeMeta } from '../../../console-ui/graph/lanes';
+import { viewCount } from '../../../console-ui/shell/Sidebar';
 import snapshotJson from '../fixtures/snapshot.json';
 
 const fixture = snapshotJson as unknown as DevtoolsSnapshot;
@@ -470,6 +472,33 @@ describe('search results', () => {
       'MyQueueService',
       'Other',
     ]);
+  });
+});
+
+describe('the count in the footer', () => {
+  test('the graph holds core targets on top of the components, which are what the sidebar counts', () => {
+    expect(graph.nodes.length).toBe(large.components.length + 5);
+    expect(viewCount('graph', large)).toBe(large.components.length);
+    expect(graphCountLabel(graph, graph.nodes)).toBe(
+      `${large.components.length} of ${large.components.length} components · 5 of 5 core services`,
+    );
+  });
+
+  test('says nothing of core services when the app has none', () => {
+    const plain = {
+      ...large,
+      routes: [],
+      components: large.components.filter((item) => item.name.startsWith('Service')),
+    };
+    const nodes = buildFullGraph(plain).nodes;
+
+    expect(graphCountLabel({ nodes, edges: [] }, nodes.slice(0, 2))).toBe('2 of 40 components');
+  });
+
+  test('a group counts as the members it stands for, in the column they belong to', () => {
+    const shown = focusGraph(graph, { focusId: big, hidden: none, expanded: noGroups }).nodes;
+
+    expect(graphCountLabel(graph, shown)).toBe(`11 of ${large.components.length} components · 5 of 5 core services`);
   });
 });
 

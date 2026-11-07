@@ -171,6 +171,20 @@ export const searchResults = (graph: Graph, search: string): GraphNode[] => {
     .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
 };
 
+/**
+ * What the graph's footer says. A dependency target no component provides is a node as well, so the graph can hold more
+ * nodes than the app has components; they are counted apart, and `components` stays the count the sidebar shows.
+ */
+export const graphCountLabel = (all: Graph, shown: GraphNode[]): string => {
+  const size = (node: GraphNode) => node.group?.members.length ?? 1;
+  const count = (nodes: GraphNode[], core: boolean) =>
+    nodes.filter((node) => (node.kind === 'CORE') === core).reduce((total, node) => total + size(node), 0);
+  const components = `${count(shown, false)} of ${count(all.nodes, false)} components`;
+  const coreTotal = count(all.nodes, true);
+
+  return coreTotal === 0 ? components : `${components} · ${count(shown, true)} of ${coreTotal} core services`;
+};
+
 export const withoutEdgeLabels = (graph: Graph): Graph => ({
   nodes: graph.nodes,
   edges: graph.edges.map(({ label: _label, ...edge }) => edge),

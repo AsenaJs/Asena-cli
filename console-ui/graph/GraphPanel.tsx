@@ -30,6 +30,7 @@ import {
   firstSelection,
   fitModeFor,
   focusGraph,
+  graphCountLabel,
   type GraphView,
   type GraphViewChoice,
   groupKeyOf,
@@ -307,9 +308,10 @@ const GraphCanvasView = ({ snapshot, theme, viewChoice, onViewChoice, onOpenRout
   const canvas = useRef<HTMLDivElement>(null);
   const chips = useMemo(() => kindChips(full, large), [full, large]);
   const results = view === 'focus' ? searchResults(full, search) : [];
-  const shownCount = rendered.graph.nodes
-    .filter((node) => visible.has(node.id))
-    .reduce((total, node) => total + (node.group?.members.length ?? 1), 0);
+  const countLabel = graphCountLabel(
+    full,
+    rendered.graph.nodes.filter((node) => visible.has(node.id)),
+  );
 
   onCanvas.current = rendered;
 
@@ -520,7 +522,7 @@ const GraphCanvasView = ({ snapshot, theme, viewChoice, onViewChoice, onOpenRout
         <div className="graph-foot">
           <Legend />
           <span className="muted graph-count" aria-live="polite">
-            {shownCount} of {full.nodes.length} components
+            {countLabel}
           </span>
         </div>
       </Card>

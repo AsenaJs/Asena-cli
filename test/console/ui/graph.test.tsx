@@ -489,7 +489,8 @@ describe('graph panel rendering', () => {
     expect(html).toContain('<h3 id="inspector-title">ItemController</h3>');
     expect(pressed(html, 'Validator')).toBe(true);
     expect(pressed(html, 'Core service')).toBe(true);
-    expect(html).toContain('5 of 61 components');
+    expect(html).toContain('5 of 59 components · 0 of 2 core services');
+    expect(largeApp.components).toHaveLength(59);
   });
 
   test('a large app in Full shows the core and validator chips off', () => {
@@ -499,7 +500,7 @@ describe('graph panel rendering', () => {
     expect(pressed(html, 'Validator')).toBe(false);
     expect(pressed(html, 'Core service')).toBe(false);
     expect(pressed(html, 'Middleware')).toBe(true);
-    expect(html).toContain('58 of 61 components');
+    expect(html).toContain('58 of 59 components · 0 of 2 core services');
   });
 
   test('a choice made on the other side of the limit does not apply', () => {
