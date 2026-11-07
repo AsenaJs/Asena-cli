@@ -86,6 +86,7 @@ const KeyValueEditor = ({
           <input
             className="input"
             aria-label={`${noun} name ${index + 1}`}
+            spellCheck={false}
             placeholder="name"
             value={row.key}
             onChange={(event) => update(index, { key: event.target.value })}
@@ -93,6 +94,7 @@ const KeyValueEditor = ({
           <input
             className="input"
             aria-label={`${noun} value ${index + 1}`}
+            spellCheck={false}
             placeholder="value"
             value={row.value}
             onChange={(event) => update(index, { value: event.target.value })}
@@ -464,6 +466,7 @@ export const RouteTester = ({
                       <input
                         className="input"
                         aria-label={`Path parameter ${param.name}`}
+                        spellCheck={false}
                         value={draft.params[param.name] ?? ''}
                         required={!param.optional}
                         onChange={(event) =>
@@ -500,6 +503,7 @@ export const RouteTester = ({
                 <textarea
                   id="request-body"
                   className="textarea"
+                  spellCheck={false}
                   rows={8}
                   value={bodyAllowed ? draft.body : ''}
                   disabled={!bodyAllowed}

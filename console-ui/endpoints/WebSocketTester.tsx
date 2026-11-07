@@ -165,6 +165,7 @@ export const WebSocketTester = ({ namespace, component, port }: WebSocketTesterP
             <textarea
               id="ws-message"
               className="textarea"
+              spellCheck={false}
               rows={8}
               placeholder="Message"
               value={message}

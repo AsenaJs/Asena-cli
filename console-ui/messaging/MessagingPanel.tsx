@@ -155,6 +155,7 @@ export const CommandItem = ({
               <span>Event</span>
               <input
                 className="input"
+                spellCheck={false}
                 value={name}
                 disabled={phase === 'confirming'}
                 onChange={(event) => setName(event.target.value)}
@@ -165,6 +166,7 @@ export const CommandItem = ({
             <span>Payload (JSON, optional)</span>
             <textarea
               className="textarea"
+              spellCheck={false}
               rows={4}
               value={text}
               placeholder='{ "id": "12" }'

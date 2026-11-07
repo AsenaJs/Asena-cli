@@ -562,6 +562,34 @@ describe('endpoints panel rendering', () => {
     expect(handled).toContain('<span class="step ok" title="Handler">ItemController.find</span>');
   });
 
+  test('the fields that take code, names and ids are not spell-checked', () => {
+    const socket = renderToStaticMarkup(<WebSocketTester namespace="ws/items" component="ItemFeed" port={3000} />);
+    const body = renderToStaticMarkup(
+      <RouteTester
+        route={rename}
+        history={[]}
+        send={null}
+        blockedReason={null}
+        onRecord={() => {}}
+        onClearHistory={() => {}}
+      />,
+    );
+    const params = renderToStaticMarkup(
+      <RouteTester
+        route={find}
+        history={[]}
+        send={null}
+        blockedReason={null}
+        onRecord={() => {}}
+        onClearHistory={() => {}}
+      />,
+    );
+
+    expect(socket).toMatch(/<textarea[^>]*spellCheck="false"/);
+    expect(body).toMatch(/<textarea[^>]*spellCheck="false"/);
+    expect(params).toMatch(/<input[^>]*aria-label="Path parameter id"[^>]*spellCheck="false"/);
+  });
+
   test('the WebSocket tester targets the app port, or says there is none', () => {
     const ready = renderToStaticMarkup(<WebSocketTester namespace="ws/items" component="ItemFeed" port={3000} />);
     const headless = renderToStaticMarkup(<WebSocketTester namespace="ws/items" component="ItemFeed" port={null} />);
