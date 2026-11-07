@@ -19,6 +19,13 @@ const MARKED_LEVELS: Record<string, MarkedLevel> = {
   profile: 'info',
 };
 
+// DEBUG or FATAL say more than the console's level column does; these say the same.
+const PLAIN_LEVEL_WORDS = new Set(['err', 'error', 'warn', 'warning', 'info']);
+
+/** The level `word` names, when naming that level is all it says. */
+export const plainLevel = (word: string): MarkedLevel | undefined =>
+  PLAIN_LEVEL_WORDS.has(word) ? MARKED_LEVELS[word] : undefined;
+
 const TIME_OF_DAY = String.raw`\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}(?::?\d{2})?)?`;
 
 const DATE = String.raw`\d{4}-\d{2}-\d{2}[ T]`;

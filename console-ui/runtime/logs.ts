@@ -1,5 +1,12 @@
 import type { ConsoleLogStream } from '../../lib/console/hostProtocol';
-import { LINE_LEAD, LOG_TIMESTAMP, markedLevel, type MarkedLevel, stripAnsi } from '../../lib/console/lines';
+import {
+  LINE_LEAD,
+  LOG_TIMESTAMP,
+  markedLevel,
+  type MarkedLevel,
+  plainLevel,
+  stripAnsi,
+} from '../../lib/console/lines';
 import type { LogEntry } from '../state/store';
 
 export { stripAnsi };
@@ -38,15 +45,6 @@ const LOG_PREFIX = new RegExp(
   String.raw`^[ \t]*${LOG_TIMESTAMP}[ \t]+(?:\[[ \t]*([A-Za-z]+)[ \t]*\]|([A-Z]+)\b|([A-Za-z]+)(?=:))[ \t]*:?\s*`,
 );
 
-// DEBUG or FATAL say more than the level column does, so they stay.
-const PREFIX_LEVELS: Record<string, LogLevel> = {
-  err: 'error',
-  error: 'error',
-  warn: 'warn',
-  warning: 'warn',
-  info: 'info',
-};
-
 /**
  * `text` without a leading timestamp and level, when the console's own columns already say both; `null` when that
  * prefix was all of it. `text` is free of ANSI codes.
@@ -55,7 +53,7 @@ export const withoutLogPrefix = (text: string, level: LogLevel): string | null =
   const prefix = LOG_PREFIX.exec(text);
   const stated = (prefix?.[1] ?? prefix?.[2] ?? prefix?.[3] ?? '').toLowerCase();
 
-  if (!prefix || PREFIX_LEVELS[stated] !== level) return text;
+  if (!prefix || plainLevel(stated) !== level) return text;
 
   const message = text.slice(prefix[0].length);
 

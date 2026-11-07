@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { ConsoleHostMessage } from '../../../lib/console/hostProtocol';
-import { LogGrouper } from '../../../lib/console/lines';
+import { LogGrouper, plainLevel } from '../../../lib/console/lines';
 import {
   formatBytes,
   formatElapsed,
@@ -132,6 +132,19 @@ describe('logLevel heuristics', () => {
 });
 
 describe('withoutLogPrefix', () => {
+  test('a word that says more than the level column stays, whichever level it maps to', () => {
+    expect(plainLevel('warning')).toBe('warn');
+    expect(plainLevel('err')).toBe('error');
+    expect(plainLevel('fatal')).toBeUndefined();
+    expect(plainLevel('debug')).toBeUndefined();
+    expect(withoutLogPrefix('2026-11-06 01:19:47 [FATAL]: message', 'error')).toBe(
+      '2026-11-06 01:19:47 [FATAL]: message',
+    );
+    expect(withoutLogPrefix('2026-11-06 01:19:47 [DEBUG]: message', 'info')).toBe(
+      '2026-11-06 01:19:47 [DEBUG]: message',
+    );
+  });
+
   test.each([
     ['2026-11-06 01:19:47 [INFO]: \tmessage', 'info'],
     ['2026-11-06 01:19:47 [ERROR]: message', 'error'],
