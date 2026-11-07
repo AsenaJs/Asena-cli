@@ -208,6 +208,11 @@ describe('LogGrouper joining a stack to a marked entry', () => {
       ['[ERROR] request failed', ...STACK].join('\n'),
       STACK.join('\n'),
     ]);
+    expect(groupLines(['[ERROR] request failed', ...STACK, '', ...STACK])).toEqual([
+      ['[ERROR] request failed', ...STACK].join('\n'),
+      '',
+      STACK.join('\n'),
+    ]);
   });
 
   it('keeps a stack after a quiet period apart', async () => {
@@ -243,6 +248,147 @@ describe('LogGrouper joining a stack to a marked entry', () => {
   it('the marker of a source excerpt does not count', () => {
     expect(markedLevel('10 |   logger.warn("[warn] x");')).toBeNull();
     expect(markedLevel('request failed  9 | }')).toBeNull();
+  });
+});
+
+describe('LogGrouper on recorded errors whose message spans lines', () => {
+  const read = (stream: string) =>
+    group(fs.readFileSync(path.join(import.meta.dir, `fixtures/multiline-errors/run.${stream}.txt`), 'utf-8'));
+  const stdout = read('stdout');
+  const stderr = read('stderr');
+
+  it('makes one entry of what a logger prints for each error', () => {
+    expect(stdout).toHaveLength(4);
+    expect(stdout.map((entry) => logLevel(entry, 'stdout'))).toEqual(['error', 'error', 'error', 'info']);
+    expect(stripAnsi(stdout[3] ?? '')).toEndWith('after');
+  });
+
+  it('keeps a frameless stack under the issues of a ZodError', () => {
+    expect(stdout[0]).toContain('\n    "code": "invalid_type",\n');
+    expect(stdout[0]).toEndWith('\n]\nZodError');
+    expect(stdout[1]).toEndWith('\n}\nZodError');
+  });
+
+  it('keeps the lines of a message between the head of a stack and its frames', () => {
+    expect(stdout[2]).toContain('\n}\nError: first line\nsecond line\n  third line\n    at ');
+  });
+
+  it("makes one entry of each of Bun's reports", () => {
+    expect(stderr).toHaveLength(3);
+    expect(stderr[0]).toStartWith('ZodError: [\n  {\n');
+    expect(stderr[0]).toEndWith('\n]');
+    expect(stderr[1]).toBe('after');
+    expect(stderr[2]).toContain('\nerror: first line\nsecond line\n  third line\n      at ');
+    expect(lastLine(stderr[2])).toMatch(/^\s+at /);
+    expect(stderr.map((entry) => logLevel(entry, 'stderr'))).toEqual(['error', 'warn', 'error']);
+  });
+});
+
+describe('LogGrouper holding a message until its frames come', () => {
+  const groupLines = (lines: string[]): string[] => group(lines.join('\n'));
+  const ZOD_LIKE = ['ZodError: [', '  {', '    "code": "invalid_type"', '  }', ']'];
+
+  it('joins a bracketed message with frames, alone and under a marked entry', () => {
+    const frame = '    at parse (/app/x.ts:1:1)';
+
+    expect(groupLines([...ZOD_LIKE, frame])).toEqual([[...ZOD_LIKE, frame].join('\n')]);
+    expect(groupLines(['[ERROR] failed', ...ZOD_LIKE, frame])).toEqual([
+      ['[ERROR] failed', ...ZOD_LIKE, frame].join('\n'),
+    ]);
+  });
+
+  it('leaves a bracketed message without frames apart from a marked entry', () => {
+    expect(groupLines(['[INFO] started', ...ZOD_LIKE, 'after'])).toEqual([
+      '[INFO] started',
+      ZOD_LIKE.join('\n'),
+      'after',
+    ]);
+  });
+
+  it('ends at once at a line that starts an entry of its own', () => {
+    const entries: string[] = [];
+    const grouper = new LogGrouper((entry) => entries.push(entry), 60_000);
+
+    for (const line of ['Error: boom', 'second line', '[INFO] next']) grouper.push(line, 0);
+
+    expect(entries).toEqual(['Error: boom', 'second line']);
+
+    grouper.flush();
+
+    expect(entries.at(-1)).toBe('[INFO] next');
+  });
+
+  it('ends after the quiet period, and each line keeps its own time', async () => {
+    const entries: { text: string; at: number }[] = [];
+    const grouper = new LogGrouper((text, at) => entries.push({ text, at }), 10);
+
+    grouper.push('Error: boom', 1);
+    grouper.push('second line', 2);
+
+    await waitUntil(() => entries.length > 1, 1000, 'the quiet flush');
+
+    expect(entries).toEqual([
+      { text: 'Error: boom', at: 1 },
+      { text: 'second line', at: 2 },
+    ]);
+  });
+
+  it('a frame after the quiet period does not reach back', async () => {
+    const entries: string[] = [];
+    const grouper = new LogGrouper((text) => entries.push(text), 10);
+
+    grouper.push('Error: boom', 0);
+    grouper.push('second line', 0);
+
+    await waitUntil(() => entries.length > 1, 1000, 'the quiet flush');
+
+    grouper.push('    at /app/x.ts:1:1', 0);
+    grouper.flush();
+
+    expect(entries).toEqual(['Error: boom', 'second line', '    at /app/x.ts:1:1']);
+  });
+
+  it('a long message stops being held at the group limit', () => {
+    const lines = Array.from({ length: 600 }, (_, index) => `line ${index}`);
+    const entries = groupLines(['Error: boom', ...lines]);
+
+    expect(entries.join('\n')).toBe(['Error: boom', ...lines].join('\n'));
+    expect(entries[0]).toBe('Error: boom');
+  });
+});
+
+describe("LogGrouper and another request's stack in the same burst", () => {
+  const A = ['[ERROR] A failed {', ' "stack": "Error: A failed\\n    at a (/app/a.ts:1:1)"', '}'];
+  const OWN = ['Error: A failed', '    at a (/app/a.ts:1:1)'];
+  const OTHER = ['Error: B failed', '    at b (/app/b.ts:1:1)'];
+
+  const groupLines = (lines: string[]): string[] => group(lines.join('\n'));
+
+  it('an entry that names its stack takes that stack', () => {
+    expect(groupLines([...A, ...OWN])).toEqual([[...A, ...OWN].join('\n')]);
+  });
+
+  it('an entry that names its stack leaves another one apart', () => {
+    expect(groupLines([...A, ...OTHER])).toEqual([A.join('\n'), OTHER.join('\n')]);
+  });
+
+  it('reads the stack a message with quotes names', () => {
+    const quoted = ['[ERROR] x {', ' "stack": "Error: name \\"lamp\\" taken\\n    at a (/app/a.ts:1:1)"', '}'];
+    const stack = ['Error: name "lamp" taken', '    at a (/app/a.ts:1:1)'];
+
+    expect(groupLines([...quoted, ...stack])).toEqual([[...quoted, ...stack].join('\n')]);
+  });
+
+  it('applies to a stack without frames too', () => {
+    const zod = ['[ERROR] x {', ' "stack": "ZodError"', '}'];
+
+    expect(groupLines([...zod, 'ZodError'])).toEqual([[...zod, 'ZodError'].join('\n')]);
+    expect(groupLines([...zod, 'OtherError'])).toEqual([zod.join('\n'), 'OtherError']);
+  });
+
+  // The stream carries no request id and core's records do not reach this text, so nothing tells these two apart.
+  it('still joins under an entry that names no stack', () => {
+    expect(groupLines(['[ERROR] A failed', ...OTHER])).toEqual([['[ERROR] A failed', ...OTHER].join('\n')]);
   });
 });
 

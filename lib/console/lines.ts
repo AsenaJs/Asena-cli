@@ -57,6 +57,9 @@ const BLANK = /^\s*$/;
 // An object or array Bun prints over several lines: the head ends with the bracket, the closing one is unindented.
 const OBJECT_OPEN = /[{[]\s*$/;
 const OBJECT_CLOSE = /^[}\]]/;
+// All a stack holds when an error has no frames, as a ZodError's does.
+const BARE_ERROR_NAME = /^(?:[A-Z]\w*)?(?:Error|Exception)$/;
+const STACK_FIELD = /^\s*"?stack"?:\s*"((?:[^"\\]|\\.)*)/;
 
 /**
  * The level the first line of an ANSI-free entry states outright, the leftmost marker winning; `null` when it states
@@ -78,19 +81,21 @@ export const markedLevel = (text: string): MarkedLevel | null => {
 };
 
 /**
- * Where an open group is in a report, which decides the lines that continue it. `stack-head` is an `Error:` line
- * under a marked entry: it joins that entry only if a frame comes next.
+ * Where an open group is in a report, which decides the lines that continue it. `head` is an error's first line, which
+ * a message of several lines can follow; `error-object` is such a message in brackets, as a ZodError's.
  */
 type GroupState =
-  'plain' | 'frames' | 'excerpt' | 'caret' | 'error' | 'error-blank' | 'object' | 'closed' | 'stack-head';
+  'plain' | 'frames' | 'excerpt' | 'caret' | 'head' | 'error' | 'error-blank' | 'error-object' | 'object' | 'closed';
 
 const DEFAULT_QUIET_MS = 50;
 
 const MAX_GROUP_LINES = 500;
 
+const headState = (text: string): GroupState => (OBJECT_OPEN.test(text) ? 'error-object' : 'head');
+
 const startState = (text: string): GroupState => {
   if (EXCERPT_AFTER_TEXT.test(text)) return 'excerpt';
-  if (ERROR_HEAD.test(text)) return 'error';
+  if (ERROR_HEAD.test(text)) return headState(text);
 
   return OBJECT_OPEN.test(text) ? 'object' : 'plain';
 };
@@ -100,22 +105,26 @@ const continueState = (state: GroupState, text: string): GroupState | null => {
   switch (state) {
     case 'plain':
     case 'frames':
-    case 'stack-head':
       return FRAME.test(text) ? 'frames' : null;
     case 'excerpt':
       if (EXCERPT.test(text)) return 'excerpt';
       if (CARET.test(text)) return 'caret';
 
-      return ERROR_HEAD.test(text) ? 'error' : null;
+      return ERROR_HEAD.test(text) ? headState(text) : null;
     case 'caret':
-      return 'error';
+      return headState(text);
+    case 'head':
     case 'error':
     case 'error-blank':
       if (BLANK.test(text)) return 'error-blank';
       if (state === 'error-blank' && EXCERPT.test(text)) return 'excerpt';
       if (FRAME.test(text) || INDENTED.test(text) || BUN_TRAILER.test(text)) return 'error';
 
-      return state === 'error-blank' && ERROR_HEAD.test(text) ? 'error' : null;
+      return state === 'error-blank' && ERROR_HEAD.test(text) ? headState(text) : null;
+    case 'error-object':
+      if (OBJECT_CLOSE.test(text)) return 'error';
+
+      return INDENTED.test(text) ? 'error-object' : null;
     case 'object':
       if (OBJECT_CLOSE.test(text)) return 'closed';
 
@@ -125,21 +134,35 @@ const continueState = (state: GroupState, text: string): GroupState | null => {
   }
 };
 
+/** The first line of the stack an object in `lines` carries in a `stack` field; `null` when it carries none. */
+const statedStack = (lines: string[]): string | null => {
+  for (const line of lines) {
+    const value = STACK_FIELD.exec(stripAnsi(line))?.[1];
+
+    if (value !== undefined) return (value.split('\\n', 1)[0] ?? '').replace(/\\(.)/g, '$1');
+  }
+
+  return null;
+};
+
 /**
  * Joins the lines of one stream that belong together - a Bun error report, a stack under a message, the stack a logger
  * prints under a marked entry - into one entry. A group ends at the next line that does not continue it, or after
  * `quietMs` without a line.
+ *
+ * Only a frame shows that the plain lines after an error's first line are its message, so they wait in `held` for one.
+ * The stream says nothing of who wrote a line: a stack from elsewhere still joins a marked entry that names no stack.
  */
 export class LogGrouper {
   private lines: string[] = [];
+
+  private held: { line: string; at: number }[] = [];
 
   private at = 0;
 
   private state: GroupState = 'plain';
 
   private marked = false;
-
-  private stackHeadAt = 0;
 
   private timer?: ReturnType<typeof setTimeout>;
 
@@ -153,22 +176,19 @@ export class LogGrouper {
 
     const text = stripAnsi(line);
 
-    if (this.state === 'stack-head' && !FRAME.test(text)) this.releaseStackHead();
-
-    const next = this.nextState(text);
-
-    if (next === null) {
-      this.flush();
-      this.at = at;
-      this.state = startState(text);
-      this.marked = markedLevel(text) !== null;
+    if (this.held.length === 0) {
+      this.place(line, text, at, true);
+    } else if (FRAME.test(text)) {
+      this.lines.push(...this.held.map((entry) => entry.line), line);
+      this.held = [];
+      this.state = this.state === 'head' ? 'error' : 'frames';
+    } else if (markedLevel(text) !== null || this.lines.length + this.held.length >= MAX_GROUP_LINES) {
+      this.releaseHeld();
+      this.place(line, text, at, true);
     } else {
-      if (next === 'stack-head') this.stackHeadAt = at;
-
-      this.state = next;
+      this.held.push({ line, at });
     }
 
-    this.lines.push(line);
     this.timer = setTimeout(() => this.flush(), this.quietMs);
   }
 
@@ -176,33 +196,61 @@ export class LogGrouper {
   public flush(): void {
     clearTimeout(this.timer);
     this.timer = undefined;
-
-    if (this.state === 'stack-head') this.releaseStackHead();
-
+    this.releaseHeld();
     this.emit();
   }
 
-  private nextState(text: string): GroupState | null {
-    if (this.lines.length === 0 || this.lines.length >= MAX_GROUP_LINES) return null;
+  private place(line: string, text: string, at: number, mayHold: boolean): void {
+    const next =
+      this.lines.length === 0 || this.lines.length >= MAX_GROUP_LINES ? null : continueState(this.state, text);
 
-    const next = continueState(this.state, text);
-
-    if (next !== null) return next;
-
-    const atEntryEnd = this.state === 'plain' || this.state === 'closed';
-
-    return this.marked && atEntryEnd && ERROR_HEAD.test(text) ? 'stack-head' : null;
+    if (next !== null) {
+      this.state = next;
+      this.lines.push(line);
+    } else if (mayHold && this.mayBeMessage(text)) {
+      this.held = [{ line, at }];
+    } else if (this.lines.length > 0 && this.isOwnBareStack(text)) {
+      this.state = 'frames';
+      this.lines.push(line);
+    } else {
+      this.emit();
+      this.at = at;
+      this.state = startState(text);
+      this.marked = markedLevel(text) !== null;
+      this.lines = [line];
+    }
   }
 
-  /** No frame followed: the `Error:` line was a message, so what came before it closes and it opens its own group. */
-  private releaseStackHead(): void {
-    const head = this.lines.pop() ?? '';
+  private atMarkedEntryEnd(): boolean {
+    return this.marked && (this.state === 'plain' || this.state === 'closed');
+  }
 
-    this.emit();
-    this.lines = [head];
-    this.at = this.stackHeadAt;
-    this.state = 'error';
-    this.marked = false;
+  /** Whether `text` could be what `stated` says belongs here; an entry that states no stack can take any. */
+  private fitsStatedStack(text: string): boolean {
+    const stated = statedStack(this.lines);
+
+    return stated === null || stated === text;
+  }
+
+  /** Whether `text`, which continues no group, can still join the open one if a frame comes. */
+  private mayBeMessage(text: string): boolean {
+    if (this.lines.length === 0 || this.lines.length >= MAX_GROUP_LINES) return false;
+    if (this.state === 'head') return markedLevel(text) === null;
+
+    return this.atMarkedEntryEnd() && ERROR_HEAD.test(text) && this.fitsStatedStack(text);
+  }
+
+  private isOwnBareStack(text: string): boolean {
+    return this.atMarkedEntryEnd() && BARE_ERROR_NAME.test(text) && this.fitsStatedStack(text);
+  }
+
+  /** No frame came: the held lines were no message, and each is placed as if it had never waited. */
+  private releaseHeld(): void {
+    const held = this.held;
+
+    this.held = [];
+
+    for (const { line, at } of held) this.place(line, stripAnsi(line), at, false);
   }
 
   private emit(): void {

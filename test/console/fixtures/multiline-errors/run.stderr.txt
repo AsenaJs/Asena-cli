@@ -1,0 +1,32 @@
+ZodError: [
+  {
+    "expected": "string",
+    "code": "invalid_type",
+    "path": [
+      "title"
+    ],
+    "message": "Invalid input: expected string, received number"
+  },
+  {
+    "expected": "number",
+    "code": "invalid_type",
+    "path": [
+      "points"
+    ],
+    "message": "Invalid input: expected number, received undefined"
+  }
+]
+
+after
+13 | 
+14 |   throw new Error('The value should not have parsed');
+15 | };
+16 | 
+17 | const zodError = parseFailure();
+18 | const multiline = new Error('first line\nsecond line\n  third line');
+                           ^
+error: first line
+second line
+  third line
+      at /app/write.ts:18:23
+
