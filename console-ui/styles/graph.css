@@ -469,4 +469,13 @@
   .canvas-wrap {
     min-height: 460px;
   }
+
+  .graph-foot {
+    flex-wrap: wrap;
+  }
+
+  .graph-count {
+    margin-left: 0;
+    white-space: normal;
+  }
 }

@@ -200,10 +200,14 @@ export const graphCountLabel = (all: Graph, shown: GraphNode[]): string => {
   const size = (node: GraphNode) => node.group?.members.length ?? 1;
   const count = (nodes: GraphNode[], core: boolean) =>
     nodes.filter((node) => (node.kind === 'CORE') === core).reduce((total, node) => total + size(node), 0);
-  const components = `${count(shown, false)} of ${count(all.nodes, false)} components`;
-  const coreTotal = count(all.nodes, true);
+  const label = (core: boolean, noun: string) => {
+    const total = count(all.nodes, core);
 
-  return coreTotal === 0 ? components : `${components} · ${count(shown, true)} of ${coreTotal} core services`;
+    return `${count(shown, core)} of ${total} ${noun}${total === 1 ? '' : 's'}`;
+  };
+  const components = label(false, 'component');
+
+  return count(all.nodes, true) === 0 ? components : `${components} · ${label(true, 'core service')}`;
 };
 
 export const withoutEdgeLabels = (graph: Graph): Graph => ({

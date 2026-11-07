@@ -495,6 +495,15 @@ describe('the count in the footer', () => {
     expect(graphCountLabel({ nodes, edges: [] }, nodes.slice(0, 2))).toBe('2 of 40 components');
   });
 
+  test('one of a thing is singular', () => {
+    const nodes = [
+      { id: 'a', name: 'A', kind: 'SERVICE' },
+      { id: 'b', name: 'B', kind: 'CORE' },
+    ] as unknown as Parameters<typeof graphCountLabel>[1];
+
+    expect(graphCountLabel({ nodes, edges: [] }, nodes)).toBe('1 of 1 component · 1 of 1 core service');
+  });
+
   test('a group counts as the members it stands for, in the column they belong to', () => {
     const shown = focusGraph(graph, { focusId: big, hidden: none, expanded: noGroups }).nodes;
 
