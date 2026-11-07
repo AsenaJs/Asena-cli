@@ -12,6 +12,7 @@ import {
   currentView,
   defaultHiddenInFull,
   defaultView,
+  edgeState,
   firstSelection,
   fitModeFor,
   focusGraph,
@@ -22,6 +23,7 @@ import {
   kindChips,
   LARGE_APP_LIMIT,
   neighbourIds,
+  openingPick,
   searchResults,
   withoutEdgeLabels,
 } from '../../../console-ui/graph/focus';
@@ -512,6 +514,24 @@ describe('the count in the footer', () => {
 });
 
 describe('the full view of a large app', () => {
+  test('opens with nothing picked, so every edge starts quiet', () => {
+    const pick = openingPick(graph, true);
+    const shown = filterGraph(graph, { hidden: defaultHiddenInFull(true), search: '' });
+    const visible = new Set(shown.nodes.map((node) => node.id));
+    const lit = new Set(pick === null ? [] : [pick]);
+    const states = new Set(shown.edges.map((edge) => edgeState(edge, visible, { lit, quiet: true })));
+
+    expect(pick).toBe(null);
+    expect(states).toEqual(new Set(['quiet']));
+  });
+
+  test('a small app still opens on its first selection', () => {
+    const small = buildFullGraph(fixture);
+
+    expect(openingPick(small, false)).toBe(firstSelection(small));
+    expect(openingPick(small, false)).toBe(componentNodeId('ItemController'));
+  });
+
   test('its edges carry no label; the original graph keeps them', () => {
     const plain = withoutEdgeLabels(graph);
 

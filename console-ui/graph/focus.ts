@@ -48,6 +48,9 @@ export const firstSelection = (graph: Graph): string | null => {
   return (opening(graph.nodes.filter((node) => wired.has(node.id))) ?? opening(graph.nodes))?.id ?? null;
 };
 
+/** Focus on a large app falls back to `firstSelection` by itself, so a pick here would only light edges in Full. */
+export const openingPick = (graph: Graph, large: boolean): string | null => (large ? null : firstSelection(graph));
+
 export const neighbourIds = (graph: Graph, id: string): Set<string> => {
   const ids = new Set<string>();
 

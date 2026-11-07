@@ -40,6 +40,7 @@ import {
   groupKeyOf,
   isLargeApp,
   kindChips,
+  openingPick,
   searchResults,
   withoutEdgeLabels,
 } from './focus';
@@ -257,7 +258,7 @@ const GraphCanvasView = ({ snapshot, theme, viewChoice, onViewChoice, onOpenRout
   const [hiddenInFull, setHiddenInFull] = useState(() => defaultHiddenInFull(large));
   const [sizeSeen, setSizeSeen] = useState(large);
   const [search, setSearch] = useState('');
-  const [pickedId, setPickedId] = useState<string | null>(() => firstSelection(full));
+  const [pickedId, setPickedId] = useState<string | null>(() => openingPick(full, large));
   const [expanded, setExpanded] = useState(NO_GROUPS);
 
   if (sizeSeen !== large) {
