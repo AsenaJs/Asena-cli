@@ -16,6 +16,7 @@ import {
   methodHasBody,
   type PathParam,
   pathParams,
+  reconcileDraft,
   repeatedKeys,
   type RequestDraft,
   requestUrl,
@@ -331,7 +332,15 @@ export const RouteTester = ({
   prefill,
 }: RouteTesterProps) => {
   const params = pathParams(route.path);
-  const [draft, setDraft] = useState<RequestDraft>(() => prefilledDraft(route, prefill));
+  const prefills = prefilledDraft(route, prefill);
+  const [draft, setDraft] = useState<RequestDraft>(prefills);
+  const [draftFrom, setDraftFrom] = useState(prefills);
+
+  if (JSON.stringify(prefills) !== JSON.stringify(draftFrom)) {
+    setDraftFrom(prefills);
+    setDraft(reconcileDraft(draft, draftFrom, prefills));
+  }
+
   const [tab, setTab] = useState<RequestTab>(() => firstTab(route, params));
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(0);

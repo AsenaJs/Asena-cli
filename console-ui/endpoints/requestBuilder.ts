@@ -56,6 +56,23 @@ export const draftFor = (route: DevtoolsRoute): RequestDraft => {
   };
 };
 
+/**
+ * `draft` moved from the prefills in `from` to those in `to`: what the user changed stays, what they left alone follows
+ * `to`, and a parameter `to` does not have goes.
+ */
+export const reconcileDraft = (draft: RequestDraft, from: RequestDraft, to: RequestDraft): RequestDraft => ({
+  ...draft,
+  method: draft.method === from.method ? to.method : draft.method,
+  params: Object.fromEntries(
+    Object.entries(to.params).map(([name, prefill]) => {
+      const value = draft.params[name];
+
+      return [name, value === undefined || value === from.params[name] ? prefill : value];
+    }),
+  ),
+  body: draft.body === from.body ? to.body : draft.body,
+});
+
 /** Fills the path parameters in, each value percent-encoded; the wildcard keeps its slashes. */
 export const fillPath = (path: string, params: Record<string, string>): { path: string; missing: string[] } => {
   const missing: string[] = [];

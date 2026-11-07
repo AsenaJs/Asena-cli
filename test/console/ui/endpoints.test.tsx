@@ -25,6 +25,7 @@ import {
   jsonProblem,
   pathParams,
   prettyBody,
+  reconcileDraft,
   repeatedKeys,
   requestUrl,
 } from '../../../console-ui/endpoints/requestBuilder';
@@ -322,6 +323,55 @@ describe('WebSocket tester helpers', () => {
     expect(describeIncoming('hello')).toBe('hello');
     expect(describeIncoming(new ArrayBuffer(4))).toBe('[binary, 4 bytes]');
     expect(describeIncoming(new Blob(['abc']))).toBe('[binary, 3 bytes]');
+  });
+});
+
+describe('reconcileDraft', () => {
+  const base = { method: 'GET', params: { id: '', tag: 'old' }, query: [], headers: [], body: '{}' };
+  const next = { method: 'POST', params: { id: '', slug: 'new' }, query: [], headers: [], body: '' };
+
+  test('keeps what the user edited, whatever the new route prefills', () => {
+    const edited = {
+      method: 'PUT',
+      params: { id: '7', tag: 'old' },
+      query: [{ key: 'page', value: '2' }],
+      headers: [{ key: 'x-probe', value: '1', enabled: false }],
+      body: '{"a":1}',
+    };
+
+    expect(reconcileDraft(edited, base, { ...next, params: { id: 'other', tag: 'new' } })).toEqual({
+      ...edited,
+      params: { id: '7', tag: 'new' },
+    });
+  });
+
+  test('drops the params the route no longer has, edited or not', () => {
+    const draft = { ...base, params: { id: '', tag: 'edited' } };
+
+    expect(Object.keys(reconcileDraft(draft, base, next).params)).toEqual(['id', 'slug']);
+  });
+
+  test('refreshes the prefills the user left alone', () => {
+    expect(reconcileDraft(base, base, next)).toEqual(next);
+  });
+
+  test('a param the new route adds starts from its prefill', () => {
+    const added = { ...next, params: { id: '', slug: '', extra: 'x' } };
+
+    expect(reconcileDraft({ ...base, params: { id: '7', tag: 'old' } }, base, added).params).toEqual({
+      id: '7',
+      slug: '',
+      extra: 'x',
+    });
+  });
+
+  test('a body schema appearing fills an untouched body, and a typed one stays when it goes', () => {
+    const noSchema = draftFor({ ...create, hasBodySchema: false });
+    const withSchema = draftFor({ ...create, hasBodySchema: true });
+
+    expect(reconcileDraft(noSchema, noSchema, withSchema).body).toBe('{}');
+    expect(reconcileDraft({ ...withSchema, body: '{"a":1}' }, withSchema, noSchema).body).toBe('{"a":1}');
+    expect(reconcileDraft(withSchema, withSchema, noSchema).body).toBe('');
   });
 });
 
