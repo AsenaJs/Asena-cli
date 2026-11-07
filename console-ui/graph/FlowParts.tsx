@@ -8,10 +8,11 @@ import {
   type NodeProps,
   Position,
 } from '@xyflow/react';
-import type { CSSProperties } from 'react';
+import { type CSSProperties, Fragment } from 'react';
 import { Glyph } from '../ui/components';
 import { KIND_STYLES } from '../ui/kinds';
 import type { GraphEdgeKind, GraphNode } from './buildGraph';
+import type { EdgeState } from './focus';
 import { type EdgeRoute, roundedPath } from './layout';
 
 export type ComponentFlowNode = Node<{ node: GraphNode; meta: string; dim: boolean }, 'component'>;
@@ -21,22 +22,37 @@ export type LaneFlowNode = Node<{ label: string }, 'lane'>;
 export type FlowNode = ComponentFlowNode | LaneFlowNode;
 
 export type RoutedFlowEdge = Edge<
-  { kind: GraphEdgeKind; label?: string; route?: EdgeRoute; active: boolean; dim: boolean },
+  { kind: GraphEdgeKind; label?: string; route?: EdgeRoute; state: EdgeState },
   'routed'
 >;
+
+// What one line of a node holds at the name's 13.5px.
+const NAME_LINE_CHARS = 23;
+
+export const isLongName = (name: string): boolean => name.length > NAME_LINE_CHARS;
+
+/** Where a name may wrap: between the words of a PascalCase name, so that it does not break inside one. */
+export const nameWords = (name: string): string[] => name.split(/(?<=[a-z0-9])(?=[A-Z])/);
 
 export const ComponentNode = ({ data, selected }: NodeProps<ComponentFlowNode>) => (
   <div
     className="node"
+    title={data.node.name}
     style={{ '--c': KIND_STYLES[data.node.kind].color } as CSSProperties}
     data-selected={selected ? 'true' : undefined}
     data-dim={data.dim ? 'true' : undefined}
     data-matched={data.node.matched ? 'true' : undefined}
+    data-long={isLongName(data.node.name) ? 'true' : undefined}
   >
     <Handle type="target" position={Position.Left} isConnectable={false} />
     <Glyph kind={data.node.kind} />
-    <span className="name" title={data.node.name}>
-      {data.node.name}
+    <span className="name">
+      {nameWords(data.node.name).map((word, index) => (
+        <Fragment key={index}>
+          {index > 0 ? <wbr /> : null}
+          {word}
+        </Fragment>
+      ))}
     </span>
     <span className="meta">{data.meta}</span>
     <Handle type="source" position={Position.Right} isConnectable={false} />
@@ -86,7 +102,7 @@ export const RoutedEdge = ({ id, data, sourceX, sourceY, targetX, targetY }: Edg
     labelAt = { x: labelX, y: labelY };
   }
 
-  const state = data?.dim ? 'dim' : data?.active ? 'active' : 'idle';
+  const state = data?.state ?? 'idle';
 
   return (
     <>

@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { type NodeProps, ReactFlowProvider } from '@xyflow/react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { DevtoolsSnapshot } from '../../../lib/console/protocol';
 import {
@@ -10,6 +11,7 @@ import {
   type GraphNodeKind,
   routesOf,
 } from '../../../console-ui/graph/buildGraph';
+import { type ComponentFlowNode, ComponentNode, isLongName, nameWords } from '../../../console-ui/graph/FlowParts';
 import type { GraphViewChoice } from '../../../console-ui/graph/focus';
 import {
   fitViewport,
@@ -24,9 +26,12 @@ import {
 import { Inspector } from '../../../console-ui/graph/Inspector';
 import { laneOf, nodeMeta } from '../../../console-ui/graph/lanes';
 import {
+  gridColumns,
   gridLayout,
   labelWidth,
   LABEL_HEIGHT,
+  laneColumns,
+  laneGridLayout,
   layoutGraph,
   NODE_HEIGHT,
   NODE_WIDTH,
@@ -318,6 +323,169 @@ describe('graph first view', () => {
   });
 });
 
+describe('the lane grid of a large app in Full', () => {
+  // The canvas of a 1440x900 window, measured in the browser.
+  const CANVAS_WIDTH = 852;
+
+  const appOf = (services: number, controllers: number, repositories: number): Graph => {
+    const named = (prefix: string, count: number, type: string) =>
+      Array.from({ length: count }, (_, index) => ({
+        ...snapshot.components[0]!,
+        name: `${prefix}${index}`,
+        className: `${prefix}${index}`,
+        type,
+        dependencies: [],
+        values: [],
+        interfaces: [],
+      }));
+
+    return buildFullGraph({
+      ...snapshot,
+      routes: [],
+      components: [
+        ...named('Thing', services, 'SERVICE'),
+        ...named('Entry', controllers, 'CONTROLLER'),
+        ...named('ThingRepository', repositories, 'SERVICE').map((item) => ({
+          ...item,
+          name: `${item.name}Repository`,
+          className: `${item.name}Repository`,
+        })),
+      ],
+      config: { ...snapshot.config, component: undefined, globalMiddlewares: [] },
+    } as unknown as DevtoolsSnapshot);
+  };
+
+  test.each([
+    ['the size of the real app', appOf(34, 22, 25)],
+    ['an app three times its size', appOf(102, 66, 75)],
+    ['one lane far larger than the others', appOf(90, 1, 1)],
+  ])('%s starts with every lane inside the view, not below the 35%% floor', (_, graph) => {
+    const layout = laneGridLayout(graph);
+    const view = widthFitViewport(layoutBounds(layout), CANVAS_WIDTH);
+
+    expect(view.zoom).toBeGreaterThanOrEqual(0.35);
+
+    for (const position of layout.nodes.values()) {
+      expect(view.x + position.x * view.zoom).toBeGreaterThanOrEqual(0);
+      expect(view.x + (position.x + NODE_WIDTH) * view.zoom).toBeLessThanOrEqual(CANVAS_WIDTH);
+    }
+  });
+
+  test('the size of the real app reads well above the floor, about one screen tall', () => {
+    const layout = laneGridLayout(appOf(34, 22, 25));
+    const { zoom } = widthFitViewport(layoutBounds(layout), CANVAS_WIDTH);
+
+    expect(zoom).toBeGreaterThan(0.4);
+    expect(zoom).toBeLessThan(0.55);
+    expect(layoutBounds(layout).height * zoom).toBeLessThan(900);
+  });
+
+  test('places every node once, none on another', () => {
+    const graph = appOf(34, 22, 25);
+    const layout = laneGridLayout(graph);
+    const seen = new Set([...layout.nodes.values()].map((position) => `${position.x},${position.y}`));
+
+    expect(layout.nodes.size).toBe(graph.nodes.length);
+    expect(seen.size).toBe(graph.nodes.length);
+  });
+
+  test('keeps the lanes in order, each right of the one before', () => {
+    const graph = appOf(34, 22, 25);
+    const layout = laneGridLayout(graph);
+    const extent = (lane: number) => {
+      const xs = graph.nodes.filter((node) => laneOf(node) === lane).map((node) => layout.nodes.get(node.id)!.x);
+
+      return { left: Math.min(...xs), right: Math.max(...xs) + NODE_WIDTH };
+    };
+
+    expect(extent(0).right).toBeLessThan(extent(1).left);
+    expect(extent(1).right).toBeLessThan(extent(2).left);
+    expect(layout.lanes.map((lane) => lane.x)).toEqual([extent(0).left, extent(1).left, extent(2).left]);
+  });
+
+  test('puts the most connected node of a lane on top', () => {
+    const graph: Graph = {
+      nodes: ['A', 'B', 'C'].map((name) => ({
+        id: name,
+        name,
+        kind: 'SERVICE' as const,
+        matched: false,
+        validator: false,
+      })),
+      edges: [
+        { id: '1', source: 'A', target: 'C', kind: 'inject' },
+        { id: '2', source: 'B', target: 'C', kind: 'inject' },
+      ],
+    };
+    const layout = laneGridLayout(graph);
+
+    expect([...layout.nodes.entries()].sort((a, b) => a[1].y - b[1].y || a[1].x - b[1].x)[0]?.[0]).toBe('C');
+  });
+
+  test('copes with an empty graph and with an empty lane', () => {
+    expect(laneGridLayout({ nodes: [], edges: [] }).nodes.size).toBe(0);
+    expect(laneGridLayout(appOf(5, 0, 0)).lanes.map((lane) => lane.lane)).toEqual([1]);
+  });
+
+  test('widens the tallest lane first, and an empty lane gets nothing', () => {
+    expect(laneColumns([22, 34, 25], 6)).toEqual([2, 2, 2]);
+    expect(laneColumns([1, 90, 1], 6)).toEqual([1, 4, 1]);
+    expect(laneColumns([0, 40, 10], 4)).toEqual([0, 3, 1]);
+  });
+
+  test('never gives a lane more columns than nodes', () => {
+    expect(laneColumns([1, 2, 1], 7)).toEqual([1, 2, 1]);
+  });
+
+  test('takes more columns as the app grows, up to what fits at the floor', () => {
+    expect(gridColumns(45, 3)).toBeLessThan(gridColumns(90, 3));
+    expect(gridColumns(90, 3)).toBeGreaterThanOrEqual(5);
+    expect(gridColumns(1000, 3)).toBe(7);
+    expect(gridColumns(1, 1)).toBe(1);
+    expect(gridColumns(0, 0)).toBe(0);
+  });
+});
+
+describe('a name on a node', () => {
+  const nodeHtml = (name: string) =>
+    renderToStaticMarkup(
+      <ReactFlowProvider>
+        <ComponentNode
+          {...({
+            selected: false,
+            data: { node: { id: name, name, kind: 'SERVICE', matched: false, validator: false }, meta: '', dim: false },
+          } as unknown as NodeProps<ComponentFlowNode>)}
+        />
+      </ReactFlowProvider>,
+    );
+
+  test('a clipped name shows in full in the tooltip of the whole node', () => {
+    const name = 'WorkspaceInvitationAcceptanceService';
+
+    expect(nodeHtml(name)).toMatch(new RegExp(`^<div class="node" title="${name}"`));
+  });
+
+  test('wraps between the words of a name, not inside them', () => {
+    expect(nameWords('DatabaseService')).toEqual(['Database', 'Service']);
+    expect(nameWords('item2Service')).toEqual(['item2', 'Service']);
+    expect(nameWords('HTTPClient')).toEqual(['HTTPClient']);
+    expect(nameWords('core')).toEqual(['core']);
+    expect(nameWords('WebhookDeliveryAttemptRepository').join('')).toBe('WebhookDeliveryAttemptRepository');
+    expect(nodeHtml('DatabaseService')).toContain('Database<wbr/>Service');
+  });
+
+  test('only a name past one line is marked long', () => {
+    expect(isLongName('NotificationPreference')).toBe(false);
+    expect(isLongName('WorkspaceInvitationAcceptanceService')).toBe(true);
+    expect(nodeHtml('DatabaseService')).not.toContain('data-long');
+    expect(nodeHtml('WorkspaceInvitationAcceptanceService')).toContain('data-long="true"');
+  });
+
+  test('a small app keeps the one line it has today', () => {
+    expect(panel(snapshot)).not.toContain('data-large');
+  });
+});
+
 describe('a resize and the zoom the user made', () => {
   const fitted = { x: 12, y: -40, zoom: 0.35 };
 
@@ -419,20 +587,57 @@ describe('graph selection and filter on the canvas', () => {
   const layout = gridLayout(graph);
   const all = new Set(graph.nodes.map((node) => node.id));
   const controller = componentNodeId('ItemController');
-  const state = (edges: ReturnType<typeof toFlowEdges>, id: string) => {
-    const data = edges.find((edge) => edge.id === id)!.data!;
-
-    return data.dim ? 'dim' : data.active ? 'active' : 'idle';
-  };
+  const state = (edges: ReturnType<typeof toFlowEdges>, id: string) =>
+    edges.find((edge) => edge.id === id)!.data!.state;
+  const selected = (id: string | null) => ({ lit: new Set(id === null ? [] : [id]), quiet: false });
   const injectId = graph.edges.find((edge) => edge.kind === 'inject')!.id;
   const strategyId = graph.edges.find((edge) => edge.kind === 'strategy')!.id;
 
   test('only the edges that touch the selected node are active', () => {
-    const edges = toFlowEdges(graph, layout, all, controller);
+    const edges = toFlowEdges(graph, layout, all, selected(controller));
 
     expect(state(edges, injectId)).toBe('active');
     expect(state(edges, strategyId)).toBe('idle');
-    expect(state(toFlowEdges(graph, layout, all, null), injectId)).toBe('idle');
+    expect(state(toFlowEdges(graph, layout, all, selected(null)), injectId)).toBe('idle');
+  });
+
+  describe('in the Full view of a large app', () => {
+    const quiet = (...lit: string[]) => ({ lit: new Set(lit), quiet: true });
+
+    test('with nothing hovered or selected, every edge is faint', () => {
+      const edges = toFlowEdges(graph, layout, all, quiet());
+
+      expect(new Set(edges.map((edge) => edge.data!.state))).toEqual(new Set(['quiet']));
+    });
+
+    test('a hovered or selected node shows its own edges at full strength, the others fade', () => {
+      const edges = toFlowEdges(graph, layout, all, quiet(controller));
+
+      expect(state(edges, injectId)).toBe('active');
+      expect(state(edges, strategyId)).toBe('faded');
+    });
+
+    test('a lit edge stays under the nodes, so that it does not run through the names it crosses', () => {
+      expect(toFlowEdges(graph, layout, all, quiet(controller)).every((edge) => edge.zIndex === 0)).toBe(true);
+      expect(toFlowEdges(graph, layout, all, selected(controller)).find((edge) => edge.id === injectId)!.zIndex).toBe(
+        1,
+      );
+    });
+
+    test('both the hovered and the selected node show their edges', () => {
+      const target = graph.edges.find((edge) => edge.id === strategyId)!.source;
+      const edges = toFlowEdges(graph, layout, all, quiet(controller, target));
+
+      expect(state(edges, injectId)).toBe('active');
+      expect(state(edges, strategyId)).toBe('active');
+    });
+
+    test('a filtered-out node keeps its edges down, hovered or not', () => {
+      const visible = new Set([...all].filter((id) => id !== componentNodeId('ItemService')));
+
+      expect(state(toFlowEdges(graph, layout, visible, quiet(controller)), injectId)).toBe('faded');
+      expect(state(toFlowEdges(graph, layout, visible, quiet()), injectId)).toBe('faded');
+    });
   });
 
   test('a filtered-out node is dimmed, not removed, and so are its edges', () => {
@@ -442,7 +647,7 @@ describe('graph selection and filter on the canvas', () => {
 
     expect(nodes.filter((node) => node.type === 'component')).toHaveLength(graph.nodes.length);
     expect(service?.type === 'component' && service.data.dim).toBe(true);
-    expect(state(toFlowEdges(graph, layout, visible, controller), injectId)).toBe('dim');
+    expect(state(toFlowEdges(graph, layout, visible, selected(controller)), injectId)).toBe('dim');
     expect(nodes.filter((node) => node.type === 'lane').map((node) => node.data.label)).toEqual([
       'Entry points',
       'Services & middleware',

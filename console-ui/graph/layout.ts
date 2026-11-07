@@ -147,6 +147,72 @@ export const gridLayout = (graph: Graph): GraphLayout => {
   return { nodes, edges: new Map(), lanes: headings(graph, nodes) };
 };
 
+const GRID_COLUMN_GAP = 24;
+
+const GRID_ROW_GAP = 22;
+
+const GRID_LANE_GAP = 72;
+
+// A landscape overview, as wide as a canvas is at the usual window sizes.
+const GRID_ASPECT = 1.5;
+
+// As many as a 1440 px window's canvas shows whole at the 35% floor, so that no lane starts off screen.
+const MAX_GRID_COLUMNS = 7;
+
+/** The columns for `count` nodes in `lanes` lanes; a lane cannot have less than one. */
+export const gridColumns = (count: number, lanes: number): number => {
+  const ideal = Math.sqrt((GRID_ASPECT * count * (NODE_HEIGHT + GRID_ROW_GAP)) / (NODE_WIDTH + GRID_COLUMN_GAP));
+
+  return Math.max(lanes, Math.min(Math.round(ideal), MAX_GRID_COLUMNS));
+};
+
+/** Shares `columns` out so that the tallest lane is as short as it can be; an empty lane gets none. */
+export const laneColumns = (counts: readonly number[], columns: number): number[] => {
+  const shares: number[] = counts.map((count) => (count > 0 ? 1 : 0));
+  const rows = (lane: number) => Math.ceil((counts[lane] ?? 0) / (shares[lane] || 1));
+  let left = columns - shares.reduce((total, share) => total + share, 0);
+
+  while (left > 0) {
+    const widenable = shares.flatMap((share, lane) => (share > 0 && share < (counts[lane] ?? 0) ? [lane] : []));
+    const tallest = widenable.reduce((best, lane) => (rows(lane) > rows(best) ? lane : best), widenable[0] ?? -1);
+
+    if (tallest === -1) break;
+
+    shares[tallest] = (shares[tallest] ?? 0) + 1;
+    left--;
+  }
+
+  return shares;
+};
+
+/**
+ * Each lane as a block of columns, most connected on top. A layered layout gives a lane one column per step of the
+ * longest dependency chain in it, which on a large app runs off the canvas at any zoom worth reading.
+ */
+export const laneGridLayout = (graph: Graph): GraphLayout => {
+  const members = LANES.map((_, lane) => byDegree(graph).filter((node) => laneOf(node) === lane));
+  const counts = members.map((lane) => lane.length);
+  const used = counts.filter((count) => count > 0).length;
+  const shares = laneColumns(counts, gridColumns(graph.nodes.length, used));
+  const nodes = new Map<string, Position>();
+  let left = 0;
+
+  members.forEach((lane, index) => {
+    const columns = shares[index] ?? 0;
+
+    lane.forEach((node, position) => {
+      nodes.set(node.id, {
+        x: left + (position % columns) * (NODE_WIDTH + GRID_COLUMN_GAP),
+        y: Math.floor(position / columns) * (NODE_HEIGHT + GRID_ROW_GAP),
+      });
+    });
+
+    if (columns > 0) left += columns * (NODE_WIDTH + GRID_COLUMN_GAP) - GRID_COLUMN_GAP + GRID_LANE_GAP;
+  });
+
+  return { nodes, edges: new Map(), lanes: headings(graph, nodes) };
+};
+
 /** An orthogonal polyline as an SVG path with rounded corners. */
 export const roundedPath = (points: Position[], radius = 8): string => {
   const [first, ...rest] = points;

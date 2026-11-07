@@ -171,6 +171,27 @@ export const searchResults = (graph: Graph, search: string): GraphNode[] => {
     .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
 };
 
+export type EdgeState = 'dim' | 'active' | 'idle' | 'quiet' | 'faded';
+
+export interface EdgeEmphasis {
+  /** The nodes that show their own edges: the hovered and the selected one. */
+  lit: ReadonlySet<string>;
+  /** The Full view of a large app, where edges only speak when asked. */
+  quiet: boolean;
+}
+
+export const edgeState = (
+  edge: Pick<GraphEdge, 'source' | 'target'>,
+  visible: ReadonlySet<string>,
+  { lit, quiet }: EdgeEmphasis,
+): EdgeState => {
+  if (!visible.has(edge.source) || !visible.has(edge.target)) return quiet ? 'faded' : 'dim';
+  if (lit.has(edge.source) || lit.has(edge.target)) return 'active';
+  if (!quiet) return 'idle';
+
+  return lit.size > 0 ? 'faded' : 'quiet';
+};
+
 /**
  * What the graph's footer says. A dependency target no component provides is a node as well, so the graph can hold more
  * nodes than the app has components; they are counted apart, and `components` stays the count the sidebar shows.

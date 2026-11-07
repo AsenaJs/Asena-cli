@@ -214,6 +214,16 @@
   color: var(--ink);
 }
 
+/* A `wbr` breaks a line even under `nowrap`, so it only exists where a name may wrap. */
+.node wbr {
+  display: none;
+}
+
+.canvas-wrap[data-far='true'] .node wbr,
+.canvas-wrap[data-large='true'] .node[data-long='true'] wbr {
+  display: inline;
+}
+
 .node .meta {
   font-size: 11.5px;
   color: var(--ink-3);
@@ -235,11 +245,30 @@
 }
 
 .canvas-wrap[data-far='true'] .node .name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   font-size: 26px;
+  line-height: 1.08;
+  white-space: normal;
+}
+
+/* A large app's long name gets the second line, which the meta gives up, at any zoom where the name fits on two. */
+.canvas-wrap[data-large='true']:not([data-far='true']) .node[data-long='true'] .name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.2;
+  white-space: normal;
+}
+
+.canvas-wrap[data-large='true']:not([data-far='true']) .node[data-long='true'] .meta {
+  display: none;
 }
 
 .canvas-wrap[data-far='true'] .lane-label {
   font-size: 26px;
+  transform: translateY(-8px);
 }
 
 .canvas-wrap[data-far='true'] .edge .edge-line {
@@ -267,6 +296,14 @@
 
 .edge[data-state='dim'] {
   opacity: 0.15;
+}
+
+.edge[data-state='quiet'] {
+  opacity: 0.2;
+}
+
+.edge[data-state='faded'] {
+  opacity: 0.06;
 }
 
 .edge[data-state='active'] .edge-line {

@@ -28,6 +28,8 @@ import {
 import {
   currentView,
   defaultHiddenInFull,
+  type EdgeEmphasis,
+  edgeState,
   type FitMode,
   firstSelection,
   fitModeFor,
@@ -43,7 +45,7 @@ import {
 } from './focus';
 import { Inspector } from './Inspector';
 import { nodeMeta } from './lanes';
-import { type GraphLayout, gridLayout, layoutGraph, NODE_HEIGHT, NODE_WIDTH } from './layout';
+import { type GraphLayout, gridLayout, laneGridLayout, layoutGraph, NODE_HEIGHT, NODE_WIDTH } from './layout';
 
 const NODE_TYPES = { component: ComponentNode, lane: LaneNode };
 
@@ -176,10 +178,11 @@ export const toFlowEdges = (
   graph: Graph,
   layout: GraphLayout,
   visible: ReadonlySet<string>,
-  selectedId: string | null,
+  emphasis: EdgeEmphasis,
 ): RoutedFlowEdge[] =>
   graph.edges.map((edge) => {
     const route = layout.edges.get(edge.id);
+    const state = edgeState(edge, visible, emphasis);
 
     return {
       id: edge.id,
@@ -188,13 +191,13 @@ export const toFlowEdges = (
       type: 'routed',
       focusable: false,
       selectable: false,
-      zIndex: edge.source === selectedId || edge.target === selectedId ? 1 : 0,
+      // Packed in a grid, an edge above the nodes would run through the names it crosses.
+      zIndex: state === 'active' && !emphasis.quiet ? 1 : 0,
       data: {
         kind: edge.kind,
         ...(edge.label === undefined ? {} : { label: edge.label }),
         ...(route ? { route } : {}),
-        active: edge.source === selectedId || edge.target === selectedId,
-        dim: !visible.has(edge.source) || !visible.has(edge.target),
+        state,
       },
     };
   });
@@ -296,10 +299,13 @@ const GraphCanvasView = ({ snapshot, theme, viewChoice, onViewChoice, onOpenRout
     () => toFlowNodes(snapshot, rendered.graph, rendered.layout, visible, selectedId),
     [snapshot, rendered, visible, selectedId],
   );
-  const edges = useMemo(
-    () => toFlowEdges(rendered.graph, rendered.layout, visible, selectedId),
-    [rendered, visible, selectedId],
-  );
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const quiet = rendered.fit === 'width';
+  const edges = useMemo(() => {
+    const lit = new Set([selectedId, quiet ? hoveredId : null].filter((id) => id !== null));
+
+    return toFlowEdges(rendered.graph, rendered.layout, visible, { lit, quiet });
+  }, [rendered, visible, selectedId, hoveredId, quiet]);
   const { getViewport, setViewport } = useReactFlow<FlowNode>();
   const far = useStore((store) => store.transform[2] < FAR_ZOOM);
   const [ready, setReady] = useState(false);
@@ -339,7 +345,7 @@ const GraphCanvasView = ({ snapshot, theme, viewChoice, onViewChoice, onOpenRout
       setRendered({ graph: shown, layout, view, fit: fitMode });
     };
 
-    layoutGraph(shown)
+    (fitMode === 'width' ? Promise.resolve(laneGridLayout(shown)) : layoutGraph(shown))
       .then((next) => {
         if (!cancelled) show(next);
       })
@@ -475,7 +481,12 @@ const GraphCanvasView = ({ snapshot, theme, viewChoice, onViewChoice, onOpenRout
             ))}
           </div>
         </div>
-        <div className="canvas-wrap" ref={canvas} data-far={large && far ? 'true' : undefined}>
+        <div
+          className="canvas-wrap"
+          ref={canvas}
+          data-large={large ? 'true' : undefined}
+          data-far={large && far ? 'true' : undefined}
+        >
           <ReactFlow<FlowNode, RoutedFlowEdge>
             nodes={nodes}
             edges={edges}
@@ -484,6 +495,13 @@ const GraphCanvasView = ({ snapshot, theme, viewChoice, onViewChoice, onOpenRout
             onNodesChange={onNodesChange}
             onNodeClick={(_, node) => {
               if (node.type === 'component') activate(node.id);
+            }}
+            onNodeMouseEnter={(_, node) => {
+              if (node.type === 'component') setHoveredId(node.id);
+            }}
+            onNodeMouseLeave={() => setHoveredId(null)}
+            onPaneClick={() => {
+              if (quiet) setPickedId(null);
             }}
             colorMode={theme}
             nodesDraggable={false}
