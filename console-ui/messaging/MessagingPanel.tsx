@@ -10,7 +10,7 @@ import type {
 } from '../../lib/console/protocol';
 import { highlightJson } from '../endpoints/highlight';
 import { formatClock, formatMs } from '../runtime/format';
-import { Card, IconButton, Pill } from '../ui/components';
+import { Card, IconButton, Pill, SectionHead } from '../ui/components';
 import { Icon } from '../ui/icons';
 import {
   eventCommand,
@@ -220,10 +220,7 @@ const handlerName = (component: string, method: string) => (
 
 const Section = ({ title, count, children }: { title: string; count: number; children: ReactNode }) => (
   <Card className="msg-section" aria-label={title}>
-    <div className="msg-section-head">
-      <h2 className="section-title">{title}</h2>
-      <span className="muted num">{count}</span>
-    </div>
+    <SectionHead title={title} count={count} />
     {children}
   </Card>
 );

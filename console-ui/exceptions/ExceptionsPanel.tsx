@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { DevtoolsHello, DevtoolsSnapshot } from '../../lib/console/protocol';
-import { Card, Pill } from '../ui/components';
+import { Card, Pill, SectionHead } from '../ui/components';
 import { type Answer, catchAllHandler, catchRows, notFoundHandler, whoCatches } from './catches';
 
 export interface ExceptionsPanelProps {
@@ -9,13 +9,6 @@ export interface ExceptionsPanelProps {
   /** The name to resolve first. */
   initialQuery?: string;
 }
-
-const Head = ({ title, count }: { title: string; count?: number }) => (
-  <div className="msg-section-head">
-    <h2 className="section-title">{title}</h2>
-    {count === undefined ? null : <span className="muted num">{count}</span>}
-  </div>
-);
 
 const answerText = (answer: Answer, adapter: string): string => {
   switch (answer.kind) {
@@ -51,7 +44,7 @@ const WhoCatches = ({
 
   return (
     <Card className="msg-section" aria-label="Who catches this?">
-      <Head title="Who catches this?" />
+      <SectionHead title="Who catches this?" />
       <div className="who">
         <div className="who-inputs">
           <label className="search who-field">
@@ -117,7 +110,7 @@ export const ExceptionsPanel = ({ snapshot, hello, initialQuery = '' }: Exceptio
     <div className="exceptions">
       <WhoCatches snapshot={snapshot} adapter={adapter} initialQuery={initialQuery} />
       <Card className="msg-section" aria-label="Thrown errors">
-        <Head title="Thrown errors" count={rows.length + (catchAll ? 1 : 0)} />
+        <SectionHead title="Thrown errors" count={rows.length + (catchAll ? 1 : 0)} />
         {rows.length > 0 || catchAll ? (
           <div className="table-wrap">
             <table className="table">
@@ -170,7 +163,7 @@ export const ExceptionsPanel = ({ snapshot, hello, initialQuery = '' }: Exceptio
         </div>
       </Card>
       <Card className="msg-section" aria-label="Unmatched routes">
-        <Head title="Unmatched routes" />
+        <SectionHead title="Unmatched routes" />
         <div className="config-body">
           <dl className="kv">
             <dt>@NotFound()</dt>

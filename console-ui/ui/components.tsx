@@ -198,6 +198,13 @@ export const List = ({ label, children }: { label?: string; children: ReactNode 
   </ul>
 );
 
+export const SectionHead = ({ title, count }: { title: string; count?: number }) => (
+  <div className="card-head">
+    <h2 className="section-title">{title}</h2>
+    {count === undefined ? null : <span className="muted num">{count}</span>}
+  </div>
+);
+
 export const Section = ({ title, children }: { title: string; children: ReactNode }) => (
   <section className="insp-block">
     <h4 className="eyebrow">{title}</h4>

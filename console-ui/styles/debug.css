@@ -11,7 +11,7 @@
   overflow: hidden;
 }
 
-.msg-section-head {
+.card-head {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -19,7 +19,7 @@
   border-bottom: 1px solid var(--line);
 }
 
-.msg-section-head .muted {
+.card-head .muted {
   font-size: 12px;
 }
 

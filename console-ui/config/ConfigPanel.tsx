@@ -1,6 +1,6 @@
 import type { DevtoolsHello, DevtoolsMetrics, DevtoolsSnapshot } from '../../lib/console/protocol';
 import { transportStates } from '../messaging/commands';
-import { Card, Glyph, KeyValue, Pill } from '../ui/components';
+import { Card, Glyph, KeyValue, Pill, SectionHead } from '../ui/components';
 import { type ValueState, valueRows, valueState } from './values';
 
 export interface ConfigPanelProps {
@@ -17,13 +17,6 @@ const STATE_TEXT: Record<ValueState, string> = {
 
 const yesNo = (value: boolean) => (value ? 'yes' : <span className="muted">no</span>);
 
-const Head = ({ title, count }: { title: string; count?: number }) => (
-  <div className="msg-section-head">
-    <h2 className="section-title">{title}</h2>
-    {count === undefined ? null : <span className="muted num">{count}</span>}
-  </div>
-);
-
 export const ConfigPanel = ({ snapshot, hello, metrics }: ConfigPanelProps) => {
   const rows = valueRows(snapshot);
   const { config } = snapshot;
@@ -32,7 +25,7 @@ export const ConfigPanel = ({ snapshot, hello, metrics }: ConfigPanelProps) => {
   return (
     <div className="config-view">
       <Card className="msg-section" aria-label="@Value fields">
-        <Head title="@Value fields" count={rows.length} />
+        <SectionHead title="@Value fields" count={rows.length} />
         {rows.length > 0 ? (
           <div className="table-wrap">
             <table className="table">
@@ -92,7 +85,7 @@ export const ConfigPanel = ({ snapshot, hello, metrics }: ConfigPanelProps) => {
       </Card>
       <div className="config-grid">
         <Card className="msg-section" aria-label="Config">
-          <Head title="@Config" />
+          <SectionHead title="@Config" />
           <div className="config-body">
             <KeyValue
               items={[
@@ -118,7 +111,7 @@ export const ConfigPanel = ({ snapshot, hello, metrics }: ConfigPanelProps) => {
           </div>
         </Card>
         <Card className="msg-section" aria-label="Server">
-          <Head title="Server" />
+          <SectionHead title="Server" />
           <div className="config-body">
             {hello ? (
               <KeyValue
@@ -143,7 +136,7 @@ export const ConfigPanel = ({ snapshot, hello, metrics }: ConfigPanelProps) => {
         </Card>
       </div>
       <Card className="msg-section" aria-label="Global middleware">
-        <Head title="Global middleware" count={config.globalMiddlewares.length} />
+        <SectionHead title="Global middleware" count={config.globalMiddlewares.length} />
         {config.globalMiddlewares.length > 0 ? (
           <ol className="cmd-list ordered">
             {config.globalMiddlewares.map((entry, index) => (
@@ -164,7 +157,7 @@ export const ConfigPanel = ({ snapshot, hello, metrics }: ConfigPanelProps) => {
         )}
       </Card>
       <Card className="msg-section" aria-label="Transports">
-        <Head title="Transports" count={transports.length} />
+        <SectionHead title="Transports" count={transports.length} />
         {transports.length > 0 ? (
           <ul className="cmd-list">
             {transports.map((transport) => (

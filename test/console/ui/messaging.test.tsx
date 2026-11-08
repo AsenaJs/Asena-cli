@@ -306,6 +306,7 @@ describe('messaging panel rendering', () => {
       snapshot.schedules.length + 2 + snapshot.messageHandlers.length,
     );
     expect(html).not.toContain('Confirm');
+    expect(html.match(/<div class="card-head">/g)).toHaveLength(3);
   });
 
   test('every action is off, with the reason, when nothing can be sent', () => {

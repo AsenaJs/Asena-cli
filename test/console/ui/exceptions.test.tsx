@@ -137,6 +137,7 @@ describe('exceptions panel rendering', () => {
     expect(html).toContain('Ergenecore&#x27;s default 404');
     expect(html.match(/not defined/g)).toHaveLength(2);
     expect(html).toContain('Type a class name');
+    expect(html.match(/<div class="card-head">/g)).toHaveLength(3);
   });
 
   test('a query walks the chain and names the handler, or says the name is unknown', () => {

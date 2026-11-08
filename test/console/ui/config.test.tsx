@@ -89,6 +89,7 @@ describe('config panel rendering', () => {
     expect(html).toContain('Ergenecore');
     expect(html).toContain('connected');
     expect(html).not.toContain('secret-looking');
+    expect(html.match(/<div class="card-head">/g)).toHaveLength(5);
   });
 
   test('a secret-looking key is tagged and a variable with no default and no value is called out', () => {
