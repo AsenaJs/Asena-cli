@@ -187,8 +187,15 @@ export const EndpointsPanel = ({
                 onClick={() => select({ kind: 'http', key: routeKey(candidate) })}
               >
                 <MethodBadge method={candidate.httpMethod} />
-                <RoutePath path={candidate.path} />
-                {candidate.validator ? <span className="tag mw">validated</span> : null}
+                <span className="route-text">
+                  <RoutePath path={candidate.path} />
+                  {candidate.validator ? (
+                    <>
+                      {' '}
+                      <span className="tag mw">validated</span>
+                    </>
+                  ) : null}
+                </span>
               </button>
             ))}
           </div>

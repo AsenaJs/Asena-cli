@@ -64,8 +64,13 @@
   border-color: var(--line);
 }
 
-.route-path {
+/* The path and its tag share one text flow beside the method, so the tag wraps below a long path instead of narrowing it. */
+.route-text {
+  flex: 1;
   min-width: 0;
+}
+
+.route-path {
   overflow-wrap: anywhere;
 }
 
@@ -76,7 +81,8 @@
 }
 
 .route .tag {
-  margin-left: auto;
+  display: inline-block;
+  vertical-align: 1px;
 }
 
 /* ---------- request ---------- */

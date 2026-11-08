@@ -451,6 +451,19 @@ describe('endpoints panel rendering', () => {
     );
   });
 
+  test('the validated tag follows the path in its text, so the path has the row beside the method to itself', () => {
+    const html = panel({ snapshot: { ...snapshot, routes: [{ ...create, path: '/password-reset-requests' }] } });
+    const css = readFileSync(join(import.meta.dir, '../../../console-ui/styles/endpoints.css'), 'utf-8');
+    const block = (selector: string) => css.match(new RegExp(`^${selector} \\{([^}]*)\\}`, 'm'))?.[1] ?? '';
+
+    expect(html).toContain(
+      '<span class="route-text"><span class="route-path" title="/password-reset-requests">' +
+        '<span class="route-path-part">/password-reset-requests</span></span> <span class="tag mw">validated</span></span>',
+    );
+    expect(block('\\.route-text')).toContain('min-width: 0');
+    expect(block('\\.route \\.tag')).not.toContain('margin-left: auto');
+  });
+
   test('a part of a path breaks inside only when it is wider than the list, so a hyphen does not split it first', () => {
     const css = readFileSync(join(import.meta.dir, '../../../console-ui/styles/endpoints.css'), 'utf-8');
     const part = css.match(/^\.route-path-part \{([^}]*)\}/m)?.[1] ?? '';
