@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatClock } from '../runtime/format';
 import { Card, MethodBadge, Pill, SegmentedControl } from '../ui/components';
+import { jsonProblem } from './requestBuilder';
 
 export type FrameDirection = 'out' | 'in' | 'info';
 
@@ -20,18 +21,17 @@ const FRAME_LIMIT = 500;
 export const wsAppUrl = (port: number, namespace: string): string =>
   `ws://127.0.0.1:${port}/${namespace.replace(/^\/+/, '')}`;
 
-/** What to put on the wire: text as typed, JSON validated and sent compact. */
+/** What to put on the wire: text as typed, JSON validated and sent as typed, trimmed. */
 export const encodeOutgoing = (
   text: string,
   mode: MessageMode,
 ): { ok: true; data: string } | { ok: false; error: string } => {
   if (mode === 'text') return { ok: true, data: text };
 
-  try {
-    return { ok: true, data: JSON.stringify(JSON.parse(text)) };
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
-  }
+  const data = text.trim();
+  const problem = data === '' ? 'the message is empty' : jsonProblem(data);
+
+  return problem === null ? { ok: true, data } : { ok: false, error: problem };
 };
 
 export const describeIncoming = (data: unknown): string => {

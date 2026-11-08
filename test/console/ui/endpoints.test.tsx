@@ -367,10 +367,21 @@ describe('WebSocket tester helpers', () => {
     expect(wsAppUrl(3000, '/chat')).toBe('ws://127.0.0.1:3000/chat');
   });
 
-  test('sends text as typed and JSON compacted, refusing JSON that does not parse', () => {
+  test('sends text as typed and JSON as typed but trimmed, refusing JSON that does not parse', () => {
     expect(encodeOutgoing(' hi ', 'text')).toEqual({ ok: true, data: ' hi ' });
-    expect(encodeOutgoing('{ "a": 1 }', 'json')).toEqual({ ok: true, data: '{"a":1}' });
+    expect(encodeOutgoing('{ "a": 1 }', 'json')).toEqual({ ok: true, data: '{ "a": 1 }' });
+    expect(encodeOutgoing('\n  {"a": [1, 2]}\n', 'json')).toEqual({ ok: true, data: '{"a": [1, 2]}' });
     expect(encodeOutgoing('{a}', 'json').ok).toBe(false);
+    expect(encodeOutgoing('', 'json').ok).toBe(false);
+    expect(encodeOutgoing('  \n', 'json').ok).toBe(false);
+  });
+
+  test('sends JSON numbers and strings exactly as typed, past what a double holds', () => {
+    expect(encodeOutgoing('12345678901234567890', 'json')).toEqual({ ok: true, data: '12345678901234567890' });
+    expect(encodeOutgoing('{"id": 12345678901234567890, "n": 1.0e5, "s": "\\u00e9"}', 'json')).toEqual({
+      ok: true,
+      data: '{"id": 12345678901234567890, "n": 1.0e5, "s": "\\u00e9"}',
+    });
   });
 
   test('describes binary frames by size', () => {
