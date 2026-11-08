@@ -69,6 +69,12 @@
   overflow-wrap: anywhere;
 }
 
+/* Atomic on the line, so `/sign-up` moves down whole instead of breaking at its hyphen. */
+.route-path-part {
+  display: inline-block;
+  max-width: 100%;
+}
+
 .route .tag {
   margin-left: auto;
 }

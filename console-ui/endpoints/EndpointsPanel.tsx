@@ -74,7 +74,7 @@ const RoutePath = ({ path }: { path: string }) => (
     {path.split(/(?=\/)/).map((part, index) => (
       <Fragment key={index}>
         {index > 0 ? <wbr /> : null}
-        {part}
+        <span className="route-path-part">{part}</span>
       </Fragment>
     ))}
   </span>

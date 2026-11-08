@@ -393,7 +393,18 @@ describe('endpoints panel rendering', () => {
   test('a route shows its whole path, wrapping at the slashes', () => {
     const html = panel();
 
-    expect(html).toContain('<span class="route-path" title="/items/:id/name">/items<wbr/>/:id<wbr/>/name</span>');
+    expect(html).toContain(
+      '<span class="route-path" title="/items/:id/name"><span class="route-path-part">/items</span><wbr/>' +
+        '<span class="route-path-part">/:id</span><wbr/><span class="route-path-part">/name</span></span>',
+    );
+  });
+
+  test('a part of a path breaks inside only when it is wider than the list, so a hyphen does not split it first', () => {
+    const css = readFileSync(join(import.meta.dir, '../../../console-ui/styles/endpoints.css'), 'utf-8');
+    const part = css.match(/^\.route-path-part \{([^}]*)\}/m)?.[1] ?? '';
+
+    expect(part).toContain('display: inline-block');
+    expect(part).toContain('max-width: 100%');
   });
 
   test('a long route list scrolls in its own card, so a picked route keeps its tester in view', () => {
