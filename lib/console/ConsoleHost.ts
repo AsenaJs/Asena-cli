@@ -90,6 +90,21 @@ const listAssets = (uiDir: string | null | undefined): Map<string, string> => {
   return assets;
 };
 
+/** The cause of a restart asked for while `pending` waits: two changes add up, and a path changed again is not removed. */
+export const foldCause = (pending: ConsoleRunCause | undefined, cause: ConsoleRunCause): ConsoleRunCause => {
+  if (pending?.kind !== 'change' || cause.kind !== 'change') return cause;
+
+  const removed = [
+    ...new Set([...(pending.removed ?? []).filter((file) => !cause.files.includes(file)), ...(cause.removed ?? [])]),
+  ];
+
+  return {
+    kind: 'change',
+    files: [...new Set([...pending.files, ...cause.files])],
+    ...(removed.length > 0 ? { removed } : {}),
+  };
+};
+
 /** The `asena console` host: serves the UI, relays the app's agent to every browser and owns the app's restarts. */
 export class ConsoleHost {
   public readonly token: string;
@@ -173,19 +188,16 @@ export class ConsoleHost {
     if (this.options.watchDir) {
       this.watcher = watchSourceFolder(
         this.options.watchDir,
-        (files) => void this.restart({ kind: 'change', files }),
+        (files, removed) => void this.restart({ kind: 'change', files, ...(removed.length > 0 ? { removed } : {}) }),
         this.options.watchDebounceMs,
         this.options.app.cwd,
       );
     }
   }
 
-  /** Restarts the app; restarts asked for while one runs fold into it, saved files adding up. */
+  /** Restarts the app; restarts asked for while one runs fold into it, changed paths adding up. */
   public restart(cause: ConsoleRunCause = { kind: 'restart' }): Promise<void> {
-    this.pendingCause =
-      this.pendingCause?.kind === 'change' && cause.kind === 'change'
-        ? { kind: 'change', files: [...new Set([...this.pendingCause.files, ...cause.files])] }
-        : cause;
+    this.pendingCause = foldCause(this.pendingCause, cause);
 
     return this.supervisor.restart();
   }

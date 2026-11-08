@@ -404,6 +404,14 @@ describe('formatting', () => {
       'src/services/ItemService.ts saved',
     );
     expect(causeText({ kind: 'change', files: ['src/a.ts', 'src/b.ts', 'src/c.ts'] })).toBe('src/a.ts +2 more saved');
+    expect(causeText({ kind: 'change', files: ['src/extra'], removed: ['src/extra'] })).toBe('src/extra removed');
+    expect(
+      causeText({
+        kind: 'change',
+        files: ['src/a.ts', 'src/old.ts', 'src/b.ts', 'src/x'],
+        removed: ['src/old.ts', 'src/x'],
+      }),
+    ).toBe('src/a.ts +1 more saved, src/old.ts +1 more removed');
 
     const run = { gen: 2, startedAt: 0, cause: { kind: 'restart' as const } };
 

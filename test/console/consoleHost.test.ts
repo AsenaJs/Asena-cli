@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'bun:test';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { ConsoleHost, type ConsoleHostOptions } from '../../lib/console/ConsoleHost';
+import { ConsoleHost, type ConsoleHostOptions, foldCause } from '../../lib/console/ConsoleHost';
 import { CONSOLE_REPLAY_LIMITS, type ConsoleHostMessage } from '../../lib/console/hostProtocol';
 import snapshot from './fixtures/snapshot.json';
 import { ConsoleClient, randomPort, waitUntil } from './helpers';
@@ -339,6 +339,46 @@ describe('ConsoleHost with a fake agent child', () => {
 
     expect(await client.waitFor(isChild('starting', 2))).toMatchObject({
       cause: { kind: 'change', files: ['src/index.ts'] },
+    });
+  });
+
+  it('names a deleted folder as removed in the run cause', async () => {
+    const project = tmpDir('asena-console-project-');
+    const src = path.join(project, 'src');
+
+    fs.mkdirSync(path.join(src, 'extra'), { recursive: true });
+    fs.writeFileSync(path.join(src, 'extra', 'a.ts'), 'export {};\n');
+
+    await startHost(
+      {},
+      { watchDir: src, watchDebounceMs: 50, app: { cwd: project, prepare: () => [process.execPath, FAKE_AGENT] } },
+    );
+
+    const client = await connect();
+
+    await client.waitFor(isChild('running', 1));
+    fs.rmSync(path.join(src, 'extra'), { recursive: true });
+
+    expect(await client.waitFor(isChild('starting', 2))).toMatchObject({
+      cause: { kind: 'change', files: ['src/extra'], removed: ['src/extra'] },
+    });
+  });
+
+  it('a folded restart keeps what was removed, unless a later change brought it back', () => {
+    expect(
+      foldCause(
+        { kind: 'change', files: ['src/a.ts', 'src/x.ts'], removed: ['src/a.ts', 'src/x.ts'] },
+        { kind: 'change', files: ['src/a.ts', 'src/b.ts'] },
+      ),
+    ).toEqual({ kind: 'change', files: ['src/a.ts', 'src/x.ts', 'src/b.ts'], removed: ['src/x.ts'] });
+    expect(foldCause({ kind: 'change', files: ['src/a.ts'] }, { kind: 'change', files: ['src/b.ts'] })).toEqual({
+      kind: 'change',
+      files: ['src/a.ts', 'src/b.ts'],
+    });
+    expect(foldCause({ kind: 'change', files: ['src/a.ts'] }, { kind: 'restart' })).toEqual({ kind: 'restart' });
+    expect(foldCause(undefined, { kind: 'change', files: ['src/a.ts'] })).toEqual({
+      kind: 'change',
+      files: ['src/a.ts'],
     });
   });
 

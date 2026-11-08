@@ -40,8 +40,12 @@ export const CONSOLE_HOST_ENDINGS = ['restart', 'stop'] as const;
 /** Why the host itself ended a child: to restart it, or because the console is stopping. */
 export type ConsoleHostEnding = (typeof CONSOLE_HOST_ENDINGS)[number];
 
-/** Why the host started a generation: the first start, a restart asked for in the UI, or saved source files. */
-export type ConsoleRunCause = { kind: 'start' } | { kind: 'restart' } | { kind: 'change'; files: string[] };
+/**
+ * Why the host started a generation: the first start, a restart asked for in the UI, or changed source paths. `removed`
+ * holds the paths of `files` that were gone when the change was seen; a removed folder stands for everything in it.
+ */
+export type ConsoleRunCause =
+  { kind: 'start' } | { kind: 'restart' } | { kind: 'change'; files: string[]; removed?: string[] };
 
 export interface ConsoleChildStatus {
   /** The child's generation: 1 for the first spawn, one more on every respawn. */
@@ -184,7 +188,9 @@ const isRunCause = (value: unknown): boolean => {
     case 'restart':
       return true;
     case 'change':
-      return isArrayOf(value['files'], isString);
+      return (
+        isArrayOf(value['files'], isString) && isOptional(value['removed'], (removed) => isArrayOf(removed, isString))
+      );
     default:
       return false;
   }

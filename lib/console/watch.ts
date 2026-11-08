@@ -26,33 +26,38 @@ const relativeTo = (root: string, dir: string, file: string): string => {
   return shown.split(path.sep).join('/');
 };
 
+const isInside = (shown: string, folder: string): boolean => shown.startsWith(`${folder}/`);
+
 /**
- * Calls `onChange` once per burst of changes below `dir`; one save fires several fs events.
+ * Calls `onChange` once per burst of changes below `dir`; one save fires several fs events. `removed` names the changed
+ * paths that are gone by then; a removed folder is named once, without what was in it.
  *
  * @param root - The files are named relative to it, e.g. the project root for `src/index.ts`
  */
 export const watchSourceFolder = (
   dir: string,
-  onChange: (files: string[]) => void,
+  onChange: (files: string[], removed: string[]) => void,
   debounceMs: number = DEFAULT_DEBOUNCE_MS,
   root: string = dir,
 ): SourceWatcher => {
   const watched = path.resolve(dir);
   const base = path.resolve(root);
-  const changed = new Set<string>();
+  const changed = new Map<string, string>();
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   const watcher = fs.watch(watched, { recursive: true }, (_event, file) => {
     if (file === null || isIgnoredChange(String(file))) return;
 
-    changed.add(relativeTo(base, watched, String(file)));
+    changed.set(relativeTo(base, watched, String(file)), path.join(watched, String(file)));
     clearTimeout(timer);
 
     timer = setTimeout(() => {
-      const files = [...changed];
+      const gone = [...changed].filter(([, absolute]) => !fs.existsSync(absolute)).map(([shown]) => shown);
+      const removed = gone.filter((shown) => !gone.some((folder) => isInside(shown, folder)));
+      const files = [...changed.keys()].filter((shown) => !removed.some((folder) => isInside(shown, folder)));
 
       changed.clear();
-      onChange(files);
+      onChange(files, removed);
     }, debounceMs);
   });
 

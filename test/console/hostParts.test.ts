@@ -308,6 +308,41 @@ describe('watchSourceFolder', () => {
     }
   });
 
+  it('names a deleted folder once, as removed, and a deleted file as removed', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'asena-watch-'));
+    const src = path.join(root, 'src');
+
+    dir = root;
+    fs.mkdirSync(path.join(src, 'extra'), { recursive: true });
+    fs.writeFileSync(path.join(src, 'extra', 'a.ts'), 'export {};');
+    fs.writeFileSync(path.join(src, 'extra', 'b.ts'), 'export {};');
+    fs.writeFileSync(path.join(src, 'old.ts'), 'export {};');
+
+    const calls: [string[], string[]][] = [];
+    const watcher = watchSourceFolder(src, (files, removed) => calls.push([files, removed]), 50, root);
+
+    try {
+      await Bun.sleep(50);
+      fs.rmSync(path.join(src, 'extra'), { recursive: true });
+
+      await waitUntil(() => calls.length > 0, 2000, 'the watcher');
+      await Bun.sleep(150);
+
+      expect(calls).toEqual([[['src/extra'], ['src/extra']]]);
+
+      fs.rmSync(path.join(src, 'old.ts'));
+      fs.writeFileSync(path.join(src, 'new.ts'), 'export {};');
+
+      await waitUntil(() => calls.length > 1, 2000, 'the watcher');
+      await Bun.sleep(150);
+
+      expect(calls[1]?.[0].toSorted()).toEqual(['src/new.ts', 'src/old.ts']);
+      expect(calls[1]?.[1]).toEqual(['src/old.ts']);
+    } finally {
+      watcher.close();
+    }
+  });
+
   it('reports a burst of changes, nested ones included, as one call', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'asena-watch-'));
 

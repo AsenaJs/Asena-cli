@@ -1,5 +1,8 @@
 import type { ConsoleRun, ConsoleRunCause } from '../../lib/console/hostProtocol';
 
+const listed = (files: string[], verb: string): string[] =>
+  files.length === 0 ? [] : [`${files[0]}${files.length > 1 ? ` +${files.length - 1} more` : ''} ${verb}`];
+
 export const causeText = (cause: ConsoleRunCause): string => {
   switch (cause.kind) {
     case 'start':
@@ -7,11 +10,11 @@ export const causeText = (cause: ConsoleRunCause): string => {
     case 'restart':
       return 'restarted from the console';
     case 'change': {
-      const [first] = cause.files;
+      const removed = cause.removed ?? [];
+      const saved = cause.files.filter((file) => !removed.includes(file));
+      const parts = [...listed(saved, 'saved'), ...listed(removed, 'removed')];
 
-      if (!first) return 'source changed';
-
-      return `${first}${cause.files.length > 1 ? ` +${cause.files.length - 1} more` : ''} saved`;
+      return parts.length > 0 ? parts.join(', ') : 'source changed';
     }
   }
 };

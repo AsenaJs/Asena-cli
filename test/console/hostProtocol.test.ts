@@ -379,6 +379,10 @@ describe('isConsoleHostMessage', () => {
     ['a negative sequence number', { ...log, seq: -1 }],
     ['an unknown start cause', { ...child, cause: { kind: 'reload' } }],
     ['a change cause without its files', { ...child, cause: { kind: 'change' } }],
+    [
+      'a change cause with removed paths that are not names',
+      { ...child, cause: { kind: 'change', files: [], removed: [1] } },
+    ],
     ['a change time that is not a number', { ...child, at: '12:00' }],
     ['a replay without runs', { ...state, runs: undefined }],
     ['a replay with a run without its start time', { ...state, runs: [{ ...run, startedAt: undefined }] }],
