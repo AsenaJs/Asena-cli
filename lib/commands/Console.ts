@@ -20,6 +20,8 @@ export interface ConsoleOptions {
 
 const red = (text: string) => `\x1b[31m${text}\x1b[0m`;
 
+const reason = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
 const parsePort = (value: string): number => {
   const port = Number(value);
 
@@ -28,6 +30,30 @@ const parsePort = (value: string): number => {
   }
 
   return port;
+};
+
+export const stopConsole = async (
+  host: Pick<ConsoleHost, 'stop'>,
+  wrapperDir: string,
+  exit: (code: number) => void = (code) => process.exit(code),
+): Promise<void> => {
+  let code = 0;
+
+  try {
+    await host.stop();
+  } catch (error) {
+    code = 1;
+    console.error(red(`asena console did not stop cleanly: ${reason(error)}`));
+  }
+
+  try {
+    fs.rmSync(wrapperDir, { recursive: true, force: true });
+  } catch (error) {
+    code = 1;
+    console.error(red(`asena console could not remove ${wrapperDir}: ${reason(error)}`));
+  }
+
+  exit(code);
 };
 
 export class Console implements BaseCommand {
@@ -63,7 +89,7 @@ export class Console implements BaseCommand {
     try {
       config = (await new ConfigHandler().exec()).configFile;
     } catch (error) {
-      console.error(red(error instanceof Error ? error.message : String(error)));
+      console.error(red(reason(error)));
 
       return 1;
     }
@@ -115,16 +141,12 @@ export class Console implements BaseCommand {
       await host.start();
     } catch (error) {
       fs.rmSync(wrapperDir, { recursive: true, force: true });
-      console.error(red(`asena console could not start: ${error instanceof Error ? error.message : String(error)}`));
+      console.error(red(`asena console could not start: ${reason(error)}`));
 
       return 1;
     }
 
-    const shutdown = async () => {
-      await host.stop();
-      fs.rmSync(wrapperDir, { recursive: true, force: true });
-      process.exit(0);
-    };
+    const shutdown = () => stopConsole(host, wrapperDir);
 
     process.once('SIGINT', () => void shutdown());
     process.once('SIGTERM', () => void shutdown());

@@ -1,11 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import type { Subprocess } from 'bun';
 import { consoleUiDir, openCommand } from '../../lib/console/browser';
 import { Commands } from '../../lib/commands/Commands';
-import { Console, type ConsoleOptions } from '../../lib/commands/Console';
+import { Console, type ConsoleOptions, stopConsole } from '../../lib/commands/Console';
 import type { ConsoleChildStatus, ConsoleHostMessage } from '../../lib/console/hostProtocol';
 import { ConsoleClient, randomPort, waitUntil } from '../console/helpers';
 import { copySampleApp } from '../utils/fixtureCopy';
@@ -226,6 +226,51 @@ describe('asena console options', () => {
     const program = new Commands()['program'];
 
     expect(program.commands.map((command) => command.name())).toContain('console');
+  });
+});
+
+describe('console shutdown', () => {
+  const wrapperDir = () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'asena-console-stop-'));
+
+    fs.writeFileSync(path.join(dir, 'index.ts'), '');
+
+    return dir;
+  };
+
+  it('removes the wrapper dir and exits 0 after a clean stop', async () => {
+    const dir = wrapperDir();
+    const exits: number[] = [];
+
+    await stopConsole({ stop: async () => {} }, dir, (code) => exits.push(code));
+
+    expect(fs.existsSync(dir)).toBe(false);
+    expect(exits).toEqual([0]);
+  });
+
+  it('still removes the wrapper dir and exits when the host fails to stop, and prints why', async () => {
+    const dir = wrapperDir();
+    const exits: number[] = [];
+    const printed = spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      await stopConsole(
+        {
+          stop: async () => {
+            throw new Error('the app did not exit');
+          },
+        },
+        dir,
+        (code) => exits.push(code),
+      );
+
+      expect(fs.existsSync(dir)).toBe(false);
+      expect(exits).toEqual([1]);
+      expect(printed.mock.calls.flat().join('\n')).toContain('the app did not exit');
+    } finally {
+      printed.mockRestore();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 
