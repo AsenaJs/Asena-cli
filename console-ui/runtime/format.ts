@@ -11,6 +11,9 @@ export const formatBytes = (bytes: number): string => {
   return `${value.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
 };
 
+export const plural = (count: number, word: string): string =>
+  `${count} ${word}${count === 1 ? '' : word.endsWith('ch') ? 'es' : 's'}`;
+
 export const formatPercent = (value: number): string => `${value.toFixed(1)} %`;
 
 export const formatMs = (value: number): string => `${value.toFixed(value < 10 ? 2 : 0)} ms`;

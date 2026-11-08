@@ -1,4 +1,5 @@
 import type { DevtoolsSnapshot } from '../../lib/console/protocol';
+import { plural } from '../runtime/format';
 import { kindLabel } from '../ui/kinds';
 import { type GraphNode, routesOf } from './buildGraph';
 
@@ -26,9 +27,6 @@ export const laneOf = (node: GraphNode): Lane => {
       return DATA_NAME.test(node.name) || DATA_NAME.test(node.component?.className ?? '') ? 2 : 1;
   }
 };
-
-const plural = (count: number, word: string) =>
-  `${count} ${word}${count === 1 ? '' : word.endsWith('ch') ? 'es' : 's'}`;
 
 /** The second line of a node: its type and the one fact that tells it apart. */
 export const nodeMeta = (snapshot: DevtoolsSnapshot, node: GraphNode): string => {

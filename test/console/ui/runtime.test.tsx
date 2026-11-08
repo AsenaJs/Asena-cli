@@ -8,6 +8,7 @@ import {
   formatBytes,
   formatElapsed,
   formatUptime,
+  plural,
   quantile,
   sparkline,
   splitUnit,
@@ -376,6 +377,14 @@ describe('formatting', () => {
     expect(splitUnit('7')).toEqual(['7', '']);
     expect(quantile([5, 1, 3, 2, 4], 0.95)).toBe(5);
     expect(quantile([], 0.5)).toBe(0);
+  });
+
+  test('a count carries its word, singular only for one', () => {
+    expect(plural(1, 'route')).toBe('1 route');
+    expect(plural(0, 'route')).toBe('0 routes');
+    expect(plural(3, 'catch')).toBe('3 catches');
+    expect(plural(1, 'catch')).toBe('1 catch');
+    expect(plural(2, 'core service')).toBe('2 core services');
   });
 
   test('sparkline paths stay inside the box and end on the last sample', () => {

@@ -1,3 +1,4 @@
+import { plural } from '../runtime/format';
 import { KIND_STYLES, kindLabel } from '../ui/kinds';
 import {
   chipKindOf,
@@ -78,9 +79,7 @@ const GROUPS: { key: GraphGroupKey; word: string; holds: (node: GraphNode) => bo
 
 /** A group edge says how many it stands for; elk also gives every labelled edge one more column, so it lines up. */
 const mergedLabel = (kind: GraphEdge['kind'], count: number): string => {
-  const word = kind === 'inject' || kind === 'strategy' ? 'field' : 'route';
-
-  return `${count} ${word}${count === 1 ? '' : 's'}`;
+  return plural(count, kind === 'inject' || kind === 'strategy' ? 'field' : 'route');
 };
 
 export interface FocusOptions {
@@ -203,11 +202,7 @@ export const graphCountLabel = (all: Graph, shown: GraphNode[]): string => {
   const size = (node: GraphNode) => node.group?.members.length ?? 1;
   const count = (nodes: GraphNode[], core: boolean) =>
     nodes.filter((node) => (node.kind === 'CORE') === core).reduce((total, node) => total + size(node), 0);
-  const label = (core: boolean, noun: string) => {
-    const total = count(all.nodes, core);
-
-    return `${count(shown, core)} of ${total} ${noun}${total === 1 ? '' : 's'}`;
-  };
+  const label = (core: boolean, noun: string) => `${count(shown, core)} of ${plural(count(all.nodes, core), noun)}`;
   const components = label(false, 'component');
 
   return count(all.nodes, true) === 0 ? components : `${components} · ${label(true, 'core service')}`;
