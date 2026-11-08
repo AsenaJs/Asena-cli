@@ -151,7 +151,7 @@ const statedStack = (lines: string[]): string | null => {
  * `quietMs` without a line.
  *
  * Only a frame shows that the plain lines after an error's first line are its message, so they wait in `held` for one.
- * The stream says nothing of who wrote a line: a stack from elsewhere still joins a marked entry that names no stack.
+ * The stream says nothing of who wrote a line: a stack from elsewhere still joins an error entry that names no stack.
  */
 export class LogGrouper {
   private lines: string[] = [];
@@ -162,7 +162,7 @@ export class LogGrouper {
 
   private state: GroupState = 'plain';
 
-  private marked = false;
+  private marked: MarkedLevel | null = null;
 
   private timer?: ReturnType<typeof setTimeout>;
 
@@ -216,20 +216,23 @@ export class LogGrouper {
       this.emit();
       this.at = at;
       this.state = startState(text);
-      this.marked = markedLevel(text) !== null;
+      this.marked = markedLevel(text);
       this.lines = [line];
     }
   }
 
   private atMarkedEntryEnd(): boolean {
-    return this.marked && (this.state === 'plain' || this.state === 'closed');
+    return this.marked !== null && (this.state === 'plain' || this.state === 'closed');
   }
 
-  /** Whether `text` could be what `stated` says belongs here; an entry that states no stack can take any. */
+  /**
+   * Whether `text` could be the stack the entry states; an error entry that states none can take any, since the
+   * entry's level is read from its first line and joining then loses no error.
+   */
   private fitsStatedStack(text: string): boolean {
     const stated = statedStack(this.lines);
 
-    return stated === null || stated === text;
+    return stated === null ? this.marked === 'error' : stated === text;
   }
 
   /** Whether `text`, which continues no group, can still join the open one if a frame comes. */

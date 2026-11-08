@@ -387,8 +387,22 @@ describe("LogGrouper and another request's stack in the same burst", () => {
   });
 
   // The stream carries no request id and core's records do not reach this text, so nothing tells these two apart.
-  it('still joins under an entry that names no stack', () => {
+  it('still joins under an error entry that names no stack', () => {
     expect(groupLines(['[ERROR] A failed', ...OTHER])).toEqual([['[ERROR] A failed', ...OTHER].join('\n')]);
+  });
+
+  it('keeps a stack apart from an entry below error that names no stack, so it stays an error', () => {
+    const info = ['2026-11-08 10:00:00 [INFO] started', 'Error: unrelated', '    at a (b.ts:1:1)'];
+    const entries = groupLines(info);
+
+    expect(entries).toEqual([info[0], info.slice(1).join('\n')]);
+    expect(entries.map((entry) => logLevel(entry, 'stdout'))).toEqual(['info', 'error']);
+    expect(groupLines(['[WARN] retrying', ...OTHER])).toEqual(['[WARN] retrying', OTHER.join('\n')]);
+    expect(groupLines(['[INFO] started {', '  a: 1,', '}', ...OTHER])).toEqual([
+      '[INFO] started {\n  a: 1,\n}',
+      OTHER.join('\n'),
+    ]);
+    expect(groupLines(['[INFO] started', 'ZodError'])).toEqual(['[INFO] started', 'ZodError']);
   });
 });
 
