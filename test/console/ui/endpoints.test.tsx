@@ -217,6 +217,54 @@ describe('query encoding and display helpers', () => {
     expect(prettyBody('{"a":[1]}')).toBe('{\n  "a": [\n    1\n  ]\n}');
     expect(prettyBody('<p>hi</p>')).toBe('<p>hi</p>');
   });
+
+  test('a pretty body indents like JSON.stringify for values that survive a round trip', () => {
+    const bodies = [
+      '{"a":[1,2,{"b":null}],"c":{},"d":[],"e":"x"}',
+      ' {\n\t"a" : [ ] , "b": { "c" : true } }\r\n',
+      '{"text":"a, b: [c] {d} \\"e\\""}',
+      '[{"id":1},{"id":-2.5}]',
+      '"just a string"',
+      'false',
+    ];
+
+    for (const body of bodies) expect(prettyBody(body)).toBe(JSON.stringify(JSON.parse(body), null, 2));
+  });
+
+  test('a pretty body agrees with JSON.stringify on 500 generated values', () => {
+    let seed = 7;
+    const next = (below: number) => {
+      seed = (seed * 1103515245 + 12345) % 2 ** 31;
+
+      return seed % below;
+    };
+    const strings = ['', 'a', 'x, y: z', '[{"}]', 'tab\there', 'line\nbreak', 'back\\slash', 'é ü', '\u0001'];
+    const value = (depth: number): unknown => {
+      const kind = next(depth > 3 ? 4 : 6);
+
+      if (kind === 0) return next(2_000_000) - 1_000_000;
+      if (kind === 1) return strings[next(strings.length)];
+      if (kind === 2) return [true, false, null][next(3)];
+      if (kind === 3) return next(1000) / 8;
+      if (kind === 4) return Array.from({ length: next(4) }, () => value(depth + 1));
+
+      return Object.fromEntries(Array.from({ length: next(4) }, (_, i) => [`k${i}`, value(depth + 1)]));
+    };
+
+    for (let run = 0; run < 500; run++) {
+      const sample = value(0);
+
+      expect(prettyBody(JSON.stringify(sample))).toBe(JSON.stringify(sample, null, 2));
+    }
+  });
+
+  test('a pretty body shows every number and string exactly as the app sent it', () => {
+    expect(prettyBody('{"id":12345678901234567890,"price":1.50,"rate":-2.5e-3,"big":1E400}')).toBe(
+      '{\n  "id": 12345678901234567890,\n  "price": 1.50,\n  "rate": -2.5e-3,\n  "big": 1E400\n}',
+    );
+    expect(prettyBody('12345678901234567890')).toBe('12345678901234567890');
+    expect(prettyBody('{"name":"caf\\u00e9"}')).toBe('{\n  "name": "caf\\u00e9"\n}');
+  });
 });
 
 describe('sendHttp', () => {
@@ -575,7 +623,7 @@ describe('endpoints panel rendering', () => {
 
     expect(html).toContain('<span class="pill warn">');
     expect(html).toContain('409 Conflict');
-    expect(html).toContain('2.3 ms');
+    expect(html).toContain('2.25 ms');
     expect(html).toContain('<b>23 B</b>');
     expect(html).toContain('Run 3');
     expect(html).toContain('Headers<span class="badge">1</span>');
@@ -587,6 +635,37 @@ describe('endpoints panel rendering', () => {
 
   test('a body that is not JSON is shown as it came', () => {
     expect(highlightJson('plain <text>')).toEqual(['plain <text>']);
+  });
+
+  test('the response body shows an integer past 2^53 as the app sent it', () => {
+    const html = renderToStaticMarkup(
+      <ResponseView
+        outcome={{
+          ok: true,
+          response: { status: 200, headers: {}, body: '{"id":12345678901234567890}', durationMs: 12.5 },
+        }}
+      />,
+    );
+
+    expect(html).toContain('<span class="n">12345678901234567890</span>');
+    expect(html).toContain('13 ms');
+  });
+
+  test('a history row shows its time the way the rest of the console does', () => {
+    const html = renderToStaticMarkup(
+      <RouteTester
+        route={find}
+        history={[
+          { ...entry(1), outcome: { ok: true, response: { status: 200, headers: {}, body: '', durationMs: 3.456 } } },
+        ]}
+        send={null}
+        blockedReason={null}
+        onRecord={() => {}}
+        onClearHistory={() => {}}
+      />,
+    );
+
+    expect(html).toContain('<span class="ms">3.46 ms</span>');
   });
 
   test('the chain area says why it has no chain, and marks the step that answered', () => {

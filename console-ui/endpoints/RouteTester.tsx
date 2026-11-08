@@ -2,7 +2,7 @@ import { type KeyboardEvent, useEffect, useState } from 'react';
 import type { ConsoleHttpRequest } from '../../lib/console/hostProtocol';
 import type { DevtoolsRequestRecord, DevtoolsRequestStep, DevtoolsRoute } from '../../lib/console/protocol';
 import { isAnswer, recordForResponse, STEP_LABELS } from '../requests/records';
-import { formatBytes } from '../runtime/format';
+import { formatBytes, formatMs } from '../runtime/format';
 import { Card, MethodBadge, Pill, Tabs, type Tone } from '../ui/components';
 import { highlightJson } from './highlight';
 import type { HistoryEntry } from './history';
@@ -201,7 +201,7 @@ export const ResponseView = ({
           {STATUS_TEXT[response.status] ? ` ${STATUS_TEXT[response.status]}` : ''}
         </Pill>
         <span>
-          Time <b>{response.durationMs.toFixed(1)} ms</b>
+          Time <b>{formatMs(response.durationMs)}</b>
         </span>
         <span>
           Size <b>{formatBytes(byteSize(response.body))}</b>
@@ -550,9 +550,7 @@ export const RouteTester = ({
                       )}
                       <MethodBadge method={entry.request.method} />
                       <span className="path">{requestUrl(entry.request)}</span>
-                      <span className="ms">
-                        {entry.outcome.ok ? `${entry.outcome.response.durationMs.toFixed(1)} ms` : '–'}
-                      </span>
+                      <span className="ms">{entry.outcome.ok ? formatMs(entry.outcome.response.durationMs) : '–'}</span>
                     </button>
                   </li>
                 ))}

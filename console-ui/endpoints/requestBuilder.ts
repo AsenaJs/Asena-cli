@@ -185,10 +185,77 @@ export const jsonProblem = (body: string): string | null => {
   }
 };
 
-export const prettyBody = (body: string): string => {
+const JSON_SPACE = /[ \t\n\r]/;
+
+const JSON_TOKEN_END = /[ \t\n\r,:[\]{}"]/;
+
+/**
+ * `body` indented as `JSON.stringify(value, null, 2)` would, but with every number and string copied as the app sent
+ * it: a parse and re-serialise turns `12345678901234567890` into `12345678901234567000`. `null` when it is not JSON.
+ */
+export const prettyJson = (body: string): string | null => {
   try {
-    return JSON.stringify(JSON.parse(body), null, 2);
+    JSON.parse(body);
   } catch {
-    return body;
+    return null;
   }
+
+  let out = '';
+  let depth = 0;
+  let index = 0;
+  const newline = () => `\n${'  '.repeat(depth)}`;
+  const skipSpace = (from: number) => {
+    let at = from;
+
+    while (at < body.length && JSON_SPACE.test(body.charAt(at))) at++;
+
+    return at;
+  };
+
+  while (index < body.length) {
+    const char = body.charAt(index);
+
+    if (JSON_SPACE.test(char)) {
+      index++;
+    } else if (char === '"') {
+      let end = index + 1;
+
+      while (body[end] !== '"') end += body[end] === '\\' ? 2 : 1;
+
+      out += body.slice(index, end + 1);
+      index = end + 1;
+    } else if (char === '{' || char === '[') {
+      const next = skipSpace(index + 1);
+
+      if (body.charAt(next) === (char === '{' ? '}' : ']')) {
+        out += char + body.charAt(next);
+        index = next + 1;
+      } else {
+        depth++;
+        out += char + newline();
+        index++;
+      }
+    } else if (char === '}' || char === ']') {
+      depth--;
+      out += newline() + char;
+      index++;
+    } else if (char === ',') {
+      out += `,${newline()}`;
+      index++;
+    } else if (char === ':') {
+      out += ': ';
+      index++;
+    } else {
+      let end = index;
+
+      while (end < body.length && !JSON_TOKEN_END.test(body.charAt(end))) end++;
+
+      out += body.slice(index, end);
+      index = end;
+    }
+  }
+
+  return out;
 };
+
+export const prettyBody = (body: string): string => prettyJson(body) ?? body;

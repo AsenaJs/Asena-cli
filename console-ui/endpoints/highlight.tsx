@@ -1,16 +1,13 @@
 import type { ReactNode } from 'react';
+import { prettyJson } from './requestBuilder';
 
 const TOKEN = /("(?:\\.|[^"\\])*")(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false|null)\b/g;
 
 /** Pretty JSON as spans for keys, strings and numbers; any other text is returned as it is. */
 export const highlightJson = (body: string): ReactNode[] => {
-  let pretty: string;
+  const pretty = prettyJson(body);
 
-  try {
-    pretty = JSON.stringify(JSON.parse(body), null, 2);
-  } catch {
-    return [body];
-  }
+  if (pretty === null) return [body];
 
   const parts: ReactNode[] = [];
   let last = 0;
