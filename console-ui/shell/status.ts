@@ -22,6 +22,8 @@ export const childLabel = (child: ConsoleChildStatus | null): string => {
     case 'restarting':
       return `Restarting${pid}`;
     case 'exited':
+      if (child.endedBy === 'restart') return 'Stopped for a restart';
+      if (child.endedBy === 'stop') return 'Stopped by the console';
       if (child.code !== undefined) return `Exited with code ${child.code}`;
       if (child.signal !== undefined) return `Killed by ${child.signal}`;
 
@@ -58,7 +60,9 @@ export const runStatus = (state: ConsoleState): StatusView => {
     case 'restarting':
       return { tone: 'warn', label: 'Restarting', detail: childLabel(child) };
     case 'exited':
-      return child.code === 0
+      if (child.endedBy === 'restart') return { tone: 'warn', label: 'Restarting', detail: childLabel(child) };
+
+      return child.code === 0 || child.endedBy === 'stop'
         ? { tone: 'neutral', label: 'Stopped', detail: childLabel(child) }
         : { tone: 'bad', label: 'Crashed', detail: childLabel(child) };
     case 'running':

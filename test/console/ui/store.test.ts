@@ -128,6 +128,16 @@ describe('consoleReducer generations', () => {
     expect(restarting.runs).toEqual([{ ...running.runs[0]!, state: 'restarting' }]);
   });
 
+  test('keeps that the host ended a child, on the child and on its run', () => {
+    const killed = feed(
+      [{ v: 1, type: 'child', gen: 1, state: 'exited', pid: 48211, signal: 'SIGKILL', endedBy: 'restart' }],
+      running,
+    );
+
+    expect(killed.child).toMatchObject({ signal: 'SIGKILL', endedBy: 'restart' });
+    expect(killed.runs.at(-1)).toMatchObject({ signal: 'SIGKILL', endedBy: 'restart' });
+  });
+
   test('a later replay replaces the slices it carries and keeps command results', () => {
     const withResult = feed(recording, sentRecordedCommands(running));
     const replay = feed(

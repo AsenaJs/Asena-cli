@@ -35,6 +35,11 @@ export const CONSOLE_LOG_STREAMS = ['stdout', 'stderr'] as const;
 
 export type ConsoleLogStream = (typeof CONSOLE_LOG_STREAMS)[number];
 
+export const CONSOLE_HOST_ENDINGS = ['restart', 'stop'] as const;
+
+/** Why the host itself ended a child: to restart it, or because the console is stopping. */
+export type ConsoleHostEnding = (typeof CONSOLE_HOST_ENDINGS)[number];
+
 /** Why the host started a generation: the first start, a restart asked for in the UI, or saved source files. */
 export type ConsoleRunCause = { kind: 'start' } | { kind: 'restart' } | { kind: 'change'; files: string[] };
 
@@ -47,6 +52,8 @@ export interface ConsoleChildStatus {
   code?: number;
   /** Signal name, once the child has been killed by one. */
   signal?: string;
+  /** Set when that signal was the host's own, sent for a restart or a stop; a child killed by anything else has none. */
+  endedBy?: ConsoleHostEnding;
   /** Epoch milliseconds of the change. */
   at?: number;
   /** Set on the first status of a generation. */
@@ -61,6 +68,7 @@ export interface ConsoleRun {
   state: ConsoleChildState;
   code?: number;
   signal?: string;
+  endedBy?: ConsoleHostEnding;
 }
 
 export interface ConsoleLogLine {
@@ -185,7 +193,8 @@ const isRunCause = (value: unknown): boolean => {
 const isExit = (value: Fields): boolean =>
   isOneOf(value['state'], CONSOLE_CHILD_STATES) &&
   isOptional(value['code'], isNumber) &&
-  isOptional(value['signal'], isString);
+  isOptional(value['signal'], isString) &&
+  isOptional(value['endedBy'], (ending) => isOneOf(ending, CONSOLE_HOST_ENDINGS));
 
 const isChildStatus = (value: Fields): boolean =>
   Number.isInteger(value['gen']) &&

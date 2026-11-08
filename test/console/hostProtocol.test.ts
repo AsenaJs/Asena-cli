@@ -362,6 +362,10 @@ describe('isConsoleHostMessage', () => {
         runs: [run, { ...run, gen: 2, cause: { kind: 'change', files: [] }, state: 'exited', code: 1 }],
       }),
     ).toBe(true);
+    expect(isConsoleHostMessage({ ...child, state: 'exited', signal: 'SIGKILL', endedBy: 'restart' })).toBe(true);
+    expect(
+      isConsoleHostMessage({ ...state, runs: [{ ...run, state: 'exited', signal: 'SIGTERM', endedBy: 'stop' }] }),
+    ).toBe(true);
   });
 
   test.each([
@@ -381,6 +385,8 @@ describe('isConsoleHostMessage', () => {
     ['an unknown child state', { ...child, state: 'crashed' }],
     ['a fractional generation', { ...child, gen: 1.5 }],
     ['a signal that is not a name', { ...child, signal: 9 }],
+    ['an unknown ending', { ...child, state: 'exited', signal: 'SIGKILL', endedBy: 'crash' }],
+    ['a replay with a run of an unknown ending', { ...state, runs: [{ ...run, endedBy: 'reload' }] }],
     [
       'an agent message from another protocol version',
       { v: 1, type: 'agent', message: { v: 2, type: 'hello', payload: {} } },

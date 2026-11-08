@@ -1,5 +1,5 @@
 import type { Subprocess } from 'bun';
-import type { ConsoleChildStatus, ConsoleLogLine, ConsoleLogStream } from './hostProtocol';
+import type { ConsoleChildStatus, ConsoleHostEnding, ConsoleLogLine, ConsoleLogStream } from './hostProtocol';
 import { LogGrouper, pipeLines } from './lines';
 import { type DevtoolsAgentMessage, type DevtoolsHostMessage, isDevtoolsAgentMessage } from './protocol';
 
@@ -26,6 +26,8 @@ interface Child {
   gen: number;
   process: AppProcess;
   exited: Promise<void>;
+  /** Set once the host has signalled the child to end it. */
+  ending?: ConsoleHostEnding;
 }
 
 const DEFAULT_KILL_AFTER_MS = 3000;
@@ -35,10 +37,12 @@ const PIPE_DRAIN_MS = 250;
 
 const hasExited = (child: AppProcess): boolean => child.exitCode !== null || child.signalCode !== null;
 
-const exitFields = (child: AppProcess): Pick<ConsoleChildStatus, 'code' | 'signal'> => {
-  if (child.signalCode !== null) return { signal: String(child.signalCode) };
+const exitFields = (child: Child): Pick<ConsoleChildStatus, 'code' | 'signal' | 'endedBy'> => {
+  const { signalCode, exitCode } = child.process;
 
-  return child.exitCode !== null ? { code: child.exitCode } : {};
+  if (signalCode !== null) return { signal: String(signalCode), ...(child.ending ? { endedBy: child.ending } : {}) };
+
+  return exitCode !== null ? { code: exitCode } : {};
 };
 
 const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
@@ -147,13 +151,14 @@ export class AppSupervisor {
 
     const pipes = Promise.all([this.pipe(child.stdout, 'stdout', gen), this.pipe(child.stderr, 'stderr', gen)]);
 
-    const exited = child.exited.then(async () => {
+    const current: Child = { gen, process: child, exited: Promise.resolve() };
+
+    current.exited = child.exited.then(async () => {
       await Promise.race([pipes, Bun.sleep(PIPE_DRAIN_MS)]);
 
-      this.options.onStatus({ gen, state: 'exited', pid: child.pid, ...exitFields(child) });
+      this.options.onStatus({ gen, state: 'exited', pid: child.pid, ...exitFields(current) });
     });
-
-    this.current = { gen, process: child, exited };
+    this.current = current;
   }
 
   private receive(message: unknown, gen: number): void {
@@ -210,6 +215,7 @@ export class AppSupervisor {
       this.options.onStatus({ gen: child.gen, state: 'restarting', pid: child.process.pid });
     }
 
+    child.ending = restarting ? 'restart' : 'stop';
     child.process.kill('SIGTERM');
 
     const killTimer = setTimeout(() => {

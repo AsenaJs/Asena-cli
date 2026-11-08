@@ -247,7 +247,7 @@ export class ConsoleHost {
     const run = this.runs.at(-1);
 
     if (run?.gen === status.gen) {
-      const { code, signal } = status;
+      const { code, signal, endedBy } = status;
 
       this.runs[this.runs.length - 1] = {
         gen: run.gen,
@@ -256,6 +256,7 @@ export class ConsoleHost {
         state: status.state,
         ...(code === undefined ? {} : { code }),
         ...(signal === undefined ? {} : { signal }),
+        ...(endedBy === undefined ? {} : { endedBy }),
       };
     }
 

@@ -18,7 +18,7 @@ export const causeText = (cause: ConsoleRunCause): string => {
 
 /** How a run ended, when it did not end the way a restart ends it. */
 export const exitText = (run: ConsoleRun): string | null => {
-  if (run.state !== 'exited') return null;
+  if (run.state !== 'exited' || run.endedBy !== undefined) return null;
   if (run.signal !== undefined) return run.signal === 'SIGTERM' ? null : `killed ${run.signal}`;
   if (run.code !== undefined && run.code !== 0) return `exited ${run.code}`;
 

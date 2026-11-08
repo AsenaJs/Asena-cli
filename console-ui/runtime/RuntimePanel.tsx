@@ -24,7 +24,9 @@ export const healthDetail = (state: ConsoleState): string => {
   const readiness = state.metrics.at(-1)?.readiness;
 
   if (!child) return 'No app process yet';
-  if (child.state === 'exited') return 'The output below is kept; save a file or press Restart to run it again.';
+  if (child.state === 'exited' && child.endedBy !== 'restart') {
+    return 'The output below is kept; save a file or press Restart to run it again.';
+  }
   if (child.state !== 'running') return 'Waiting for the app to report';
   if (!readiness) return 'Waiting for the first sample';
   if (readiness.status === 'not_ready') return `Lifecycle ${readiness.state}`;

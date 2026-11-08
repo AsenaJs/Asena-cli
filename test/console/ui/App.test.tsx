@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { ConsoleBrowserMessage, ConsoleHostMessage } from '../../../lib/console/hostProtocol';
+import type { ConsoleBrowserMessage, ConsoleChildStatus, ConsoleHostMessage } from '../../../lib/console/hostProtocol';
 import { App, Shell } from '../../../console-ui/App';
 import { viewCount } from '../../../console-ui/shell/Sidebar';
 import { appStatus, childLabel, runStatus } from '../../../console-ui/shell/status';
@@ -135,6 +135,27 @@ describe('status labels', () => {
     expect(childLabel({ gen: 1, state: 'restarting' })).toBe('Restarting');
     expect(childLabel({ gen: 2, state: 'exited', code: 1 })).toBe('Exited with code 1');
     expect(childLabel({ gen: 2, state: 'exited', signal: 'SIGKILL' })).toBe('Killed by SIGKILL');
+  });
+
+  test('a kill the host sent reads as its restart or stop; any other kill still reads as a crash', () => {
+    const exited = (fields: Partial<ConsoleChildStatus>) =>
+      child({ v: 1, type: 'child', gen: 1, state: 'exited', ...fields });
+
+    expect(runStatus(exited({ signal: 'SIGKILL', endedBy: 'restart' }))).toEqual({
+      tone: 'warn',
+      label: 'Restarting',
+      detail: 'Stopped for a restart',
+    });
+    expect(runStatus(exited({ signal: 'SIGTERM', endedBy: 'stop' }))).toEqual({
+      tone: 'neutral',
+      label: 'Stopped',
+      detail: 'Stopped by the console',
+    });
+    expect(runStatus(exited({ signal: 'SIGKILL' }))).toEqual({
+      tone: 'bad',
+      label: 'Crashed',
+      detail: 'Killed by SIGKILL',
+    });
   });
 
   test('the first pill: session, connection, process, then readiness', () => {

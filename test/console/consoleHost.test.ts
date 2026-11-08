@@ -367,10 +367,12 @@ describe('ConsoleHost with a fake agent child', () => {
     await host.restart();
 
     expect(Date.now() - started).toBeGreaterThanOrEqual(200);
-    expect(await client.waitFor(isChild('exited', 1))).toMatchObject({ signal: 'SIGKILL' });
+    expect(await client.waitFor(isChild('exited', 1))).toMatchObject({ signal: 'SIGKILL', endedBy: 'restart' });
     expect(client.messages.some(isLog('ignores SIGTERM'))).toBe(true);
 
     await client.waitFor(isChild('running', 2));
+
+    expect((await (await connect()).replay()).runs[0]).toMatchObject({ gen: 1, signal: 'SIGKILL', endedBy: 'restart' });
   });
 
   it('reports a failed start as an exited generation with the reason in the logs', async () => {

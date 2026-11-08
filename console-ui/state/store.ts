@@ -77,21 +77,28 @@ const keepLast = <T>(items: T[], limit: number): T[] => (items.length > limit ? 
 
 const append = <T>(items: T[], item: T, limit: number): T[] => keepLast([...items, item], limit);
 
-const childStatus = ({ gen, state, pid, code, signal, at, cause }: ConsoleChildStatus): ConsoleChildStatus => ({
-  gen,
-  state,
-  ...(pid === undefined ? {} : { pid }),
+type ChildExit = Pick<ConsoleChildStatus, 'code' | 'signal' | 'endedBy'>;
+
+const exitOf = ({ code, signal, endedBy }: ConsoleChildStatus): ChildExit => ({
   ...(code === undefined ? {} : { code }),
   ...(signal === undefined ? {} : { signal }),
-  ...(at === undefined ? {} : { at }),
-  ...(cause === undefined ? {} : { cause }),
+  ...(endedBy === undefined ? {} : { endedBy }),
+});
+
+const childStatus = (status: ConsoleChildStatus): ConsoleChildStatus => ({
+  gen: status.gen,
+  state: status.state,
+  ...(status.pid === undefined ? {} : { pid: status.pid }),
+  ...exitOf(status),
+  ...(status.at === undefined ? {} : { at: status.at }),
+  ...(status.cause === undefined ? {} : { cause: status.cause }),
 });
 
 const logEntry = ({ seq, gen, stream, line, at }: ConsoleLogLine): LogEntry => ({ seq, gen, stream, line, at });
 
 const updateRuns = (runs: ConsoleRun[], status: ConsoleChildStatus): ConsoleRun[] => {
-  const { gen, state, code, signal } = status;
-  const exit = { ...(code === undefined ? {} : { code }), ...(signal === undefined ? {} : { signal }) };
+  const { gen, state } = status;
+  const exit = exitOf(status);
   const last = runs.at(-1);
 
   if (last?.gen === gen)

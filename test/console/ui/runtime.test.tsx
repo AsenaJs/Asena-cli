@@ -412,6 +412,13 @@ describe('formatting', () => {
     expect(exitText({ ...run, state: 'exited', signal: 'SIGKILL' })).toBe('killed SIGKILL');
     expect(exitText({ ...run, state: 'running' })).toBeNull();
   });
+
+  test('a run the host killed for a restart or a stop ends without a crash note', () => {
+    const run = { gen: 2, startedAt: 0, cause: { kind: 'restart' as const }, state: 'exited' as const };
+
+    expect(exitText({ ...run, signal: 'SIGKILL', endedBy: 'restart' })).toBeNull();
+    expect(exitText({ ...run, signal: 'SIGKILL', endedBy: 'stop' })).toBeNull();
+  });
 });
 
 describe('runtime panel rendering', () => {
@@ -457,6 +464,16 @@ describe('runtime panel rendering', () => {
     expect(html).toContain('No app process yet');
     expect(html).toContain('Memory (RSS): no samples');
     expect(html).toContain('No run yet.');
+  });
+
+  test('the health line of a run the host killed for a restart waits for the next one', () => {
+    const running = consoleReducer(initialConsoleState, { kind: 'message', message: recording[0]! });
+    const exited = { gen: running.child!.gen, state: 'exited' as const, signal: 'SIGKILL' };
+
+    expect(healthDetail({ ...running, child: { ...exited, endedBy: 'restart' } })).toBe(
+      'Waiting for the app to report',
+    );
+    expect(healthDetail({ ...running, child: exited })).toContain('press Restart to run it again');
   });
 
   test('the health line names the lifecycle and the transports', () => {
