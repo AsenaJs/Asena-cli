@@ -21,9 +21,11 @@ export const FIXTURE_DIR = '/app/';
 const program = path.join(import.meta.dir, 'errors.ts');
 
 export const runCase = async (name: BunOutputCase): Promise<{ stdout: string; stderr: string }> => {
+  // Under GITHUB_ACTIONS Bun adds a `::error` annotation line to an uncaught error, which a developer's terminal never shows.
+  const { GITHUB_ACTIONS: _annotations, ...env } = process.env;
   const child = Bun.spawn([process.execPath, program, name], {
     cwd: import.meta.dir,
-    env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' },
+    env: { ...env, NO_COLOR: '1', FORCE_COLOR: '0' },
     stdout: 'pipe',
     stderr: 'pipe',
   });
