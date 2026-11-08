@@ -76,8 +76,15 @@ export interface ShownLogEntry extends LogEntry {
   text: string;
 }
 
-export const filterLogs = (logs: LogEntry[], filter: LogFilter): ShownLogEntry[] => {
+/** Whether a shown entry passes the level chips and the search. */
+const passes = (entry: LogEntry, level: LogLevel, filter: Pick<LogFilter, 'levels' | 'search'>): boolean => {
   const query = filter.search.trim().toLowerCase();
+
+  // The shown text is a part of the raw one, so this covers both.
+  return filter.levels.has(level) && (query === '' || stripAnsi(entry.line).toLowerCase().includes(query));
+};
+
+export const filterLogs = (logs: LogEntry[], filter: LogFilter): ShownLogEntry[] => {
   const shown: ShownLogEntry[] = [];
 
   for (const entry of logs) {
@@ -86,11 +93,7 @@ export const filterLogs = (logs: LogEntry[], filter: LogFilter): ShownLogEntry[]
 
     const log = shownLog(entry.line, entry.stream);
 
-    if (log === null || !filter.levels.has(log.level)) continue;
-    // The shown text is a part of the raw one, so this covers both.
-    if (query !== '' && !stripAnsi(entry.line).toLowerCase().includes(query)) continue;
-
-    shown.push({ ...entry, ...log });
+    if (log !== null && passes(entry, log.level, filter)) shown.push({ ...entry, ...log });
   }
 
   return shown;
@@ -100,12 +103,12 @@ export interface LogTally {
   /** Per level, what is newer than `clearedThrough`. */
   byLevel: Record<LogLevel, number>;
   total: number;
-  /** What came in after `pausedAt`. */
+  /** What came in after `pausedAt` and Resume will show under the levels and the search. */
   waiting: number;
 }
 
 /** Counts the entries that have something to show. */
-export const tallyLogs = (logs: LogEntry[], filter: Pick<LogFilter, 'pausedAt' | 'clearedThrough'>): LogTally => {
+export const tallyLogs = (logs: LogEntry[], filter: LogFilter): LogTally => {
   const tally: LogTally = { byLevel: { info: 0, warn: 0, error: 0 }, total: 0, waiting: 0 };
 
   for (const entry of logs) {
@@ -115,8 +118,11 @@ export const tallyLogs = (logs: LogEntry[], filter: Pick<LogFilter, 'pausedAt' |
 
     tally.total++;
 
-    if (entry.seq > filter.clearedThrough) tally.byLevel[log.level]++;
-    if (filter.pausedAt !== null && entry.seq > filter.pausedAt) tally.waiting++;
+    if (entry.seq <= filter.clearedThrough) continue;
+
+    tally.byLevel[log.level]++;
+
+    if (filter.pausedAt !== null && entry.seq > filter.pausedAt && passes(entry, log.level, filter)) tally.waiting++;
   }
 
   return tally;

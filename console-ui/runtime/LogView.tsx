@@ -43,14 +43,12 @@ export const LogView = ({ logs, runs = [] }: { logs: LogEntry[]; runs?: ConsoleR
   const viewport = useRef<HTMLDivElement>(null);
   const lastSeq = logs.at(-1)?.seq ?? -1;
 
-  const shown = useMemo(
-    () => filterLogs(logs, { levels, search, pausedAt, clearedThrough }),
-    [logs, levels, search, pausedAt, clearedThrough],
+  const filter = useMemo(
+    () => ({ levels, search, pausedAt, clearedThrough }),
+    [levels, search, pausedAt, clearedThrough],
   );
-  const { byLevel, total, waiting } = useMemo(
-    () => tallyLogs(logs, { pausedAt, clearedThrough }),
-    [logs, pausedAt, clearedThrough],
-  );
+  const shown = useMemo(() => filterLogs(logs, filter), [logs, filter]);
+  const { byLevel, total, waiting } = useMemo(() => tallyLogs(logs, filter), [logs, filter]);
   const rows = useMemo(() => withRunSeparators(shown), [shown]);
   const offsets = useMemo(() => rowOffsets(rows.map(rowHeight)), [rows]);
   const view = visibleWindow(offsets, scrollTop, viewportHeight);

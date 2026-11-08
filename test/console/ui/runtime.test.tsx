@@ -22,6 +22,7 @@ import {
   rowOffsets,
   shownLog,
   stripAnsi,
+  tallyLogs,
   visibleWindow,
   withoutLogPrefix,
   withRunSeparators,
@@ -313,6 +314,46 @@ describe('filterLogs', () => {
     expect(filterLogs([...logs, entry(4, 'after')], { ...live, clearedThrough: 3 }).map((line) => line.seq)).toEqual([
       4,
     ]);
+  });
+});
+
+describe('tallyLogs', () => {
+  const logs = [
+    entry(0, 'server started'),
+    entry(1, '[ERROR] first failure'),
+    entry(2, 'item 7 created'),
+    entry(3, '[ERROR] item 7 failed'),
+    entry(4, '[WARN] item 8 slow'),
+  ];
+  const paused = { ...live, pausedAt: 0 };
+
+  test('Resume counts only what it will show under the level filter and the search', () => {
+    const errorsOnly = { ...paused, levels: new Set<'error'>(['error']) };
+
+    expect(tallyLogs(logs, errorsOnly).waiting).toBe(2);
+    expect(tallyLogs(logs, { ...paused, search: 'item 7' }).waiting).toBe(2);
+    expect(tallyLogs(logs, { ...errorsOnly, search: 'item 7' }).waiting).toBe(1);
+    expect(tallyLogs(logs, paused).waiting).toBe(4);
+  });
+
+  test('what Resume counts is what it adds to the list', () => {
+    const errorsOnly = { ...paused, levels: new Set<'error'>(['error']) };
+    const before = filterLogs(logs, errorsOnly).length;
+    const after = filterLogs(logs, { ...errorsOnly, pausedAt: null }).length;
+
+    expect(after - before).toBe(tallyLogs(logs, errorsOnly).waiting);
+  });
+
+  test('the level counts and the total ignore the level filter, as the chips need', () => {
+    const tally = tallyLogs(logs, { ...paused, levels: new Set<'error'>(['error']), search: 'item' });
+
+    expect(tally.byLevel).toEqual({ info: 2, warn: 1, error: 2 });
+    expect(tally.total).toBe(5);
+  });
+
+  test('nothing waits while live, and a cleared line no longer counts', () => {
+    expect(tallyLogs(logs, live).waiting).toBe(0);
+    expect(tallyLogs(logs, { ...paused, clearedThrough: 2 }).waiting).toBe(2);
   });
 });
 
