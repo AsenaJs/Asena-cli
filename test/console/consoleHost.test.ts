@@ -524,9 +524,8 @@ describe('ConsoleHost with a fake agent child', () => {
         },
       },
     );
-    const client = await connect();
-
-    await client.waitFor(isAgent('metrics'));
+    // The fake app sends its metrics at start, often before a browser could connect, so wait on the host.
+    await waitUntil(() => host.snapshotState().metrics.length > 0, 5000, 'the first metrics sample');
     await host.restart();
 
     const replay = await (await connect()).replay();
