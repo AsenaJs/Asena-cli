@@ -1,9 +1,9 @@
 import type { ConsoleLogStream } from '../../lib/console/hostProtocol';
 import {
-  LINE_LEAD,
   LOG_TIMESTAMP,
   markedLevel,
   type MarkedLevel,
+  namedLevels,
   plainLevel,
   stripAnsi,
 } from '../../lib/console/lines';
@@ -15,15 +15,6 @@ export type LogLevel = MarkedLevel;
 
 export const LOG_LEVELS: readonly LogLevel[] = ['error', 'warn', 'info'];
 
-// Multiline, since an entry can hold a whole Bun error report, whose `error: msg` line follows the source excerpt.
-const ERROR_MARKERS = [
-  /\[(?:[\w.-]+:)?(?:error|err|fatal)\]/i,
-  new RegExp(String.raw`^${LINE_LEAD}(?:error|fatal)\b`, 'im'),
-  /\b(?:[A-Z]\w*)?Error\b:/,
-];
-
-const WARN_MARKERS = [/\[(?:[\w.-]+:)?warn(?:ing)?\]/i, new RegExp(String.raw`^${LINE_LEAD}warn(?:ing)?\b`, 'im')];
-
 /**
  * A guess from the text, since the host only knows the stream. The first line's marker (`[warn]`, `[ERROR]:`, `error:`,
  * `TypeError:`) decides, as an entry can hold a stack whatever its level. Without one, a marker in the body wins; an
@@ -34,8 +25,11 @@ export const logLevel = (line: string, stream: ConsoleLogStream): LogLevel => {
   const marked = markedLevel(text);
 
   if (marked) return marked;
-  if (ERROR_MARKERS.some((marker) => marker.test(text))) return 'error';
-  if (WARN_MARKERS.some((marker) => marker.test(text))) return 'warn';
+
+  const named = namedLevels(text);
+
+  if (named.has('error')) return 'error';
+  if (named.has('warn')) return 'warn';
 
   return stream === 'stderr' ? 'warn' : 'info';
 };

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { ConsoleHostMessage } from '../../../lib/console/hostProtocol';
-import { LogGrouper, plainLevel } from '../../../lib/console/lines';
+import { LogGrouper, markedLevel, namedLevels, plainLevel } from '../../../lib/console/lines';
 import {
   formatBytes,
   formatElapsed,
@@ -110,8 +110,33 @@ describe('logLevel heuristics', () => {
     ['[2026-11-06 01:19:47] ERROR lost the broker', 'stdout', 'error'],
     ['first line\n2026-11-06 01:19:47 ERROR lost the broker', 'stdout', 'error'],
     ['first line\n12:00:01 WARN careful', 'stdout', 'warn'],
+    ['first line\n[info] then [error] x', 'stdout', 'error'],
+    ['first line\n[app:warning] x', 'stdout', 'warn'],
   ] as const)('%s on %s is %s', (line, stream, level) => {
     expect(logLevel(line, stream)).toBe(level);
+  });
+
+  test('a body line reads a warning or an error from the same markers as a first line', () => {
+    const lines = [
+      '[ERR] x',
+      '[fatal] x',
+      '[app:warning] x',
+      'error: x',
+      '  Warning: x',
+      '12:00:01 FATAL x',
+      '[2026-11-06 01:19:47] warn x',
+      'RangeError: x',
+      'Could not load ERROR table',
+      '[INFO] x',
+    ];
+
+    for (const line of lines) {
+      const first = markedLevel(line);
+      const expected = first === 'error' || first === 'warn' ? first : 'info';
+
+      expect([line, logLevel(`first line\n${line}`, 'stdout')]).toEqual([line, expected]);
+      expect([line, namedLevels(line).has(first ?? 'info')]).toEqual([line, first !== null]);
+    }
   });
 
   test('ANSI colour codes are stripped for display and search', () => {

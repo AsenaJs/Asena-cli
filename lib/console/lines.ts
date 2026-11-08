@@ -34,7 +34,7 @@ const DATE = String.raw`\d{4}-\d{2}-\d{2}[ T]`;
 export const LOG_TIMESTAMP = `${DATE}${TIME_OF_DAY}`;
 
 /** What may stand before a level word at the start of a line: indent and a time, with or without date and brackets. */
-export const LINE_LEAD = String.raw`[^\S\n]*(?:\[?(?:${DATE})?${TIME_OF_DAY}\]?[ \t]+)?`;
+const LINE_LEAD = String.raw`[^\S\n]*(?:\[?(?:${DATE})?${TIME_OF_DAY}\]?[ \t]+)?`;
 
 const LEVEL_MARKERS = [
   /\[(?:[\w.-]+:)?(err|error|fatal|warn|warning|info|debug|trace|verbose|silly|http|profile)\]/i,
@@ -78,6 +78,23 @@ export const markedLevel = (text: string): MarkedLevel | null => {
   }
 
   return leftmost ? (MARKED_LEVELS[(leftmost[1] ?? '').toLowerCase()] ?? null) : null;
+};
+
+const BODY_MARKERS = LEVEL_MARKERS.map((marker) => new RegExp(marker.source, `${marker.flags}gm`));
+
+/** Every level a marker on any line of an ANSI-free entry names, source excerpts included. */
+export const namedLevels = (text: string): Set<MarkedLevel> => {
+  const levels = new Set<MarkedLevel>();
+
+  for (const marker of BODY_MARKERS) {
+    for (const match of text.matchAll(marker)) {
+      const level = MARKED_LEVELS[(match[1] ?? '').toLowerCase()];
+
+      if (level) levels.add(level);
+    }
+  }
+
+  return levels;
 };
 
 /**
