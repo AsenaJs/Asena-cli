@@ -2,7 +2,8 @@ import { type ReactNode, useEffect, useState } from 'react';
 import type { ConsoleBrowserMessage } from '../lib/console/hostProtocol';
 import type { DevtoolsCommandRequest, DevtoolsSnapshot } from '../lib/console/protocol';
 import { ConfigPanel } from './config/ConfigPanel';
-import { EndpointsPanel } from './endpoints/EndpointsPanel';
+import { draftsForOpen, EndpointsPanel } from './endpoints/EndpointsPanel';
+import type { SavedDraft, SavedDrafts } from './endpoints/requestBuilder';
 import { ExceptionsPanel } from './exceptions/ExceptionsPanel';
 import type { GraphViewChoice } from './graph/focus';
 import { GraphPanel } from './graph/GraphPanel';
@@ -36,12 +37,26 @@ interface PanelProps {
   theme: ThemeChoice;
   focus: EndpointFocus | null;
   onOpenEndpoint: (focus: EndpointFocus) => void;
+  drafts: SavedDrafts;
+  onDraft: (key: string, saved: SavedDraft) => void;
   graphView: GraphViewChoice | null;
   onGraphView: (choice: GraphViewChoice | null) => void;
   send: ShellProps['send'];
 }
 
-const Panel = ({ view, state, token, theme, focus, onOpenEndpoint, graphView, onGraphView, send }: PanelProps) => {
+const Panel = ({
+  view,
+  state,
+  token,
+  theme,
+  focus,
+  onOpenEndpoint,
+  drafts,
+  onDraft,
+  graphView,
+  onGraphView,
+  send,
+}: PanelProps) => {
   const blockedReason = commandBlockedReason({
     canSend: send !== undefined,
     token,
@@ -84,6 +99,8 @@ const Panel = ({ view, state, token, theme, focus, onOpenEndpoint, graphView, on
           gen={state.child?.gen ?? null}
           token={token}
           focus={focus}
+          drafts={drafts}
+          onDraft={onDraft}
           requests={state.requests}
         />
       ));
@@ -122,6 +139,7 @@ export const Shell = ({ state, token, initialView, send }: ShellProps) => {
   const [view, setView] = useState<ViewId>(() => initialView ?? viewFromHash(currentHash()));
   const [theme, setTheme] = useTheme();
   const [focus, setFocus] = useState<EndpointFocus | null>(null);
+  const [drafts, setDrafts] = useState<SavedDrafts>({});
   const [graphView, setGraphView] = useState<GraphViewChoice | null>(null);
   const status = appStatus(state, token);
 
@@ -134,6 +152,7 @@ export const Shell = ({ state, token, initialView, send }: ShellProps) => {
   }, []);
 
   const openEndpoint = (next: EndpointFocus) => {
+    setDrafts((current) => draftsForOpen(current, next));
     setFocus(next);
     setView('endpoints');
     location.hash = viewHash('endpoints');
@@ -169,6 +188,8 @@ export const Shell = ({ state, token, initialView, send }: ShellProps) => {
             theme={theme}
             focus={focus}
             onOpenEndpoint={openEndpoint}
+            drafts={drafts}
+            onDraft={(key, saved) => setDrafts((current) => ({ ...current, [key]: saved }))}
             graphView={graphView}
             onGraphView={setGraphView}
             send={send}

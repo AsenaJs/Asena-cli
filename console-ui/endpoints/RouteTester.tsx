@@ -1,7 +1,7 @@
-import { type KeyboardEvent, useState } from 'react';
+import { type KeyboardEvent, useEffect, useState } from 'react';
 import type { ConsoleHttpRequest } from '../../lib/console/hostProtocol';
 import type { DevtoolsRequestRecord, DevtoolsRequestStep, DevtoolsRoute } from '../../lib/console/protocol';
-import { type EndpointFocus, isAnswer, recordForResponse, STEP_LABELS } from '../requests/records';
+import { isAnswer, recordForResponse, STEP_LABELS } from '../requests/records';
 import { formatBytes } from '../runtime/format';
 import { Card, MethodBadge, Pill, Tabs, type Tone } from '../ui/components';
 import { highlightJson } from './highlight';
@@ -10,16 +10,18 @@ import type { HttpOutcome } from './http';
 import {
   ALL_METHOD_CHOICES,
   buildRequest,
-  draftFor,
   jsonProblem,
   type KeyValue,
   methodHasBody,
   type PathParam,
   pathParams,
+  prefilledDraft,
   reconcileDraft,
   repeatedKeys,
   type RequestDraft,
   requestUrl,
+  type RoutePrefill,
+  type SavedDraft,
 } from './requestBuilder';
 
 export const STATUS_TEXT: Record<number, string> = {
@@ -290,7 +292,10 @@ export interface RouteTesterProps {
   /** The request inspector's records, to show the chain that answered the shown response. */
   requests?: DevtoolsRequestRecord[];
   /** Path values and method to start from, e.g. from a replayed request. */
-  prefill?: Pick<EndpointFocus, 'params' | 'method'>;
+  prefill?: RoutePrefill;
+  /** The form as the user left it when this route was last open; it wins over `prefill`'s values. */
+  saved?: SavedDraft;
+  onDraft?: (saved: SavedDraft) => void;
 }
 
 interface Shown {
@@ -301,19 +306,6 @@ interface Shown {
   sentAt?: number;
   at: number;
 }
-
-const prefilledDraft = (route: DevtoolsRoute, prefill: RouteTesterProps['prefill']): RequestDraft => {
-  const draft = draftFor(route);
-  const params = Object.fromEntries(
-    Object.keys(draft.params).map((name) => [name, prefill?.params?.[name] ?? draft.params[name] ?? '']),
-  );
-  const method =
-    route.httpMethod === 'ALL' && prefill?.method && (ALL_METHOD_CHOICES as readonly string[]).includes(prefill.method)
-      ? prefill.method
-      : draft.method;
-
-  return { ...draft, params, method };
-};
 
 const firstTab = (route: DevtoolsRoute, params: PathParam[]): RequestTab => {
   if (route.hasBodySchema && methodHasBody(route.httpMethod === 'ALL' ? 'GET' : route.httpMethod)) return 'body';
@@ -332,16 +324,22 @@ export const RouteTester = ({
   gen = null,
   requests = [],
   prefill,
+  saved,
+  onDraft,
 }: RouteTesterProps) => {
   const params = pathParams(route.path);
   const prefills = prefilledDraft(route, prefill);
-  const [draft, setDraft] = useState<RequestDraft>(prefills);
-  const [draftFrom, setDraftFrom] = useState(prefills);
+  const [draft, setDraft] = useState<RequestDraft>(saved?.draft ?? prefills);
+  const [draftFrom, setDraftFrom] = useState(saved?.from ?? prefills);
 
   if (JSON.stringify(prefills) !== JSON.stringify(draftFrom)) {
     setDraftFrom(prefills);
     setDraft(reconcileDraft(draft, draftFrom, prefills));
   }
+
+  useEffect(() => {
+    onDraft?.({ draft, from: draftFrom, ...(prefill ? { prefill } : {}) });
+  }, [draft, draftFrom]);
 
   const [tab, setTab] = useState<RequestTab>(() => firstTab(route, params));
   const [sending, setSending] = useState(false);

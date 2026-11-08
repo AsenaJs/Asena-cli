@@ -56,6 +56,35 @@ export const draftFor = (route: DevtoolsRoute): RequestDraft => {
   };
 };
 
+/** Path values and method to start a route's form from, e.g. from a replayed request. */
+export interface RoutePrefill {
+  params?: Record<string, string>;
+  method?: string;
+}
+
+export const prefilledDraft = (route: DevtoolsRoute, prefill: RoutePrefill | undefined): RequestDraft => {
+  const draft = draftFor(route);
+  const params = Object.fromEntries(
+    Object.keys(draft.params).map((name) => [name, prefill?.params?.[name] ?? draft.params[name] ?? '']),
+  );
+  const method =
+    route.httpMethod === 'ALL' && prefill?.method && (ALL_METHOD_CHOICES as readonly string[]).includes(prefill.method)
+      ? prefill.method
+      : draft.method;
+
+  return { ...draft, params, method };
+};
+
+/** A route's form as the user left it: the draft, the prefills it started from, and the prefill those came from. */
+export interface SavedDraft {
+  draft: RequestDraft;
+  from: RequestDraft;
+  prefill?: RoutePrefill;
+}
+
+/** By route key. */
+export type SavedDrafts = Record<string, SavedDraft>;
+
 /**
  * `draft` moved from the prefills in `from` to those in `to`: what the user changed stays, what they left alone follows
  * `to`, and a parameter `to` does not have goes.

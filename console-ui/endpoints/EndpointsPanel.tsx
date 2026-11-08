@@ -8,6 +8,7 @@ import { Card, MethodBadge } from '../ui/components';
 import { Icon } from '../ui/icons';
 import { addToHistory, type HttpHistory, loadHistory, saveHistory } from './history';
 import { type HttpOutcome, sendHttp } from './http';
+import type { RoutePrefill, SavedDraft, SavedDrafts } from './requestBuilder';
 import { RouteTester } from './RouteTester';
 import { WebSocketTester } from './WebSocketTester';
 
@@ -21,6 +22,9 @@ export interface EndpointsPanelProps {
   token: string | null;
   /** The route to select first, e.g. picked in the graph's inspector or replayed from the request inspector. */
   focus: EndpointFocus | null;
+  /** Each route's form as the user left it, kept by the shell so a remount resumes it; the panel keeps its own without. */
+  drafts?: SavedDrafts;
+  onDraft?: (key: string, saved: SavedDraft) => void;
   /** The request inspector's records, for the chain under each response. */
   requests?: DevtoolsRequestRecord[];
   storage?: StorageLike | null;
@@ -66,6 +70,25 @@ export const reconcileSelection = (selection: Selection | null, snapshot: Devtoo
   return null;
 };
 
+/** A replay is applied once: opening a route with values from a record forgets the draft that route had. */
+export const draftsForOpen = (drafts: SavedDrafts, focus: EndpointFocus): SavedDrafts => {
+  if (focus.params === undefined && focus.method === undefined) return drafts;
+
+  return Object.fromEntries(Object.entries(drafts).filter(([key]) => key !== focus.key));
+};
+
+const testerStart = (
+  saved: SavedDraft | undefined,
+  focus: EndpointFocus | null,
+): { saved?: SavedDraft; prefill?: RoutePrefill } => {
+  if (saved) return saved.prefill ? { saved, prefill: saved.prefill } : { saved };
+  if (!focus) return {};
+
+  return {
+    prefill: { ...(focus.params ? { params: focus.params } : {}), ...(focus.method ? { method: focus.method } : {}) },
+  };
+};
+
 const selectionLabel = (selection: Selection): string =>
   selection.kind === 'http' ? selection.key : `WS /${selection.namespace}`;
 
@@ -100,6 +123,8 @@ export const EndpointsPanel = ({
   gen = null,
   token,
   focus,
+  drafts: shellDrafts,
+  onDraft: onShellDraft,
   requests = [],
   storage = browserStorage(),
   send = sendHttp,
@@ -108,6 +133,10 @@ export const EndpointsPanel = ({
   const [selectedIn, setSelectedIn] = useState(snapshot);
   const [gone, setGone] = useState<string | null>(null);
   const [history, setHistory] = useState<HttpHistory>(() => loadHistory(storage));
+  const [ownDrafts, setOwnDrafts] = useState<SavedDrafts>({});
+  const drafts = shellDrafts ?? ownDrafts;
+  const onDraft =
+    onShellDraft ?? ((key: string, saved: SavedDraft) => setOwnDrafts((current) => ({ ...current, [key]: saved })));
 
   if (snapshot !== selectedIn) {
     const kept = reconcileSelection(selection, snapshot);
@@ -198,7 +227,8 @@ export const EndpointsPanel = ({
           port={hello?.port ?? null}
           gen={gen}
           requests={requests}
-          {...(focus?.key === routeKey(route) ? { prefill: focus } : {})}
+          {...testerStart(drafts[routeKey(route)], focus?.key === routeKey(route) ? focus : null)}
+          onDraft={(saved) => onDraft(routeKey(route), saved)}
           onRecord={(entry) => updateHistory((current) => addToHistory(current, routeKey(route), entry))}
           onClearHistory={() => updateHistory((current) => ({ ...current, [routeKey(route)]: [] }))}
         />

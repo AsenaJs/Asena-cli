@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { type ConsoleHttpRequest, isConsoleHttpRequest } from '../../../lib/console/hostProtocol';
 import type { DevtoolsHello, DevtoolsRoute, DevtoolsSnapshot } from '../../../lib/console/protocol';
 import {
+  draftsForOpen,
   EndpointsPanel,
   groupByController,
   NoSelection,
@@ -26,10 +27,13 @@ import {
   fillPath,
   jsonProblem,
   pathParams,
+  prefilledDraft,
   prettyBody,
   reconcileDraft,
   repeatedKeys,
   requestUrl,
+  type SavedDraft,
+  type SavedDrafts,
 } from '../../../console-ui/endpoints/requestBuilder';
 import { highlightJson } from '../../../console-ui/endpoints/highlight';
 import { ChainView, ResponseView, RouteTester } from '../../../console-ui/endpoints/RouteTester';
@@ -488,6 +492,36 @@ describe('endpoints panel rendering', () => {
     expect(html).toContain('<span class="param" title=":*">lamp front.png</span>');
     expect(html).not.toContain('Fill in');
     expect(html).toContain('send the request to see the chain that answers it');
+  });
+
+  describe('a replay prefills once', () => {
+    const replay = { key: 'GET /items/images/*', params: { '*': 'lamp front.png' }, method: 'GET' };
+    const replayed = prefilledDraft(images, replay);
+    const edited: SavedDraft = {
+      draft: { ...replayed, params: { '*': 'edited.png' } },
+      from: replayed,
+      prefill: { params: replay.params, method: replay.method },
+    };
+
+    test('a route picked again opens on the draft the user left, not on the replay', () => {
+      const html = panel({ focus: replay, drafts: { [replay.key]: edited } });
+
+      expect(html).toContain('<span class="param" title=":*">edited.png</span>');
+      expect(html).not.toContain('lamp front.png');
+    });
+
+    test('a value the user left alone keeps the replayed value when the tester opens again', () => {
+      const html = panel({ focus: { key: replay.key }, drafts: { [replay.key]: { ...edited, draft: replayed } } });
+
+      expect(html).toContain('<span class="param" title=":*">lamp front.png</span>');
+    });
+
+    test('a new replay of the route forgets its draft, and a link without values keeps it', () => {
+      const drafts: SavedDrafts = { [replay.key]: edited, 'GET /items/:id': edited };
+
+      expect(Object.keys(draftsForOpen(drafts, replay))).toEqual(['GET /items/:id']);
+      expect(draftsForOpen(drafts, { key: replay.key })).toBe(drafts);
+    });
   });
 
   test('says why it cannot send without a running app or a token', () => {
