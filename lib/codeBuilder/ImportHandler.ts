@@ -57,9 +57,19 @@ export class ImportHandler {
     // Only add ./ prefix for relative paths that don't already have it
     const prefix = isRelativePath || isNpmPackage ? '' : './';
 
-    return importType === ImportType.IMPORT
-      ? `import {${imports.join(',')}} from '${prefix}${filePath}'; \n`
-      : `const {${imports.join(',')}} = require('${prefix}${filePath}'); \n`;
+    const from = `${prefix}${filePath}`;
+
+    if (importType === ImportType.IMPORT) {
+      return `import {${imports.join(',')}} from '${from}'; \n`;
+    }
+
+    const types = imports.filter((name) => name.startsWith('type ')).map((name) => name.slice('type '.length));
+    const values = imports.filter((name) => !name.startsWith('type '));
+
+    return (
+      (types.length > 0 ? `import type {${types.join(',')}} from '${from}'; \n` : '') +
+      (values.length > 0 ? `const {${values.join(',')}} = require('${from}'); \n` : '')
+    );
   }
 
   private init() {

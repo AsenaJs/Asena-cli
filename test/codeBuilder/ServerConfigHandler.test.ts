@@ -8,18 +8,16 @@ describe('ServerConfigHandler', () => {
 
     expect(result.code).toContain('@Config()');
     expect(result.code).toContain('export class ServerConfig extends ConfigService');
-    expect(result.code).toContain('onError');
-    expect(result.code).toContain('error: Error');
-    expect(result.code).toContain('context: Context');
   });
 
-  it('should have minimal onError implementation', () => {
+  // Errors belong to `asena generate exception-handler`; a scaffolded onError would steer every new
+  // project onto the hook that is deprecated in core 0.13.
+  it('should not emit an onError hook', () => {
     const handler = new ServerConfigHandler('');
     const result = handler.addConfigClass('ServerConfig');
 
-    expect(result.code).toContain('console.error');
-    expect(result.code).toContain('error.message');
-    expect(result.code).toContain('context.send');
+    expect(result.code).not.toContain('onError');
+    expect(result.code).not.toContain('Context');
   });
 
   it('should allow custom class names', () => {

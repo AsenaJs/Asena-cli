@@ -1,0 +1,12 @@
+14 |   throw new Error('boom');
+15 | }
+16 | 
+17 | async function rename(): Promise<never> {
+18 |   await Bun.sleep(1);
+19 |   throw new ItemConflictError('lamp');
+             ^
+ItemConflictError: name "lamp" is taken
+ code: "E_CONFLICT"
+
+      at rename (/app/errors.ts:19:9)
+

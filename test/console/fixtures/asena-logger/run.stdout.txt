@@ -1,0 +1,114 @@
+2026-11-08 11:11:15 [[32mINFO[0m]: 	
+    ___    _____  ______ _   __ ___ 
+   /   |  / ___/ / ____// | / //   |
+
+2026-11-08 11:11:15 [[32mINFO[0m]: 	Server running at http://localhost:3000
+2026-11-08 11:11:15 [[32mINFO[0m]: 	Backup of 2026-11-06 01:19:47 finished
+2026-11-08 11:11:15 [[32mINFO[0m]: 	2026-01-01 00:00:00 was the last backup
+2026-11-08 11:11:15 [[33mWARN[0m]: 	Config.onError() is deprecated
+2026-11-08 11:11:15 [[33mWARN[0m]: 	TaskQueue error: Queue is full {
+ "path": "/v1/auth/login",
+ "method": "POST",
+ "status": 401,
+ "errorType": "Error",
+ "stack": "Error: Queue is full\n    at failing (/app/write.ts:9:15)\n    at failure (/app/write.ts:16:17)\n    at /app/write.ts:26:47"
+}
+Error: Queue is full
+    at failing (/app/write.ts:9:15)
+    at failure (/app/write.ts:16:17)
+    at /app/write.ts:26:47
+2026-11-08 11:11:15 [[32mINFO[0m]: 	Retry scheduled {
+ "path": "/v1/auth/login",
+ "method": "POST",
+ "status": 401,
+ "errorType": "Error",
+ "stack": "Error: Retried\n    at failing (/app/write.ts:9:15)\n    at failure (/app/write.ts:16:17)\n    at /app/write.ts:27:32"
+}
+Error: Retried
+    at failing (/app/write.ts:9:15)
+    at failure (/app/write.ts:16:17)
+    at /app/write.ts:27:32
+2026-11-08 11:11:15 [[31mERROR[0m]: 	Auth error: User 0 not found {
+ "path": "/v1/auth/login",
+ "method": "POST",
+ "status": 401,
+ "errorType": "Error",
+ "stack": "Error: User not found\n    at failing (/app/write.ts:9:15)\n    at failure (/app/write.ts:16:17)\n    at /app/write.ts:29:93"
+}
+Error: User not found
+    at failing (/app/write.ts:9:15)
+    at failure (/app/write.ts:16:17)
+    at /app/write.ts:29:93
+2026-11-08 11:11:15 [[31mERROR[0m]: 	Auth error: User 1 not found {
+ "path": "/v1/auth/login",
+ "method": "POST",
+ "status": 401,
+ "errorType": "Error",
+ "stack": "Error: User not found\n    at failing (/app/write.ts:9:15)\n    at failure (/app/write.ts:16:17)\n    at /app/write.ts:29:93"
+}
+Error: User not found
+    at failing (/app/write.ts:9:15)
+    at failure (/app/write.ts:16:17)
+    at /app/write.ts:29:93
+2026-11-08 11:11:15 [[31mERROR[0m]: 	Auth error: User 2 not found {
+ "path": "/v1/auth/login",
+ "method": "POST",
+ "status": 401,
+ "errorType": "Error",
+ "stack": "Error: User not found\n    at failing (/app/write.ts:9:15)\n    at failure (/app/write.ts:16:17)\n    at /app/write.ts:29:93"
+}
+Error: User not found
+    at failing (/app/write.ts:9:15)
+    at failure (/app/write.ts:16:17)
+    at /app/write.ts:29:93
+2026-11-08 11:11:15 [[31mERROR[0m]: 	Auth error: User 3 not found {
+ "path": "/v1/auth/login",
+ "method": "POST",
+ "status": 401,
+ "errorType": "Error",
+ "stack": "Error: User not found\n    at failing (/app/write.ts:9:15)\n    at failure (/app/write.ts:16:17)\n    at /app/write.ts:29:93"
+}
+Error: User not found
+    at failing (/app/write.ts:9:15)
+    at failure (/app/write.ts:16:17)
+    at /app/write.ts:29:93
+2026-11-08 11:11:15 [[31mERROR[0m]: 	Auth error: User 4 not found {
+ "path": "/v1/auth/login",
+ "method": "POST",
+ "status": 401,
+ "errorType": "Error",
+ "stack": "Error: User not found\n    at failing (/app/write.ts:9:15)\n    at failure (/app/write.ts:16:17)\n    at /app/write.ts:29:93"
+}
+Error: User not found
+    at failing (/app/write.ts:9:15)
+    at failure (/app/write.ts:16:17)
+    at /app/write.ts:29:93
+2026-11-08 11:11:15 [[31mERROR[0m]: 	Auth error: User 5 not found {
+ "path": "/v1/auth/login",
+ "method": "POST",
+ "status": 401,
+ "errorType": "Error",
+ "stack": "Error: User not found\n    at failing (/app/write.ts:9:15)\n    at failure (/app/write.ts:16:17)\n    at /app/write.ts:29:93"
+}
+Error: User not found
+    at failing (/app/write.ts:9:15)
+    at failure (/app/write.ts:16:17)
+    at /app/write.ts:29:93
+2026-11-08 11:11:15 [[31mERROR[0m]: 	Auth error: User 6 not found {
+ "path": "/v1/auth/login",
+ "method": "POST",
+ "status": 401,
+ "errorType": "Error",
+ "stack": "Error: User not found\n    at failing (/app/write.ts:9:15)\n    at failure (/app/write.ts:16:17)\n    at /app/write.ts:29:93"
+}
+Error: User not found
+    at failing (/app/write.ts:9:15)
+    at failure (/app/write.ts:16:17)
+    at /app/write.ts:29:93
+2026-11-08 11:11:15 [[31mERROR[0m]: 	Validation error {
+ "path": "/v1/tasks",
+ "method": "POST",
+ "status": 400,
+ "errorType": "ZodError"
+}
+2026-11-08 11:11:15 [[31mERROR[0m]: 	Lost the connection to the broker

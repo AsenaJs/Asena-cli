@@ -215,6 +215,36 @@ const x = 1;
 
       expect(result.indexOf('require')).toBeLessThan(result.indexOf('const x'));
     });
+
+    it('should emit type-only names as an import type line, not inside require', () => {
+      const handler = new ImportHandler('', ImportType.REQUIRE);
+      const result = handler.importToCode(
+        {
+          '@asenajs/asena/exception': ['Catch', 'type ExceptionContext'],
+        },
+        ImportType.REQUIRE,
+      );
+
+      expect(result).toContain("import type {ExceptionContext} from '@asenajs/asena/exception'");
+
+      expect(result).toContain("const {Catch} = require('@asenajs/asena/exception')");
+
+      expect(result).not.toContain('type ExceptionContext}');
+    });
+
+    it('should emit no require when every name is type-only', () => {
+      const handler = new ImportHandler('', ImportType.REQUIRE);
+      const result = handler.importToCode(
+        {
+          '@asenajs/hono-adapter': ['type Context'],
+        },
+        ImportType.REQUIRE,
+      );
+
+      expect(result).toContain("import type {Context} from '@asenajs/hono-adapter'");
+
+      expect(result).not.toContain('require(');
+    });
   });
 
   describe('Edge Cases and Error Handling', () => {

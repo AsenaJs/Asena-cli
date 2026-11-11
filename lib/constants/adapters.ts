@@ -55,7 +55,7 @@ export const ERGENECORE_MIDDLEWARE_IMPORTS: ImportsByFiles = {
  */
 export const HONO_CONFIG_IMPORTS: ImportsByFiles = {
   '@asenajs/asena/decorators': ['Config'],
-  '@asenajs/hono-adapter': ['ConfigService', 'type Context'],
+  '@asenajs/hono-adapter': ['ConfigService'],
 };
 
 /**
@@ -63,7 +63,7 @@ export const HONO_CONFIG_IMPORTS: ImportsByFiles = {
  */
 export const ERGENECORE_CONFIG_IMPORTS: ImportsByFiles = {
   '@asenajs/asena/decorators': ['Config'],
-  '@asenajs/ergenecore': ['ConfigService', 'type Context'],
+  '@asenajs/ergenecore': ['ConfigService'],
 };
 
 /**
@@ -82,6 +82,26 @@ export const ERGENECORE_VALIDATOR_IMPORTS: ImportsByFiles = {
   '@asenajs/asena/decorators': ['Middleware'],
   '@asenajs/ergenecore': ['ValidationService'],
   zod: ['z'],
+};
+
+/**
+ * Hono Adapter imports for exception handler files
+ */
+export const HONO_EXCEPTION_HANDLER_IMPORTS: ImportsByFiles = {
+  '@asenajs/asena/decorators': ['ExceptionHandler'],
+  '@asenajs/asena/exception': ['Catch', 'type ExceptionContext'],
+  '@asenajs/asena/adapter': ['isHttpException'],
+  '@asenajs/hono-adapter': ['type Context'],
+};
+
+/**
+ * Ergenecore Adapter imports for exception handler files
+ */
+export const ERGENECORE_EXCEPTION_HANDLER_IMPORTS: ImportsByFiles = {
+  '@asenajs/asena/decorators': ['ExceptionHandler'],
+  '@asenajs/asena/exception': ['Catch', 'type ExceptionContext'],
+  '@asenajs/asena/adapter': ['isHttpException'],
+  '@asenajs/ergenecore': ['type Context'],
 };
 
 /**

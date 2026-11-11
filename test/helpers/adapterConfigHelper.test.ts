@@ -237,12 +237,30 @@ describe('adapterConfigHelper', () => {
       const middlewareSuffix = await resolveSuffix('middleware');
       const configSuffix = await resolveSuffix('config');
       const websocketSuffix = await resolveSuffix('websocket');
+      const exceptionHandlerSuffix = await resolveSuffix('exceptionHandler');
 
       expect(controllerSuffix).toBe('Controller');
       expect(serviceSuffix).toBe('Service');
       expect(middlewareSuffix).toBe('Middleware');
       expect(configSuffix).toBe('Config');
       expect(websocketSuffix).toBe('Namespace');
+      expect(exceptionHandlerSuffix).toBe('ExceptionHandler');
+
+      process.chdir(ORIGINAL_CWD);
+    });
+
+    it('should honour a granular exceptionHandler suffix and declare it in the schema', async () => {
+      process.chdir(TEST_DIR);
+      await rm(path.join(TEST_DIR, '.asena'), { recursive: true, force: true });
+
+      await writeAdapterConfig({ adapter: 'hono', suffixes: { exceptionHandler: 'Errors' } });
+
+      expect(await resolveSuffix('exceptionHandler')).toBe('Errors');
+
+      // The schema sets additionalProperties: false, so an undeclared key is flagged by the editor.
+      const granular = CONFIG_SCHEMA.properties.suffixes.oneOf[1] as { properties: Record<string, unknown> };
+
+      expect(granular.properties).toHaveProperty('exceptionHandler');
 
       process.chdir(ORIGINAL_CWD);
     });

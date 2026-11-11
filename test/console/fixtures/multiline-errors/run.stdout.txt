@@ -1,0 +1,37 @@
+2026-11-07 14:28:55 [[31mERROR[0m]: 	[
+  {
+    "expected": "string",
+    "code": "invalid_type",
+    "path": [
+      "title"
+    ],
+    "message": "Invalid input: expected string, received number"
+  },
+  {
+    "expected": "number",
+    "code": "invalid_type",
+    "path": [
+      "points"
+    ],
+    "message": "Invalid input: expected number, received undefined"
+  }
+]
+ZodError
+2026-11-07 14:28:55 [[31mERROR[0m]: 	Validation error {
+ "path": "/v1/items",
+ "status": 400,
+ "errorType": "ZodError",
+ "stack": "ZodError"
+}
+ZodError
+2026-11-07 14:28:55 [[31mERROR[0m]: 	Import failed {
+ "path": "/v1/items",
+ "status": 500,
+ "errorType": "Error",
+ "stack": "Error: first line\nsecond line\n  third line\n    at /app/write.ts:18:23"
+}
+Error: first line
+second line
+  third line
+    at /app/write.ts:18:23
+2026-11-07 14:28:55 [[32mINFO[0m]: 	after

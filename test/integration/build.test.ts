@@ -1,10 +1,12 @@
-import { afterEach, describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { Build } from '../../lib/commands/Build';
 import { spawn } from 'bun';
 import { copySampleApp, findAsenaJsFiles, FIXTURE_DIR, listFilesRecursively } from '../utils/fixtureCopy';
+
+const CLI = path.resolve(import.meta.dir, '../../bin/asena.ts');
 
 describe('Build integration (sample-app fixture)', () => {
   const originalCwd = process.cwd();
@@ -130,4 +132,49 @@ describe('Build integration (sample-app fixture)', () => {
       fs.rmSync(runDir, { recursive: true, force: true });
     }
   }, 20_000);
+});
+
+describe('asena build CLI', () => {
+  let projectDir: string;
+
+  beforeEach(() => {
+    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'asena-build-cli-'));
+    copySampleApp(projectDir);
+  });
+
+  afterEach(() => {
+    fs.rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  const runCli = async () => {
+    const child = Bun.spawn([process.execPath, CLI, 'build'], {
+      cwd: projectDir,
+      stdin: 'ignore',
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+
+    const [stdout, stderr, code] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ]);
+
+    return { stdout, stderr, code };
+  };
+
+  it('exits with a non-zero code and logs the error when bundling fails', async () => {
+    fs.appendFileSync(path.join(projectDir, 'src', 'index.ts'), "\nimport './does-not-exist';\n");
+
+    const { stderr, code } = await runCli();
+
+    expect(code).not.toBe(0);
+    expect(stderr).toContain('Build failed:');
+  });
+
+  it('exits with code 0 when the project builds', async () => {
+    const { code } = await runCli();
+
+    expect(code).toBe(0);
+  });
 });

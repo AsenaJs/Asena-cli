@@ -1,0 +1,739 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 13.5px/1.5 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+}
+
+code,
+pre,
+.mono {
+  font-family: var(--font-mono);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.muted {
+  color: var(--ink-3);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -40px;
+  z-index: 10;
+  padding: 6px 10px;
+  border-radius: var(--r-md);
+  background: var(--surface-solid);
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+}
+
+.skip-link:focus {
+  top: 12px;
+}
+
+/* ---------- card ---------- */
+.card {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.section-head h2,
+.section-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* ---------- pill ---------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pill .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pill.ok {
+  color: var(--ok);
+  background: var(--ok-soft);
+}
+
+.pill.warn {
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.pill.bad {
+  color: var(--bad);
+  background: var(--bad-soft);
+}
+
+.pill.neutral {
+  color: var(--ink-2);
+  background: var(--sunken);
+}
+
+.pill.ok .dot {
+  box-shadow: 0 0 0 3px var(--ok-soft);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+
+/* ---------- buttons ---------- */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-solid);
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.icon-btn:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.icon-btn:disabled {
+  opacity: 0.5;
+}
+
+.icon-btn[aria-pressed='true'] {
+  background: var(--sunken);
+  color: var(--ink);
+}
+
+.icon-btn.only-icon {
+  padding: 6px;
+}
+
+.icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.send {
+  border: 0;
+  border-radius: var(--r-md);
+  padding: 9px 18px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.send:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.send:disabled {
+  opacity: 0.5;
+}
+
+.send kbd {
+  font: 600 10.5px/1 var(--font-mono);
+  padding: 3px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.link-btn {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent-ink);
+  font-weight: 600;
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+}
+
+/* A link inside a list or a secondary action: the teal is kept for links that leave the view. */
+.link-btn.quiet {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.link-btn.quiet.mono {
+  font-family: var(--font-mono);
+}
+
+.add-row {
+  justify-self: start;
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+  border-radius: var(--r-sm);
+  padding: 5px 10px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.add-row:hover {
+  color: var(--ink);
+}
+
+/* ---------- chip, tag, glyph, method ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface-solid);
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.chip[aria-pressed='false'] {
+  opacity: 0.45;
+}
+
+.chip i {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+  display: block;
+}
+
+.tag {
+  font: 600 10px/1 var(--font-ui);
+  padding: 3px 6px;
+  border-radius: 99px;
+  background: var(--sunken);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.tag.mw {
+  color: var(--t-middleware);
+  background: color-mix(in srgb, var(--t-middleware) 12%, transparent);
+}
+
+.glyph {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--c) 13%, transparent);
+  color: var(--c);
+  font: 700 11px/1 var(--font-mono);
+}
+
+.glyph.large {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  font-size: 12px;
+}
+
+.method {
+  display: inline-block;
+  font: 700 10.5px/1 var(--font-mono);
+  padding: 4px 6px;
+  border-radius: 5px;
+  min-width: 44px;
+  text-align: center;
+  color: var(--ink-2);
+  background: var(--sunken);
+}
+
+.m-get {
+  color: var(--t-controller);
+  background: color-mix(in srgb, var(--t-controller) 13%, transparent);
+}
+
+.m-post {
+  color: var(--ok);
+  background: var(--ok-soft);
+}
+
+.m-put,
+.m-patch {
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.m-delete {
+  color: var(--bad);
+  background: var(--bad-soft);
+}
+
+.m-ws {
+  color: var(--t-ws);
+  background: color-mix(in srgb, var(--t-ws) 13%, transparent);
+}
+
+/* ---------- search, inputs ---------- */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-solid);
+  min-width: 200px;
+}
+
+.search:focus-within {
+  border-color: var(--line-strong);
+}
+
+.search .icon {
+  width: 14px;
+  height: 14px;
+  stroke: var(--ink-3);
+  stroke-width: 2;
+}
+
+.search input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  width: 100%;
+  font-size: 13px;
+}
+
+.input,
+.textarea,
+.select {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-solid);
+  font: 400 12.5px/1.4 var(--font-mono);
+}
+
+.textarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.input:focus,
+.textarea:focus,
+.select:focus {
+  border-color: var(--line-strong);
+}
+
+.input:disabled,
+.textarea:disabled {
+  color: var(--ink-3);
+  background: var(--sunken);
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--accent);
+}
+
+.field-error {
+  margin: 0;
+  color: var(--bad);
+  font-size: 12px;
+}
+
+/* ---------- tabs ---------- */
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 10px 0;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.tabs button {
+  border: 0;
+  background: transparent;
+  padding: 7px 10px 9px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-3);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.tabs button:hover {
+  color: var(--ink-2);
+}
+
+.tabs button[aria-selected='true'] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+.tabs .badge {
+  font-size: 10.5px;
+  color: var(--ink-3);
+  margin-left: 4px;
+}
+
+/* ---------- segmented control ---------- */
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface-solid);
+}
+
+.seg button {
+  border: 0;
+  background: transparent;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: var(--ink-2);
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.seg button + button {
+  border-left: 1px solid var(--line);
+}
+
+.seg button[aria-pressed='true'] {
+  background: var(--sunken);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.seg .n {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+
+/* ---------- key/value, list ---------- */
+.kv {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 12px;
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.kv dt {
+  color: var(--ink-3);
+}
+
+.kv dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-solid);
+  font-size: 12.5px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.list .grow {
+  flex: 1 1 40%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list .sub {
+  display: block;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+/* ---------- table, toolbar ---------- */
+.table-wrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.table th {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table .right {
+  text-align: right;
+}
+
+.table tbody tr[tabindex] {
+  cursor: pointer;
+}
+
+.table tbody tr[tabindex]:hover {
+  background: var(--hover);
+}
+
+.table tbody tr[aria-current='true'] {
+  background: var(--sunken);
+}
+
+.table-note {
+  padding: 12px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.toolbar .search {
+  flex: 1 1 220px;
+}
+
+.toolbar-select {
+  width: auto;
+  font-family: var(--font-ui);
+}
+
+.toolbar-count {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+/* ---------- code ---------- */
+.code {
+  margin: 0;
+  font: 400 12.5px/1.65 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.code .k {
+  color: var(--code-key);
+}
+
+.code .s {
+  color: var(--code-str);
+}
+
+.code .n {
+  color: var(--code-num);
+}
+
+.code .p {
+  color: var(--ink-3);
+}
+
+/* ---------- notices and empty states ---------- */
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-solid);
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+
+.notice.bad {
+  border-color: color-mix(in srgb, var(--bad) 35%, transparent);
+  background: var(--bad-soft);
+  color: var(--ink);
+}
+
+.empty {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  max-width: 560px;
+  padding: 28px;
+}
+
+.empty h2 {
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+.empty p {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.empty p.muted {
+  color: var(--ink-3);
+}
+
+.loading-bar {
+  height: 2px;
+  background: var(--accent);
+  transform-origin: left;
+  transform: scaleX(0);
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+}
+
+.loading-bar.go {
+  animation: load 0.45s ease-out forwards;
+}
+
+@keyframes load {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill.ok .dot,
+  .loading-bar.go {
+    animation: none;
+  }
+}

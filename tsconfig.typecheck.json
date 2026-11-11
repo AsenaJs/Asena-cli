@@ -30,7 +30,7 @@
     // decorated field (`@Inject() public override foo: Foo`). The overwrite is the point.
     "useDefineForClassFields": false
   },
-  "include": ["lib/**/*.ts", "bin/**/*.ts", "test/**/*.ts"],
+  "include": ["lib/**/*.ts", "bin/**/*.ts", "test/**/*.ts", "test/**/*.tsx"],
   // test/fixtures/** is not part of this package's program: it is a throwaway project the
   // CLI *scans* from disk (componentDetection.test.ts points the scanner at it). It imports
   // "@asenajs/asena-cli" by package name - a self-reference that cannot resolve from inside

@@ -6,7 +6,8 @@ export type AdapterType = 'hono' | 'ergenecore';
 /**
  * Component types that can have suffixes
  */
-export type ComponentType = 'controller' | 'service' | 'middleware' | 'validator' | 'config' | 'websocket';
+export type ComponentType =
+  'controller' | 'service' | 'middleware' | 'validator' | 'config' | 'websocket' | 'exceptionHandler';
 
 /**
  * Suffix configuration for a component
@@ -26,6 +27,7 @@ export interface SuffixSettings {
   validator?: SuffixConfig;
   config?: SuffixConfig;
   websocket?: SuffixConfig;
+  exceptionHandler?: SuffixConfig;
 }
 
 /**

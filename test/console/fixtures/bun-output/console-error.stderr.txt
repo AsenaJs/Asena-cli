@@ -1,0 +1,10 @@
+28 | };
+29 | 
+30 | switch (process.argv[2]) {
+31 |   case 'console-error':
+32 |     console.log('before');
+33 |     console.error(new Error('boom'));
+                           ^
+error: boom
+      at /app/errors.ts:33:23
+

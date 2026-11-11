@@ -1,0 +1,527 @@
+import fs from 'fs';
+import path from 'path';
+import type { Server, ServerWebSocket } from 'bun';
+import { AppSupervisor, type AppSupervisorOptions } from './AppSupervisor';
+import {
+  CONSOLE_ASSETS_PREFIX,
+  CONSOLE_HTTP_PROXY_PATH,
+  CONSOLE_PROTOCOL_VERSION,
+  CONSOLE_REPLAY_LIMITS,
+  CONSOLE_TOKEN_PARAM,
+  CONSOLE_WS_PATH,
+  type ConsoleChildStatus,
+  type ConsoleHostMessage,
+  type ConsoleHttpError,
+  type ConsoleLogLine,
+  type ConsoleRequestRecord,
+  type ConsoleRun,
+  type ConsoleRunCause,
+  type ConsoleServerInfo,
+  type ConsoleSnapshotStateMessage,
+  isConsoleBrowserMessage,
+  isConsoleHttpRequest,
+} from './hostProtocol';
+import { proxyHttpRequest } from './httpProxy';
+import {
+  type DevtoolsAgentMessage,
+  type DevtoolsCommandResult,
+  type DevtoolsMetrics,
+  agentMessage,
+  DEVTOOLS_PROTOCOL_VERSION,
+  hostMessage,
+} from './protocol';
+import { ReplayBuffer } from './ReplayBuffer';
+import { createConsoleToken, hasConsoleToken } from './token';
+import { watchSourceFolder, type SourceWatcher } from './watch';
+
+export interface ConsoleHostOptions {
+  /** The console's own port; 0 picks a free one. */
+  port?: number;
+  token?: string;
+  /** The built console UI (`index.html` and `assets/`); null serves a placeholder page. */
+  uiDir?: string | null;
+  /** Restarts the app on a change below this directory. */
+  watchDir?: string;
+  watchDebounceMs?: number;
+  /** Bun's idle timeout for the console's own connections; proxied app requests are exempt. */
+  idleTimeoutSeconds?: number;
+  app: Omit<AppSupervisorOptions, 'onStatus' | 'onLog' | 'onAgentMessage' | 'onInvalidMessage'>;
+  /** Where the host's own warnings go; defaults to `console.warn`. */
+  warn?: (message: string) => void;
+  /** The app's IANA time zone; defaults to this process's, which an app spawned with its env shares. */
+  timeZone?: string;
+  /** How long a started app may run without its agent's hello before the host says so. */
+  agentTimeoutMs?: number;
+}
+
+const DEFAULT_AGENT_TIMEOUT_MS = 10_000;
+
+const TOPIC = 'console';
+
+const UI_NOT_BUILT = `<!doctype html><html><head><meta charset="utf-8"><title>Asena console</title></head>
+<body><p>The console UI is not built. Run <code>bun run build</code> in the CLI package.</p></body></html>`;
+
+const PAGE_HEADERS = { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' };
+
+const json = (status: number, body: unknown): Response => Response.json(body, { status, headers: PAGE_HEADERS });
+
+const proxyError = (status: number, reason: string): Response => json(status, { reason } satisfies ConsoleHttpError);
+
+const hostFailure = (id: string, message: string): DevtoolsCommandResult => ({
+  id,
+  ok: false,
+  error: { name: 'ConsoleHostError', message },
+});
+
+const listAssets = (uiDir: string | null | undefined): Map<string, string> => {
+  const assets = new Map<string, string>();
+
+  if (!uiDir) return assets;
+
+  const dir = path.join(uiDir, 'assets');
+
+  if (!fs.existsSync(dir)) return assets;
+
+  for (const file of fs.readdirSync(dir, { recursive: true, encoding: 'utf-8' })) {
+    const absolute = path.join(dir, file);
+
+    if (fs.statSync(absolute).isFile()) {
+      assets.set(`${CONSOLE_ASSETS_PREFIX}${file.split(path.sep).join('/')}`, absolute);
+    }
+  }
+
+  return assets;
+};
+
+/** The cause of a restart asked for while `pending` waits: two changes add up, and a path changed again is not removed. */
+export const foldCause = (pending: ConsoleRunCause | undefined, cause: ConsoleRunCause): ConsoleRunCause => {
+  if (pending?.kind !== 'change' || cause.kind !== 'change') return cause;
+
+  const removed = [
+    ...new Set([...(pending.removed ?? []).filter((file) => !cause.files.includes(file)), ...(cause.removed ?? [])]),
+  ];
+
+  return {
+    kind: 'change',
+    files: [...new Set([...pending.files, ...cause.files])],
+    ...(removed.length > 0 ? { removed } : {}),
+  };
+};
+
+/** The `asena console` host: serves the UI, relays the app's agent to every browser and owns the app's restarts. */
+export class ConsoleHost {
+  public readonly token: string;
+
+  public readonly supervisor: AppSupervisor;
+
+  private server?: Server<unknown>;
+
+  private watcher?: SourceWatcher;
+
+  private readonly assets: Map<string, string>;
+
+  private readonly indexHtml: string | null;
+
+  private child: ConsoleChildStatus = { gen: 0, state: 'starting' };
+
+  /** The current child's servers, in the order they attached. */
+  private servers: ConsoleServerInfo[] = [];
+
+  private readonly metrics = new ReplayBuffer<DevtoolsMetrics>(CONSOLE_REPLAY_LIMITS.metrics);
+
+  private readonly logs = new ReplayBuffer<ConsoleLogLine>(CONSOLE_REPLAY_LIMITS.logs);
+
+  private readonly requests = new ReplayBuffer<ConsoleRequestRecord>(CONSOLE_REPLAY_LIMITS.requests);
+
+  private readonly commandResults = new ReplayBuffer<DevtoolsCommandResult>(CONSOLE_REPLAY_LIMITS.commandResults);
+
+  /** The generation each forwarded command went to, until its result arrives. */
+  private readonly pendingCommands = new Map<string, number>();
+
+  private readonly warnedInvalid = new Set<number>();
+
+  private readonly runs: ConsoleRun[] = [];
+
+  private pendingCause?: ConsoleRunCause;
+
+  private nextLogSeq = 0;
+
+  private agentTimer?: ReturnType<typeof setTimeout>;
+
+  public constructor(private readonly options: ConsoleHostOptions) {
+    this.token = options.token ?? createConsoleToken();
+    this.assets = listAssets(options.uiDir);
+
+    const index = options.uiDir ? path.join(options.uiDir, 'index.html') : null;
+
+    this.indexHtml = index && fs.existsSync(index) ? fs.readFileSync(index, 'utf-8') : null;
+
+    this.supervisor = new AppSupervisor({
+      ...options.app,
+      onStatus: (status) => this.onStatus(status),
+      onLog: (line) => this.onLog(line),
+      onAgentMessage: (message, gen) => this.onAgentMessage(message, gen),
+      onInvalidMessage: (message, gen) => this.onInvalidMessage(message, gen),
+    });
+  }
+
+  public get port(): number {
+    if (!this.server?.port) throw new Error('The console host is not started');
+
+    return this.server.port;
+  }
+
+  public get url(): string {
+    return `http://127.0.0.1:${this.port}/?${CONSOLE_TOKEN_PARAM}=${this.token}`;
+  }
+
+  public async start(): Promise<void> {
+    this.server = Bun.serve<unknown>({
+      hostname: '127.0.0.1',
+      port: this.options.port ?? 0,
+      ...(this.options.idleTimeoutSeconds === undefined ? {} : { idleTimeout: this.options.idleTimeoutSeconds }),
+      fetch: (request, server) => this.handle(request, server),
+      websocket: {
+        open: (ws) => this.onBrowserOpen(ws),
+        message: (ws, data) => this.onBrowserMessage(ws, data),
+      },
+    });
+
+    await this.supervisor.start();
+
+    if (this.options.watchDir) {
+      this.watcher = watchSourceFolder(
+        this.options.watchDir,
+        (files, removed) => void this.restart({ kind: 'change', files, ...(removed.length > 0 ? { removed } : {}) }),
+        this.options.watchDebounceMs,
+        this.options.app.cwd,
+      );
+    }
+  }
+
+  /** Restarts the app; restarts asked for while one runs fold into it, changed paths adding up. */
+  public restart(cause: ConsoleRunCause = { kind: 'restart' }): Promise<void> {
+    this.pendingCause = foldCause(this.pendingCause, cause);
+
+    return this.supervisor.restart();
+  }
+
+  public async stop(): Promise<void> {
+    this.watcher?.close();
+    clearTimeout(this.agentTimer);
+    await this.supervisor.stop();
+    await this.server?.stop(true);
+  }
+
+  public snapshotState(): ConsoleSnapshotStateMessage {
+    return {
+      v: CONSOLE_PROTOCOL_VERSION,
+      type: 'snapshotState',
+      child: this.child,
+      servers: [...this.servers],
+      runs: [...this.runs],
+      metrics: this.metrics.toArray(),
+      logs: this.logs.toArray(),
+      requests: this.requests.toArray(),
+      commandResults: this.commandResults.toArray(),
+      timeZone: this.options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+  }
+
+  private warn(message: string): void {
+    (this.options.warn ?? console.warn)(message);
+  }
+
+  private broadcast(message: ConsoleHostMessage): void {
+    this.server?.publish(TOPIC, JSON.stringify(message));
+  }
+
+  private onStatus(reported: ConsoleChildStatus): void {
+    const at = Date.now();
+    let status: ConsoleChildStatus = { ...reported, at };
+
+    if (status.state !== 'starting') clearTimeout(this.agentTimer);
+
+    if (status.state === 'exited') {
+      const restarted = this.child.gen === status.gen && this.child.state === 'restarting';
+
+      this.failPendingCommands(status.gen, `The app ${restarted ? 'restarted' : 'exited'} before it answered`);
+    }
+
+    // A failed start reports only `exited` for its generation, so the boundary is the generation, not `starting`.
+    if (status.gen !== this.child.gen) {
+      this.servers = [];
+      this.metrics.clear();
+
+      const cause = this.pendingCause ?? (this.runs.length === 0 ? { kind: 'start' } : { kind: 'restart' });
+
+      this.pendingCause = undefined;
+      status = { ...status, cause };
+      this.runs.push({ gen: status.gen, startedAt: at, cause, state: status.state });
+      this.runs.splice(0, Math.max(0, this.runs.length - CONSOLE_REPLAY_LIMITS.runs));
+
+      if (status.state === 'starting') this.awaitAgent(status.gen);
+    }
+
+    const run = this.runs.at(-1);
+
+    if (run?.gen === status.gen) {
+      const { code, signal, endedBy } = status;
+
+      this.runs[this.runs.length - 1] = {
+        gen: run.gen,
+        startedAt: run.startedAt,
+        cause: run.cause,
+        state: status.state,
+        ...(code === undefined ? {} : { code }),
+        ...(signal === undefined ? {} : { signal }),
+        ...(endedBy === undefined ? {} : { endedBy }),
+      };
+    }
+
+    this.child = status;
+    this.broadcast({ v: CONSOLE_PROTOCOL_VERSION, type: 'child', ...status });
+  }
+
+  /** A child that never says hello would otherwise read as starting for as long as it runs. */
+  private awaitAgent(gen: number): void {
+    const timeout = this.options.agentTimeoutMs ?? DEFAULT_AGENT_TIMEOUT_MS;
+
+    clearTimeout(this.agentTimer);
+    this.agentTimer = setTimeout(() => {
+      const { pid, state } = this.child;
+
+      if (this.child.gen !== gen || state !== 'starting') return;
+
+      this.hostWarning(
+        gen,
+        `[asena console] The app's devtools agent has not reported yet (${timeout / 1000} s). It attaches when AsenaServer.start() finishes, and never under NODE_ENV=production. Until it reports, the console shows only the app's output.`,
+      );
+      this.onStatus({ gen, state: 'starting', ...(pid === undefined ? {} : { pid }), unattached: true });
+    }, timeout);
+  }
+
+  private onLog(line: Omit<ConsoleLogLine, 'seq'>): void {
+    const numbered: ConsoleLogLine = { seq: this.nextLogSeq++, ...line };
+
+    this.logs.push(numbered);
+    this.broadcast({ v: CONSOLE_PROTOCOL_VERSION, type: 'log', ...numbered });
+  }
+
+  /** A warning shown in the terminal and, as a stderr line of the app, in the UI. */
+  private hostWarning(gen: number, message: string): void {
+    this.warn(message);
+    this.onLog({ gen, stream: 'stderr', line: message, at: Date.now() });
+  }
+
+  private onAgentMessage(message: DevtoolsAgentMessage, gen: number): void {
+    switch (message.type) {
+      case 'hello':
+        this.servers = [
+          ...this.servers.filter((server) => server.hello.serverId !== message.payload.serverId),
+          { hello: message.payload },
+        ];
+        break;
+      case 'snapshot':
+        this.updateServer(message.payload.serverId, (server) => ({ ...server, snapshot: message.payload }));
+        break;
+      case 'serverStopped':
+        this.updateServer(message.payload.serverId, (server) => ({ ...server, stopped: true }));
+        break;
+      case 'metrics':
+        this.metrics.push(message.payload);
+        break;
+      case 'request':
+        this.requests.push(message.payload);
+        break;
+      case 'commandResult':
+        this.pendingCommands.delete(message.payload.id);
+        this.commandResults.push(message.payload);
+        break;
+      default:
+        break;
+    }
+
+    this.broadcast({ v: CONSOLE_PROTOCOL_VERSION, type: 'agent', message });
+
+    if (message.type === 'hello' && this.child.gen === gen && this.child.state === 'starting') {
+      this.onStatus({ gen, state: 'running', pid: message.payload.pid });
+    }
+  }
+
+  private updateServer(serverId: string, change: (server: ConsoleServerInfo) => ConsoleServerInfo): void {
+    this.servers = this.servers.map((server) => (server.hello.serverId === serverId ? change(server) : server));
+  }
+
+  /** Why no agent would answer a command now, or `null` when one listens for it. */
+  private commandRefusal(): string | null {
+    if (this.supervisor.pid === undefined) return 'No app is running';
+    if (this.servers.length === 0) return 'The devtools agent has not attached to the app';
+    if (this.servers.every((server) => server.stopped)) return 'Every server of the app has stopped';
+
+    return null;
+  }
+
+  /** The port a proxied request goes to, or why there is none. */
+  private httpTarget(serverId: string | undefined): { port: number } | { reason: string } {
+    if (this.child.state === 'exited') return { reason: 'No app is running' };
+    if (this.child.state === 'restarting') return { reason: 'The app is restarting' };
+
+    if (this.servers.length === 0) {
+      return { reason: 'The app has not reported a server yet, so the console does not know its port' };
+    }
+
+    const server =
+      serverId === undefined
+        ? this.servers.findLast((candidate) => !candidate.stopped)
+        : this.servers.find((candidate) => candidate.hello.serverId === serverId);
+
+    if (!server) {
+      return {
+        reason:
+          serverId === undefined
+            ? 'Every server of the app has stopped'
+            : `The app has no server ${JSON.stringify(serverId)}`,
+      };
+    }
+
+    if (server.stopped) return { reason: 'That server has stopped' };
+    if (server.hello.port === null) return { reason: 'The app runs headless and serves no HTTP' };
+
+    return { port: server.hello.port };
+  }
+
+  private onInvalidMessage(message: unknown, gen: number): void {
+    if (this.warnedInvalid.has(gen)) return;
+
+    this.warnedInvalid.add(gen);
+
+    const version = typeof message === 'object' && message !== null ? (message as { v?: unknown }).v : undefined;
+
+    this.hostWarning(
+      gen,
+      typeof version === 'number' && version !== DEVTOOLS_PROTOCOL_VERSION
+        ? `[asena console] The app's devtools agent speaks protocol v${version}; this CLI speaks v${DEVTOOLS_PROTOCOL_VERSION}. Its messages are dropped; update @asenajs/asena-cli or @asenajs/asena so both speak the same version.`
+        : '[asena console] Dropped a devtools message this CLI does not understand.',
+    );
+  }
+
+  private onBrowserOpen(ws: ServerWebSocket<unknown>): void {
+    ws.send(JSON.stringify(this.snapshotState()));
+    ws.subscribe(TOPIC);
+  }
+
+  private onBrowserMessage(ws: ServerWebSocket<unknown>, data: string | Buffer): void {
+    let message: unknown;
+
+    try {
+      message = JSON.parse(typeof data === 'string' ? data : data.toString('utf-8'));
+    } catch {
+      return;
+    }
+
+    if (!isConsoleBrowserMessage(message)) return;
+
+    if (message.type === 'restart') {
+      void this.restart({ kind: 'restart' });
+
+      return;
+    }
+
+    const refusal = this.commandRefusal();
+
+    if (refusal === null && this.supervisor.send(hostMessage('command', message.command))) {
+      this.pendingCommands.set(message.command.id, this.supervisor.generation);
+
+      return;
+    }
+
+    const failed = hostFailure(message.command.id, refusal ?? 'No app is running');
+
+    this.commandResults.push(failed);
+    ws.send(
+      JSON.stringify({
+        v: CONSOLE_PROTOCOL_VERSION,
+        type: 'agent',
+        message: agentMessage('commandResult', failed),
+      } satisfies ConsoleHostMessage),
+    );
+  }
+
+  /** Settles the commands a child of `gen` or older will never answer, since its process is gone. */
+  private failPendingCommands(gen: number, reason: string): void {
+    for (const [id, sentTo] of this.pendingCommands) {
+      if (sentTo > gen) continue;
+
+      this.pendingCommands.delete(id);
+
+      const failed = hostFailure(id, reason);
+
+      this.commandResults.push(failed);
+      this.broadcast({ v: CONSOLE_PROTOCOL_VERSION, type: 'agent', message: agentMessage('commandResult', failed) });
+    }
+  }
+
+  private async handle(request: Request, server: Server<unknown>): Promise<Response | undefined> {
+    const url = new URL(request.url);
+
+    if (url.pathname.startsWith(CONSOLE_ASSETS_PREFIX)) {
+      const asset = this.assets.get(url.pathname);
+
+      return asset ? new Response(Bun.file(asset)) : new Response('Not Found', { status: 404 });
+    }
+
+    if (!hasConsoleToken(url, this.token)) {
+      return new Response('Forbidden', { status: 403 });
+    }
+
+    if (url.pathname === CONSOLE_WS_PATH) {
+      return server.upgrade(request, { data: undefined })
+        ? undefined
+        : new Response('Expected a WebSocket upgrade', { status: 426 });
+    }
+
+    if (url.pathname === CONSOLE_HTTP_PROXY_PATH) {
+      if (request.method !== 'POST') {
+        return new Response('Method Not Allowed', { status: 405, headers: { Allow: 'POST' } });
+      }
+
+      // The proxy's own timeout bounds the request, not the console server's idle timeout.
+      server.timeout(request, 0);
+
+      return this.proxy(request);
+    }
+
+    if (url.pathname === '/' && (request.method === 'GET' || request.method === 'HEAD')) {
+      return new Response(this.indexHtml ?? UI_NOT_BUILT, {
+        headers: { ...PAGE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
+
+    return new Response('Not Found', { status: 404 });
+  }
+
+  private async proxy(request: Request): Promise<Response> {
+    let body: unknown;
+
+    try {
+      body = await request.json();
+    } catch {
+      return proxyError(400, 'The body is not JSON');
+    }
+
+    if (!isConsoleHttpRequest(body)) {
+      return proxyError(400, 'The body is not a console HTTP request');
+    }
+
+    const target = this.httpTarget(body.serverId);
+
+    if ('reason' in target) return proxyError(502, target.reason);
+
+    try {
+      return json(200, await proxyHttpRequest(body, target.port));
+    } catch (error) {
+      return proxyError(502, error instanceof Error ? error.message : String(error));
+    }
+  }
+}
