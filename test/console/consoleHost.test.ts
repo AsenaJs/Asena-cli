@@ -119,6 +119,23 @@ describe('ConsoleHost with a fake agent child', () => {
     expect(replay.logs.some((line) => line.stream === 'stdout' && line.line.startsWith('fake app up'))).toBe(true);
   });
 
+  it('shows the most recent server of an app that starts two, as one run that started once', async () => {
+    const { host, warnings } = await startHost({ FAKE_SECOND_SERVER: '1', FAKE_HELLO_DELAY_MS: '300' });
+    const client = await connect();
+
+    await waitUntil(() => client.messages.filter(isAgent('snapshot')).length === 2, 5000, 'both snapshots');
+
+    const replay = await (await connect()).replay();
+
+    expect(replay.hello).toMatchObject({ adapter: 'Second', pid: host.supervisor.pid });
+    expect(replay.snapshot?.routes).toEqual([]);
+    expect(replay.runs).toEqual([expect.objectContaining({ gen: 1, state: 'running' })]);
+    expect(client.messages.filter((message) => message.type === 'child' && message.state === 'running')).toHaveLength(
+      1,
+    );
+    expect(warnings).toEqual([]);
+  });
+
   it('forwards a browser command to the child and its commandResult back', async () => {
     await startHost();
     const client = await connect();

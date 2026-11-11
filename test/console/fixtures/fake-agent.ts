@@ -88,6 +88,11 @@ send('hello', {
 
 send('snapshot', snapshot);
 
+if (process.env['FAKE_SECOND_SERVER'] === '1') {
+  send('hello', { coreVersion: '0.13.0', adapter: 'Second', port: null, pid: process.pid });
+  send('snapshot', { ...snapshot, routes: [] });
+}
+
 for (let i = 0; i < Number(process.env['FAKE_METRICS'] ?? 0); i++) {
   send('metrics', {
     rss: process.pid,

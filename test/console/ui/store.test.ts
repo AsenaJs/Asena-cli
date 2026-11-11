@@ -59,6 +59,25 @@ describe('consoleReducer over the recorded host messages', () => {
     expect(isSnapshotStale(state)).toBe(false);
   });
 
+  test('a second server in the same child replaces hello and snapshot and keeps everything else', () => {
+    const first = feed(recording.slice(0, 1));
+    const second = feed(
+      [
+        { v: 1, type: 'agent', message: { v: 1, type: 'hello', payload: { ...first.hello!, port: 3001 } } },
+        { v: 1, type: 'agent', message: { v: 1, type: 'snapshot', payload: { ...snapshot, routes: [] } } },
+      ],
+      first,
+    );
+
+    expect(second.hello?.port).toBe(3001);
+    expect(second.snapshot?.routes).toEqual([]);
+    expect(isSnapshotStale(second)).toBe(false);
+    expect(second.child).toBe(first.child);
+    expect(second.runs).toBe(first.runs);
+    expect(second.metrics).toBe(first.metrics);
+    expect(second.requests).toBe(first.requests);
+  });
+
   test('a respawn drops the old child hello and metrics, keeps the snapshot marked stale and keeps the logs', () => {
     const state = feedUntil((message) => message.type === 'child' && message.gen === 2);
 
