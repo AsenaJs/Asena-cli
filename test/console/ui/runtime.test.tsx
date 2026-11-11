@@ -542,6 +542,27 @@ describe('runtime panel rendering', () => {
     expect(healthDetail({ ...running, metrics: [] })).toBe('Waiting for the first sample');
   });
 
+  test('says how much the agent dropped, since the request list and the charts are then incomplete', () => {
+    const running = consoleReducer(initialConsoleState, { kind: 'message', message: recording[0]! });
+    const sample = running.metrics.at(-1)!;
+    const note = 'Dropped while the console host was not reading: 12 (request records and samples)';
+
+    expect(renderToStaticMarkup(<RuntimePanel state={running} />)).not.toContain('Dropped while');
+    expect(
+      renderToStaticMarkup(
+        <RuntimePanel
+          state={{
+            ...running,
+            metrics: [
+              { ...sample, dropped: 3 },
+              { ...sample, dropped: 12 },
+            ],
+          }}
+        />,
+      ),
+    ).toContain(note);
+  });
+
   test('the timeline folds older runs into a count', () => {
     const runs = Array.from({ length: 9 }, (_, i) => ({
       gen: i + 1,

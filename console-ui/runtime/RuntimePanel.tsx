@@ -40,8 +40,18 @@ export const healthDetail = (state: ConsoleState): string => {
     .join(', ')}`;
 };
 
+/** What the agent left out since it attached, or `null` when it sent everything. */
+const droppedNote = (metrics: DevtoolsMetrics[]): string | null => {
+  const dropped = metrics.at(-1)?.dropped ?? 0;
+
+  return dropped > 0
+    ? `Dropped while the console host was not reading: ${dropped} (request records and samples)`
+    : null;
+};
+
 const HealthCard = ({ state }: { state: ConsoleState }) => {
   const status = runStatus(state);
+  const dropped = droppedNote(state.metrics);
 
   return (
     <Card className="health-card">
@@ -51,6 +61,7 @@ const HealthCard = ({ state }: { state: ConsoleState }) => {
       <div>
         <div className="big">{status.detail}</div>
         <div className="muted health-sub">{healthDetail(state)}</div>
+        {dropped ? <div className="muted health-sub">{dropped}</div> : null}
       </div>
     </Card>
   );
