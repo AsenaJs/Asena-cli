@@ -227,6 +227,12 @@ describe('asena console options', () => {
 
     expect(program.commands.map((command) => command.name())).toContain('console');
   });
+
+  it('says in its help that the console covers every server of the app', () => {
+    expect(new Console().command().description()).toBe(
+      'Starts the app in dev mode with a browser console for every AsenaServer it starts (dev only)',
+    );
+  });
 });
 
 describe('console shutdown', () => {

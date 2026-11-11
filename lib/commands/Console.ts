@@ -59,7 +59,7 @@ export const stopConsole = async (
 export class Console implements BaseCommand {
   public command() {
     return new Command('console')
-      .description('Starts the app in dev mode with a browser console (dev only)')
+      .description('Starts the app in dev mode with a browser console for every AsenaServer it starts (dev only)')
       .option('--port <port>', 'console port (default: a free port)', parsePort)
       .option('--no-open', 'do not open the browser')
       .option('--no-watch', 'do not restart the app when a source file changes')
