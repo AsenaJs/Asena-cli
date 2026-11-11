@@ -58,6 +58,8 @@ export interface ConsoleChildStatus {
   signal?: string;
   /** Set when that signal was the host's own, sent for a restart or a stop; a child killed by anything else has none. */
   endedBy?: ConsoleHostEnding;
+  /** Set on a `starting` child that has run past the host's wait without its agent's hello. */
+  unattached?: true;
   /** Epoch milliseconds of the change. */
   at?: number;
   /** Set on the first status of a generation. */
@@ -206,6 +208,7 @@ const isChildStatus = (value: Fields): boolean =>
   Number.isInteger(value['gen']) &&
   isExit(value) &&
   isOptional(value['pid'], isNumber) &&
+  isOptional(value['unattached'], (unattached) => unattached === true) &&
   isOptional(value['at'], isNumber) &&
   isOptional(value['cause'], isRunCause);
 

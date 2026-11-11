@@ -363,6 +363,7 @@ describe('isConsoleHostMessage', () => {
       }),
     ).toBe(true);
     expect(isConsoleHostMessage({ ...child, state: 'exited', signal: 'SIGKILL', endedBy: 'restart' })).toBe(true);
+    expect(isConsoleHostMessage({ v: 1, type: 'child', gen: 2, state: 'starting', unattached: true })).toBe(true);
     expect(
       isConsoleHostMessage({ ...state, runs: [{ ...run, state: 'exited', signal: 'SIGTERM', endedBy: 'stop' }] }),
     ).toBe(true);
@@ -387,6 +388,7 @@ describe('isConsoleHostMessage', () => {
     ['a replay without runs', { ...state, runs: undefined }],
     ['a replay with a run without its start time', { ...state, runs: [{ ...run, startedAt: undefined }] }],
     ['an unknown child state', { ...child, state: 'crashed' }],
+    ['an unattached mark that is not `true`', { ...child, state: 'starting', unattached: 'yes' }],
     ['a fractional generation', { ...child, gen: 1.5 }],
     ['a signal that is not a name', { ...child, signal: 9 }],
     ['an unknown ending', { ...child, state: 'exited', signal: 'SIGKILL', endedBy: 'crash' }],

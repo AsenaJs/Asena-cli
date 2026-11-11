@@ -51,7 +51,11 @@ export interface ConsoleHostOptions {
   warn?: (message: string) => void;
   /** The app's IANA time zone; defaults to this process's, which an app spawned with its env shares. */
   timeZone?: string;
+  /** How long a started app may run without its agent's hello before the host says so. */
+  agentTimeoutMs?: number;
 }
+
+const DEFAULT_AGENT_TIMEOUT_MS = 10_000;
 
 const TOPIC = 'console';
 
@@ -144,6 +148,8 @@ export class ConsoleHost {
 
   private nextLogSeq = 0;
 
+  private agentTimer?: ReturnType<typeof setTimeout>;
+
   public constructor(private readonly options: ConsoleHostOptions) {
     this.token = options.token ?? createConsoleToken();
     this.assets = listAssets(options.uiDir);
@@ -204,6 +210,7 @@ export class ConsoleHost {
 
   public async stop(): Promise<void> {
     this.watcher?.close();
+    clearTimeout(this.agentTimer);
     await this.supervisor.stop();
     await this.server?.stop(true);
   }
@@ -236,6 +243,8 @@ export class ConsoleHost {
     const at = Date.now();
     let status: ConsoleChildStatus = { ...reported, at };
 
+    if (status.state !== 'starting') clearTimeout(this.agentTimer);
+
     if (status.state === 'exited') {
       const restarted = this.child.gen === status.gen && this.child.state === 'restarting';
 
@@ -254,6 +263,8 @@ export class ConsoleHost {
       status = { ...status, cause };
       this.runs.push({ gen: status.gen, startedAt: at, cause, state: status.state });
       this.runs.splice(0, Math.max(0, this.runs.length - CONSOLE_REPLAY_LIMITS.runs));
+
+      if (status.state === 'starting') this.awaitAgent(status.gen);
     }
 
     const run = this.runs.at(-1);
@@ -274,6 +285,24 @@ export class ConsoleHost {
 
     this.child = status;
     this.broadcast({ v: CONSOLE_PROTOCOL_VERSION, type: 'child', ...status });
+  }
+
+  /** A child that never says hello would otherwise read as starting for as long as it runs. */
+  private awaitAgent(gen: number): void {
+    const timeout = this.options.agentTimeoutMs ?? DEFAULT_AGENT_TIMEOUT_MS;
+
+    clearTimeout(this.agentTimer);
+    this.agentTimer = setTimeout(() => {
+      const { pid, state } = this.child;
+
+      if (this.child.gen !== gen || state !== 'starting') return;
+
+      this.hostWarning(
+        gen,
+        `[asena console] The app has run for ${timeout / 1000} s without its devtools agent reporting. The agent attaches when AsenaServer.start() has finished, and not at all when the app runs with NODE_ENV=production. Until it reports, the console shows only the app's output.`,
+      );
+      this.onStatus({ gen, state: 'starting', ...(pid === undefined ? {} : { pid }), unattached: true });
+    }, timeout);
   }
 
   private onLog(line: Omit<ConsoleLogLine, 'seq'>): void {
@@ -355,13 +384,19 @@ export class ConsoleHost {
       return;
     }
 
-    if (this.supervisor.send(hostMessage('command', message.command))) {
+    // Before its hello no agent listens in the app, so a forwarded command would never be answered.
+    const attached = this.hello !== undefined || this.supervisor.pid === undefined;
+
+    if (attached && this.supervisor.send(hostMessage('command', message.command))) {
       this.pendingCommands.set(message.command.id, this.supervisor.generation);
 
       return;
     }
 
-    const failed = hostFailure(message.command.id, 'No app is running');
+    const failed = hostFailure(
+      message.command.id,
+      attached ? 'No app is running' : 'The devtools agent has not attached to the app',
+    );
 
     this.commandResults.push(failed);
     ws.send(

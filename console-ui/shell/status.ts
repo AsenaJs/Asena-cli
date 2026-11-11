@@ -16,7 +16,7 @@ export const childLabel = (child: ConsoleChildStatus | null): string => {
 
   switch (child.state) {
     case 'starting':
-      return `Starting${pid}`;
+      return child.unattached ? `Running without the devtools agent${pid}` : `Starting${pid}`;
     case 'running':
       return `Running${pid}`;
     case 'restarting':
@@ -56,7 +56,7 @@ export const runStatus = (state: ConsoleState): StatusView => {
 
   switch (child.state) {
     case 'starting':
-      return { tone: 'warn', label: 'Starting', detail: childLabel(child) };
+      return { tone: 'warn', label: child.unattached ? 'No agent' : 'Starting', detail: childLabel(child) };
     case 'restarting':
       return { tone: 'warn', label: 'Restarting', detail: childLabel(child) };
     case 'exited':

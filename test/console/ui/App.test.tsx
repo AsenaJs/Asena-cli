@@ -158,6 +158,14 @@ describe('status labels', () => {
     });
   });
 
+  test('an app that runs without its agent is not shown as still starting', () => {
+    expect(runStatus(child({ v: 1, type: 'child', gen: 2, state: 'starting', pid: 7, unattached: true }))).toEqual({
+      tone: 'warn',
+      label: 'No agent',
+      detail: 'Running without the devtools agent, pid 7',
+    });
+  });
+
   test('the first pill: session, connection, process, then readiness', () => {
     const label = (state: ConsoleState, token: string | null = 't') => appStatus(state, token).label;
 

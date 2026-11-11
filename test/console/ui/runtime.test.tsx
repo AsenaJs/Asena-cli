@@ -525,6 +525,16 @@ describe('runtime panel rendering', () => {
     expect(healthDetail({ ...running, child: exited })).toContain('press Restart to run it again');
   });
 
+  test('the health line says when the agent attaches, for an app that runs without it', () => {
+    const detail = healthDetail({
+      ...initialConsoleState,
+      child: { gen: 1, state: 'starting', pid: 7, unattached: true },
+    });
+
+    expect(detail).toContain('AsenaServer.start()');
+    expect(detail).toContain('NODE_ENV=production');
+  });
+
   test('the health line names the lifecycle and the transports', () => {
     const running = consoleReducer(initialConsoleState, { kind: 'message', message: recording[0]! });
     const sample = running.metrics.at(-1)!;

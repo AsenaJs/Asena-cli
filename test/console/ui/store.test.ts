@@ -119,6 +119,14 @@ describe('consoleReducer generations', () => {
     expect(late.runs.map((run) => run.gen)).toEqual([1, 2]);
   });
 
+  test('keeps the mark of a child whose agent has not attached, live and from a replay', () => {
+    const unattached = { gen: 2, state: 'starting' as const, pid: 2, unattached: true as const };
+    const replay = recording[0] as Extract<ConsoleHostMessage, { type: 'snapshotState' }>;
+
+    expect(feed([{ v: 1, type: 'child', ...unattached }], running).child).toEqual(unattached);
+    expect(feed([{ ...replay, child: unattached }]).child).toEqual(unattached);
+  });
+
   test('a state change within one generation keeps hello and metrics', () => {
     const restarting = feed([{ v: 1, type: 'child', gen: 1, state: 'restarting', pid: 48211 }], running);
 

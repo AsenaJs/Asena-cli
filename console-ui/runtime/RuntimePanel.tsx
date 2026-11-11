@@ -27,6 +27,9 @@ export const healthDetail = (state: ConsoleState): string => {
   if (child.state === 'exited' && child.endedBy !== 'restart') {
     return 'The output below is kept; save a file or press Restart to run it again.';
   }
+  if (child.unattached) {
+    return 'The agent attaches when AsenaServer.start() has finished, and not at all when the app runs with NODE_ENV=production. The output below is live.';
+  }
   if (child.state !== 'running') return 'Waiting for the app to report';
   if (!readiness) return 'Waiting for the first sample';
   if (readiness.status === 'not_ready') return `Lifecycle ${readiness.state}`;

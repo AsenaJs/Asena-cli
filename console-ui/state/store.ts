@@ -90,6 +90,7 @@ const childStatus = (status: ConsoleChildStatus): ConsoleChildStatus => ({
   state: status.state,
   ...(status.pid === undefined ? {} : { pid: status.pid }),
   ...exitOf(status),
+  ...(status.unattached ? { unattached: true } : {}),
   ...(status.at === undefined ? {} : { at: status.at }),
   ...(status.cause === undefined ? {} : { cause: status.cause }),
 });

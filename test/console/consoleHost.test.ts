@@ -558,6 +558,74 @@ describe('ConsoleHost with a fake agent child', () => {
     expect(host.snapshotState().metrics).toEqual([]);
   });
 
+  it('says so when a running app has not attached its agent, and then stops waiting for one', async () => {
+    const { warnings } = await startHost({ FAKE_HELLO_DELAY_MS: '60000' }, { agentTimeoutMs: 100 });
+    const client = await connect();
+    const isUnattached = (message: ConsoleHostMessage): boolean =>
+      message.type === 'child' && message.state === 'starting' && message.unattached === true;
+
+    const status = (await client.waitFor(isUnattached)) as Message<'child'>;
+    const log = (await client.waitFor(isLog('without its devtools agent'))) as Message<'log'>;
+
+    expect(status).toMatchObject({ gen: 1, state: 'starting', pid: host?.supervisor.pid });
+    expect(log).toMatchObject({ gen: 1, stream: 'stderr' });
+    expect(log.line).toContain('NODE_ENV=production');
+
+    client.send({ v: 1, type: 'command', command: { id: 'c-1', command: 'emitEvent', event: 'x' } });
+
+    expect(((await client.waitFor(isResult('c-1'))) as Message<'agent'>).message.payload).toEqual({
+      id: 'c-1',
+      ok: false,
+      error: { name: 'ConsoleHostError', message: 'The devtools agent has not attached to the app' },
+    });
+
+    await Bun.sleep(250);
+
+    expect(warnings).toHaveLength(1);
+    expect(client.messages.filter(isUnattached)).toHaveLength(1);
+    expect((await (await connect()).replay()).child).toMatchObject({ state: 'starting', unattached: true });
+  });
+
+  it('a late agent still takes the app to running, without the mark', async () => {
+    const { host, warnings } = await startHost({ FAKE_HELLO_DELAY_MS: '300' }, { agentTimeoutMs: 100 });
+    const client = await connect();
+
+    await client.waitFor(isChild('running', 1));
+
+    expect(warnings).toHaveLength(1);
+    expect(host.snapshotState().child).toMatchObject({ gen: 1, state: 'running' });
+    expect(host.snapshotState().child.unattached).toBeUndefined();
+  });
+
+  it('says nothing about the agent when it reports in time', async () => {
+    const { host, warnings } = await startHost({}, { agentTimeoutMs: 150 });
+    const client = await connect();
+
+    await client.waitFor(isChild('running', 1));
+    await Bun.sleep(300);
+
+    expect(warnings).toEqual([]);
+    expect(host.snapshotState().child).toMatchObject({ gen: 1, state: 'running' });
+    expect(host.snapshotState().child.unattached).toBeUndefined();
+  });
+
+  it('says nothing about the agent of an app that exited before it could report', async () => {
+    const { host, warnings } = await startHost(
+      {},
+      {
+        agentTimeoutMs: 150,
+        app: { cwd: import.meta.dir, prepare: () => [process.execPath, '-e', 'process.exit(2)'] },
+      },
+    );
+
+    await waitUntil(() => host.snapshotState().child.state === 'exited', 5000, 'the exit');
+    await Bun.sleep(300);
+
+    expect(warnings).toEqual([]);
+    expect(host.snapshotState().child).toMatchObject({ gen: 1, state: 'exited', code: 2 });
+    expect(host.snapshotState().child.unattached).toBeUndefined();
+  });
+
   it('names both protocol versions when the agent speaks another one', async () => {
     const { warnings } = await startHost({ FAKE_SEND_INVALID: 'v2' });
     const client = await connect();
