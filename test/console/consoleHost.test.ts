@@ -666,11 +666,14 @@ describe('ConsoleHost with a fake agent child', () => {
       message.type === 'child' && message.state === 'starting' && message.unattached === true;
 
     const status = (await client.waitFor(isUnattached)) as Message<'child'>;
-    const log = (await client.waitFor(isLog('without its devtools agent'))) as Message<'log'>;
+    const log = (await client.waitFor(isLog('devtools agent'))) as Message<'log'>;
 
     expect(status).toMatchObject({ gen: 1, state: 'starting', pid: host?.supervisor.pid });
     expect(log).toMatchObject({ gen: 1, stream: 'stderr' });
-    expect(log.line).toContain('NODE_ENV=production');
+    // The host cannot tell a slow start from a production app, so the line may claim neither.
+    expect(log.line).toBe(
+      "[asena console] The app's devtools agent has not reported yet (0.1 s). It attaches when AsenaServer.start() finishes, and never under NODE_ENV=production. Until it reports, the console shows only the app's output.",
+    );
 
     client.send({ v: 1, type: 'command', command: { id: 'c-1', command: 'emitEvent', event: 'x' } });
 

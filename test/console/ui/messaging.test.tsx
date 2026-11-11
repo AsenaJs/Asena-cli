@@ -252,7 +252,7 @@ describe('messaging commands', () => {
     expect(commandBlockedReason(ready)).toBeNull();
     expect(commandBlockedReason({ ...ready, token: null })).toContain('No session token');
     expect(commandBlockedReason({ ...ready, connected: false })).toContain('Not connected');
-    expect(commandBlockedReason({ ...ready, hello: null })).toContain('has not started');
+    expect(commandBlockedReason({ ...ready, hello: null })).toContain('has not reported yet');
     expect(commandBlockedReason({ ...ready, stopped: true })).toContain('This server has stopped');
   });
 

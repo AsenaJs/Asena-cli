@@ -295,7 +295,7 @@ export class ConsoleHost {
 
       this.hostWarning(
         gen,
-        `[asena console] The app has run for ${timeout / 1000} s without its devtools agent reporting. The agent attaches when AsenaServer.start() has finished, and not at all when the app runs with NODE_ENV=production. Until it reports, the console shows only the app's output.`,
+        `[asena console] The app's devtools agent has not reported yet (${timeout / 1000} s). It attaches when AsenaServer.start() finishes, and never under NODE_ENV=production. Until it reports, the console shows only the app's output.`,
       );
       this.onStatus({ gen, state: 'starting', ...(pid === undefined ? {} : { pid }), unattached: true });
     }, timeout);

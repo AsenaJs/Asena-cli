@@ -604,7 +604,10 @@ describe('endpoints panel rendering', () => {
   });
 
   test('says why it cannot send without a reported app, a running server or a token', () => {
-    expect(panel({ hello: null })).toContain('Waiting for the app to start');
+    // True of an app that started and never attached its agent, too.
+    expect(panel({ hello: null })).toContain(
+      'The app has not reported yet; the console learns its port when the devtools agent attaches.',
+    );
     expect(panel({ token: null })).toContain('No session token');
     expect(panel({ hello: { ...hello, adapter: null, port: null } })).toContain('runs headless');
     expect(panel({ stopped: true })).toContain('This server has stopped and serves no HTTP.');

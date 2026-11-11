@@ -56,7 +56,7 @@ export const commandBlockedReason = ({
 }): string | null => {
   if (!token) return 'No session token in the page URL, so nothing can be sent.';
   if (!canSend || !connected) return 'Not connected to the console host; actions are off until it reconnects.';
-  if (!hello) return 'The app has not started yet; actions are off until it reports.';
+  if (!hello) return 'The app has not reported yet; actions are off until its devtools agent attaches.';
   if (stopped) return 'This server has stopped; it takes no commands.';
 
   return null;

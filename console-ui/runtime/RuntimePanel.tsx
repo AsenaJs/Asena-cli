@@ -27,7 +27,7 @@ export const healthDetail = (state: ConsoleState): string => {
     return 'The output below is kept; save a file or press Restart to run it again.';
   }
   if (child.unattached) {
-    return 'The agent attaches when AsenaServer.start() has finished, and not at all when the app runs with NODE_ENV=production. The output below is live.';
+    return 'The agent attaches when AsenaServer.start() finishes, and never under NODE_ENV=production. The output below is live.';
   }
   if (child.state !== 'running') return 'Waiting for the app to report';
   if (view.stopped) return 'It sends nothing more and takes no commands. The output below is live.';

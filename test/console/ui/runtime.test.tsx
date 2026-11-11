@@ -527,14 +527,16 @@ describe('runtime panel rendering', () => {
     expect(healthDetail({ ...running, child: exited })).toContain('press Restart to run it again');
   });
 
-  test('the health line says when the agent attaches, for an app that runs without it', () => {
+  // The host cannot tell a slow start from a production app, so the line may claim neither.
+  test('the health line says when the agent attaches, for an app that has not reported in time', () => {
     const detail = healthDetail({
       ...initialConsoleState,
       child: { gen: 1, state: 'starting', pid: 7, unattached: true },
     });
 
-    expect(detail).toContain('AsenaServer.start()');
-    expect(detail).toContain('NODE_ENV=production');
+    expect(detail).toBe(
+      'The agent attaches when AsenaServer.start() finishes, and never under NODE_ENV=production. The output below is live.',
+    );
   });
 
   test('the health line names the lifecycle and the transports', () => {

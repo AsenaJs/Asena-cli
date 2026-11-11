@@ -102,7 +102,8 @@ describe('console UI shell', () => {
     expect(live).toMatch(/<button type="button" class="icon-btn">.*Run now<\/button>/);
     expect(silent).toContain('Not connected to the console host');
     expect(silent).not.toMatch(/<button type="button" class="icon-btn">/);
-    expect(starting).toContain('The app has not started yet');
+    // True of an app that started and never attached its agent, too.
+    expect(starting).toContain('The app has not reported yet; actions are off until its devtools agent attaches.');
     expect(starting).not.toMatch(/<button type="button" class="icon-btn">.*Run now<\/button>/);
   });
 
@@ -285,11 +286,12 @@ describe('status labels', () => {
     });
   });
 
-  test('an app that runs without its agent is not shown as still starting', () => {
+  // A slow start and a production app look the same to the host, so neither label may say the agent is absent.
+  test('an app whose agent has not reported in time is not shown as still starting', () => {
     expect(runStatus(child({ v: 1, type: 'child', gen: 2, state: 'starting', pid: 7, unattached: true }))).toEqual({
       tone: 'warn',
-      label: 'No agent',
-      detail: 'Running without the devtools agent, pid 7',
+      label: 'No report yet',
+      detail: 'Running, its devtools agent has not reported yet, pid 7',
     });
   });
 

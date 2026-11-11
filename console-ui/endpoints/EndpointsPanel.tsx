@@ -44,7 +44,7 @@ export const groupByController = (routes: DevtoolsRoute[]): [string, DevtoolsRou
 
 const blockedReason = (token: string | null, hello: DevtoolsHello | null, stopped: boolean): string | null => {
   if (!token) return 'No session token in the page URL.';
-  if (!hello) return 'Waiting for the app to start; the host answers 502 until it has.';
+  if (!hello) return 'The app has not reported yet; the console learns its port when the devtools agent attaches.';
   if (stopped) return 'This server has stopped and serves no HTTP.';
   if (hello.port === null) return 'The app runs headless and serves no HTTP.';
 

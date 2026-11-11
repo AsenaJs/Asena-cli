@@ -225,7 +225,7 @@ describe.skipIf(coreDir === null)('ConsoleHost with the agent of a real core', (
     expect(host.snapshotState().servers).toEqual([]);
     expect(host.snapshotState().logs.some((line) => line.line.includes('NODE_ENV is production'))).toBe(true);
     expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toContain('NODE_ENV=production');
+    expect(warnings[0]).toContain('never under NODE_ENV=production');
 
     expect(await send(client, 'c-1', { command: 'emitEvent', event: 'item.created' })).toMatchObject([
       { ok: false, error: { name: 'ConsoleHostError', message: 'The devtools agent has not attached to the app' } },
