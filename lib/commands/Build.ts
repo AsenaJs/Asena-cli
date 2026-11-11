@@ -19,6 +19,7 @@ export class Build implements BaseCommand {
           await this.build();
         } catch (error) {
           console.error('Build failed: ', error);
+          process.exitCode = 1;
         }
       });
   }
