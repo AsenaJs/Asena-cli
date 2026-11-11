@@ -548,6 +548,16 @@ describe('ConsoleHost with a fake agent child', () => {
     expect(host?.snapshotState().logs.some((line) => line.line.includes('does not understand'))).toBe(true);
   });
 
+  it('drops an agent message whose payload is not an object, so no view reads fields off a string', async () => {
+    const { host, warnings } = await startHost({ FAKE_SEND_INVALID: 'payload' });
+    const client = await connect();
+
+    await client.waitFor(isChild('running', 1));
+
+    expect(warnings.filter((warning) => warning.includes('does not understand'))).toHaveLength(1);
+    expect(host.snapshotState().metrics).toEqual([]);
+  });
+
   it('names both protocol versions when the agent speaks another one', async () => {
     const { warnings } = await startHost({ FAKE_SEND_INVALID: 'v2' });
     const client = await connect();

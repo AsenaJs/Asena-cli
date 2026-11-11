@@ -71,6 +71,10 @@ if (process.env['FAKE_SEND_INVALID'] === 'type') {
   process.send?.({ v: 1, type: 'bogus', payload: {} });
 }
 
+if (process.env['FAKE_SEND_INVALID'] === 'payload') {
+  process.send?.({ v: 1, type: 'metrics', payload: 'busy' });
+}
+
 console.log(`fake app up pid=${process.pid}`);
 
 await Bun.sleep(Number(process.env['FAKE_HELLO_DELAY_MS'] ?? 0));

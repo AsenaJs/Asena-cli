@@ -396,6 +396,10 @@ describe('isConsoleHostMessage', () => {
       { v: 1, type: 'agent', message: { v: 2, type: 'hello', payload: {} } },
     ],
     ['an agent message of an unknown type', { v: 1, type: 'agent', message: { v: 1, type: 'log', payload: {} } }],
+    [
+      'an agent message whose payload is not an object',
+      { v: 1, type: 'agent', message: { v: 1, type: 'metrics', payload: 'busy' } },
+    ],
     ['a replay without logs', { ...state, logs: undefined }],
     ['a replay with a malformed log line', { ...state, logs: [{ gen: 1, stream: 'stdout' }] }],
     ['a replay without a child', { ...state, child: undefined }],
