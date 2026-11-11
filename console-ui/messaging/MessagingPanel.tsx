@@ -41,8 +41,12 @@ export interface MessagingPanelProps {
   blockedReason: string | null;
   /** The app's time zone, which its cron schedules run in. */
   timeZone: string;
+  /** Server names by id when the app has several, so each result says which one answered. */
+  serverLabels?: ServerLabels;
   now?: Date;
 }
+
+export type ServerLabels = Record<string, string>;
 
 type Phase = 'idle' | 'editing' | 'confirming';
 
@@ -59,9 +63,20 @@ interface CommandItemProps {
   build: (name: string, data: unknown) => DevtoolsCommand;
   send: SendCommand | null;
   results: Record<string, DevtoolsCommandResult>;
+  serverLabels?: ServerLabels;
 }
 
-export const ResultView = ({ result }: { result: DevtoolsCommandResult | undefined }) => {
+/** A result without a server id is one no server answered: the host's own, or for a server that was gone. */
+const answeredBy = (result: DevtoolsCommandResult, labels: ServerLabels): string =>
+  result.serverId === undefined ? 'no server answered' : `answered by ${labels[result.serverId] ?? result.serverId}`;
+
+export const ResultView = ({
+  result,
+  serverLabels,
+}: {
+  result: DevtoolsCommandResult | undefined;
+  serverLabels?: ServerLabels;
+}) => {
   if (!result) {
     return (
       <p className="muted pane-note" role="status">
@@ -70,10 +85,12 @@ export const ResultView = ({ result }: { result: DevtoolsCommandResult | undefin
     );
   }
 
+  const who = serverLabels ? <span className="muted">{answeredBy(result, serverLabels)}</span> : null;
+
   if (!result.ok) {
     return (
       <p className="notice bad" role="alert">
-        <b>{result.error.name}</b> {result.error.message}
+        <b>{result.error.name}</b> {result.error.message} {who}
       </p>
     );
   }
@@ -85,6 +102,7 @@ export const ResultView = ({ result }: { result: DevtoolsCommandResult | undefin
       <Pill tone="ok" dot>
         Done
       </Pill>
+      {who}
       {text === null ? (
         <span className="muted">no result</span>
       ) : (
@@ -107,6 +125,7 @@ export const CommandItem = ({
   build,
   send,
   results,
+  serverLabels,
 }: CommandItemProps) => {
   const [phase, setPhase] = useState<Phase>('idle');
   const [text, setText] = useState('');
@@ -207,7 +226,7 @@ export const CommandItem = ({
           Not connected to the console host; nothing was sent.
         </p>
       ) : null}
-      {sentId ? <ResultView result={results[sentId]} /> : null}
+      {sentId ? <ResultView result={results[sentId]} serverLabels={serverLabels} /> : null}
     </li>
   );
 };
@@ -246,6 +265,7 @@ export const MessagingPanel = ({
   send,
   blockedReason,
   timeZone,
+  serverLabels,
   now = new Date(),
 }: MessagingPanelProps) => {
   const transports = transportStates(hello, metrics);
@@ -301,6 +321,7 @@ export const MessagingPanel = ({
                   build={() => scheduleCommand(schedule.name)}
                   send={send}
                   results={commandResults}
+                  serverLabels={serverLabels}
                 />
               );
             })}
@@ -333,6 +354,7 @@ export const MessagingPanel = ({
                 build={eventCommand}
                 send={send}
                 results={commandResults}
+                serverLabels={serverLabels}
               />
             ))}
           </ul>
@@ -374,6 +396,7 @@ export const MessagingPanel = ({
                   build={(_name, data) => messageCommand(handler, data)}
                   send={send}
                   results={commandResults}
+                  serverLabels={serverLabels}
                 />
               ))}
             </ul>

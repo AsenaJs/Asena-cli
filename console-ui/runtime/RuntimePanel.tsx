@@ -1,8 +1,9 @@
 import { useId } from 'react';
 import type { ConsoleRun } from '../../lib/console/hostProtocol';
-import type { DevtoolsMetrics, DevtoolsTransport } from '../../lib/console/protocol';
+import type { DevtoolsMetrics } from '../../lib/console/protocol';
+import { transportStates } from '../messaging/commands';
 import { runStatus } from '../shell/status';
-import type { ConsoleState } from '../state/store';
+import { type ConsoleState, serverView } from '../state/store';
 import { Card, Pill } from '../ui/components';
 import { formatBytes, formatElapsed, formatMs, formatPercent, quantile, sparkline, splitUnit } from './format';
 import { LogView } from './LogView';
@@ -15,13 +16,11 @@ const SPARK_HEIGHT = 46;
 // Older runs fold into a count so the timeline stays one line.
 const TIMELINE_RUNS = 6;
 
-const transportsOf = (state: ConsoleState): DevtoolsTransport[] =>
-  state.metrics.at(-1)?.transports ?? state.hello?.transports ?? [];
-
 /** The health card's second line: the lifecycle and what readiness waits for. */
 export const healthDetail = (state: ConsoleState): string => {
   const { child } = state;
-  const readiness = state.metrics.at(-1)?.readiness;
+  const view = serverView(state);
+  const readiness = view.state?.readiness;
 
   if (!child) return 'No app process yet';
   if (child.state === 'exited' && child.endedBy !== 'restart') {
@@ -31,10 +30,11 @@ export const healthDetail = (state: ConsoleState): string => {
     return 'The agent attaches when AsenaServer.start() has finished, and not at all when the app runs with NODE_ENV=production. The output below is live.';
   }
   if (child.state !== 'running') return 'Waiting for the app to report';
+  if (view.stopped) return 'It sends nothing more and takes no commands. The output below is live.';
   if (!readiness) return 'Waiting for the first sample';
   if (readiness.status === 'not_ready') return `Lifecycle ${readiness.state}`;
 
-  const transports = transportsOf(state);
+  const transports = transportStates(view.hello, state.metrics);
 
   if (transports.length === 0) return 'Lifecycle STARTED · no transports to wait for';
 

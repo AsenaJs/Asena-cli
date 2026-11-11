@@ -10,6 +10,7 @@ import {
   groupByController,
   NoSelection,
   reconcileSelection,
+  requestSender,
 } from '../../../console-ui/endpoints/EndpointsPanel';
 import {
   addToHistory,
@@ -47,7 +48,13 @@ import type { StorageLike } from '../../../console-ui/state/storage';
 import snapshotJson from '../fixtures/snapshot.json';
 
 const snapshot = snapshotJson as unknown as DevtoolsSnapshot;
-const hello: DevtoolsHello = { coreVersion: '0.13.0', adapter: 'Ergenecore', port: 3000, pid: 1 };
+const hello: DevtoolsHello = {
+  serverId: 'server-1',
+  coreVersion: '0.13.0',
+  adapter: 'Ergenecore',
+  port: 3000,
+  pid: 1,
+};
 const routeAt = (method: string, path: string): DevtoolsRoute =>
   snapshot.routes.find((route) => route.httpMethod === method && route.path === path)!;
 const create = routeAt('POST', '/items/');
@@ -596,11 +603,31 @@ describe('endpoints panel rendering', () => {
     });
   });
 
-  test('says why it cannot send without a running app or a token', () => {
+  test('says why it cannot send without a reported app, a running server or a token', () => {
     expect(panel({ hello: null })).toContain('Waiting for the app to start');
     expect(panel({ token: null })).toContain('No session token');
     expect(panel({ hello: { ...hello, adapter: null, port: null } })).toContain('runs headless');
+    expect(panel({ stopped: true })).toContain('This server has stopped and serves no HTTP.');
     expect(panel({ hello: null })).toMatch(/<button type="button" class="send" disabled/);
+    expect(panel({ stopped: true })).toMatch(/<button type="button" class="send" disabled/);
+  });
+
+  test('a request goes to the server whose routes are listed, and not at all while blocked', async () => {
+    const sent: [ConsoleHttpRequest, string][] = [];
+    const send = async (request: ConsoleHttpRequest, token: string) => {
+      sent.push([request, token]);
+
+      return { ok: false as const, reason: 'not sent' };
+    };
+    const request: ConsoleHttpRequest = { method: 'GET', path: '/items/', query: {}, headers: {}, body: '' };
+
+    await requestSender(send, 't', { ...hello, serverId: 'server-2' }, null)?.(request);
+
+    expect(sent).toEqual([[{ ...request, serverId: 'server-2' }, 't']]);
+    expect(isConsoleHttpRequest(sent[0]![0])).toBe(true);
+    expect(requestSender(send, 't', hello, 'This server has stopped and serves no HTTP.')).toBeNull();
+    expect(requestSender(send, 't', null, null)).toBeNull();
+    expect(requestSender(send, null, hello, null)).toBeNull();
   });
 
   test('shows the stored history of the route', () => {

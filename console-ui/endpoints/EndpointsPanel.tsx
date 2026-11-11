@@ -16,7 +16,10 @@ export type Selection = { kind: 'http'; key: string } | { kind: 'ws'; namespace:
 
 export interface EndpointsPanelProps {
   snapshot: DevtoolsSnapshot;
+  /** The server the snapshot came from, which is the one requests go to; `null` until it has reported. */
   hello: DevtoolsHello | null;
+  /** Whether that server has stopped. */
+  stopped?: boolean;
   /** The current run, shown with each response. */
   gen?: number | null;
   token: string | null;
@@ -39,13 +42,27 @@ export const groupByController = (routes: DevtoolsRoute[]): [string, DevtoolsRou
   return [...groups.entries()];
 };
 
-const blockedReason = (token: string | null, hello: DevtoolsHello | null): string | null => {
+const blockedReason = (token: string | null, hello: DevtoolsHello | null, stopped: boolean): string | null => {
   if (!token) return 'No session token in the page URL.';
   if (!hello) return 'Waiting for the app to start; the host answers 502 until it has.';
+  if (stopped) return 'This server has stopped and serves no HTTP.';
   if (hello.port === null) return 'The app runs headless and serves no HTTP.';
 
   return null;
 };
+
+/**
+ * Sends each request to the port of the server that said `hello`, the one whose routes are listed.
+ *
+ * @returns `null` while nothing can be sent
+ */
+export const requestSender = (
+  send: NonNullable<EndpointsPanelProps['send']>,
+  token: string | null,
+  hello: DevtoolsHello | null,
+  blocked: string | null,
+): ((request: ConsoleHttpRequest) => Promise<HttpOutcome>) | null =>
+  token && hello && blocked === null ? (request) => send({ ...request, serverId: hello.serverId }, token) : null;
 
 const initialSelection = (snapshot: DevtoolsSnapshot, focus: EndpointFocus | null): Selection | null => {
   const route = snapshot.routes.find((candidate) => routeKey(candidate) === focus?.key) ?? snapshot.routes[0];
@@ -120,6 +137,7 @@ export const NoSelection = ({ gone }: { gone: string | null }) => (
 export const EndpointsPanel = ({
   snapshot,
   hello,
+  stopped = false,
   gen = null,
   token,
   focus,
@@ -158,7 +176,7 @@ export const EndpointsPanel = ({
     selection?.kind === 'ws'
       ? snapshot.websockets.find((candidate) => candidate.namespace === selection.namespace)
       : undefined;
-  const blocked = blockedReason(token, hello);
+  const blocked = blockedReason(token, hello, stopped);
 
   const updateHistory = (change: (current: HttpHistory) => HttpHistory) =>
     setHistory((current) => {
@@ -229,7 +247,7 @@ export const EndpointsPanel = ({
           key={routeKey(route)}
           route={route}
           history={history[routeKey(route)] ?? []}
-          send={token && blocked === null ? (request) => send(request, token) : null}
+          send={requestSender(send, token, hello, blocked)}
           blockedReason={blocked}
           port={hello?.port ?? null}
           gen={gen}

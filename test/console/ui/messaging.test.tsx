@@ -1,9 +1,14 @@
 import { describe, expect, test } from 'bun:test';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { type ConsoleHostMessage, isConsoleBrowserMessage } from '../../../lib/console/hostProtocol';
-import type { DevtoolsCommandRequest, DevtoolsMetrics } from '../../../lib/console/protocol';
+import {
+  type ConsoleBrowserMessage,
+  type ConsoleHostMessage,
+  isConsoleBrowserMessage,
+} from '../../../lib/console/hostProtocol';
+import type { DevtoolsCommandRequest } from '../../../lib/console/protocol';
 import {
   commandBlockedReason,
+  commandSender,
   eventCommand,
   formatNextRun,
   groupBy,
@@ -18,8 +23,9 @@ import {
 } from '../../../console-ui/messaging/commands';
 import { nextRunOf, parseCron } from '../../../console-ui/messaging/cron';
 import { MessagingPanel, ResultView } from '../../../console-ui/messaging/MessagingPanel';
-import { consoleReducer, type ConsoleState, initialConsoleState } from '../../../console-ui/state/store';
+import { consoleReducer, type ConsoleState, initialConsoleState, serverView } from '../../../console-ui/state/store';
 import hostMessagesJson from '../fixtures/host-messages.json';
+import { sampleWith } from '../helpers';
 
 const recording = hostMessagesJson as unknown as ConsoleHostMessage[];
 // The page that recorded host-messages.json had sent the commands c-1 to c-4.
@@ -30,7 +36,8 @@ const state = recording.reduce<ConsoleState>(
     { ...initialConsoleState, connection: 'open' },
   ),
 );
-const snapshot = state.snapshot!;
+const snapshot = serverView(state).snapshot!;
+const hello = serverView(state).hello!;
 
 const EXPRESSIONS = [
   '0 3 * * *',
@@ -227,21 +234,39 @@ describe('messaging commands', () => {
     expect(lastDispatch(state.requests, '@Schedule', 'Other')).toBeNull();
   });
 
-  test('transport state comes from the newest sample, else the hello', () => {
-    const sample = { ...state.metrics.at(-1)!, transports: [{ name: 'default', connected: false }] } as DevtoolsMetrics;
+  test("transport state comes from the server's part of the newest sample, else its hello", () => {
+    const down = [{ name: 'default', connected: false }];
+    const sample = sampleWith(state.metrics.at(-1)!, { transports: down });
+    const other = sampleWith(state.metrics.at(-1)!, { transports: down }, 'server-2');
 
-    expect(transportStates(state.hello, [sample])).toEqual([{ name: 'default', connected: false }]);
-    expect(transportStates(state.hello, [])).toEqual([{ name: 'default', connected: true }]);
-    expect(transportStates(null, [])).toEqual([]);
+    expect(transportStates(hello, [sample])).toEqual(down);
+    expect(transportStates(hello, [{ ...other, transports: down }])).toEqual([{ name: 'default', connected: true }]);
+    expect(transportStates({ ...hello, serverId: 'server-2' }, [other])).toEqual(down);
+    expect(transportStates(hello, [])).toEqual([{ name: 'default', connected: true }]);
+    expect(transportStates(null, [sample])).toEqual([]);
   });
 
   test('says why nothing can be sent', () => {
-    const ready = { canSend: true, token: 't', connected: true, hello: state.hello };
+    const ready = { canSend: true, token: 't', connected: true, hello };
 
     expect(commandBlockedReason(ready)).toBeNull();
     expect(commandBlockedReason({ ...ready, token: null })).toContain('No session token');
     expect(commandBlockedReason({ ...ready, connected: false })).toContain('Not connected');
     expect(commandBlockedReason({ ...ready, hello: null })).toContain('has not started');
+    expect(commandBlockedReason({ ...ready, stopped: true })).toContain('This server has stopped');
+  });
+
+  test('a command goes out addressed to the server its item came from, and not at all while blocked', () => {
+    const sent: ConsoleBrowserMessage[] = [];
+    const send = (message: ConsoleBrowserMessage) => sent.push(message) > 0;
+    const command: DevtoolsCommandRequest = { id: 'c-9', ...scheduleCommand('NightlyCleanup') };
+
+    expect(commandSender(send, { ...hello, serverId: 'server-2' }, null)?.(command)).toBe(true);
+    expect(sent).toEqual([{ v: 1, type: 'command', command: { ...command, serverId: 'server-2' } }]);
+    expect(sent.every(isConsoleBrowserMessage)).toBe(true);
+    expect(commandSender(send, hello, 'Not connected')).toBeNull();
+    expect(commandSender(send, null, null)).toBeNull();
+    expect(commandSender(undefined, hello, null)).toBeNull();
   });
 
   test('groups keep first-seen order', () => {
@@ -264,6 +289,26 @@ describe('messaging commands', () => {
     expect(renderToStaticMarkup(<ResultView result={undefined} />)).toContain('Waiting for the app to answer');
     expect(renderToStaticMarkup(<ResultView result={{ id: 'x', ok: true }} />)).toContain('no result');
   });
+
+  test('with several servers a result names the one that answered, or says that none did', () => {
+    const labels = { 'server-1': 'Ergenecore :3000', 'server-2': 'Headless server-2' };
+    const gone = {
+      id: 'x',
+      ok: false as const,
+      error: { name: 'Error', message: 'No attached server has the id "server-3"; the command was not run' },
+    };
+    const view = (result: Parameters<typeof ResultView>[0]['result'], serverLabels?: Record<string, string>) =>
+      renderToStaticMarkup(<ResultView result={result} serverLabels={serverLabels} />);
+
+    expect(view(state.commandResults['c-4'], labels)).toContain(
+      '<span class="muted">answered by Ergenecore :3000</span>',
+    );
+    expect(view(state.commandResults['c-2'], labels)).toContain('answered by Ergenecore :3000');
+    expect(view({ id: 'x', ok: true, serverId: 'server-2' }, labels)).toContain('answered by Headless server-2');
+    expect(view(gone, labels)).toContain('no server answered');
+    expect(view(state.commandResults['c-4'])).not.toContain('answered');
+    expect(view(gone)).not.toContain('answered');
+  });
 });
 
 describe('messaging panel rendering', () => {
@@ -271,7 +316,7 @@ describe('messaging panel rendering', () => {
     renderToStaticMarkup(
       <MessagingPanel
         snapshot={snapshot}
-        hello={state.hello}
+        hello={hello}
         metrics={state.metrics}
         requests={state.requests}
         commandResults={state.commandResults}

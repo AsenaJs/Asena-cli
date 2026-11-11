@@ -1,6 +1,23 @@
 import type { ConsoleChildStatus } from '../../lib/console/hostProtocol';
-import type { ConsoleState } from '../state/store';
+import { type ConsoleServer, type ConsoleState, isServerLive, serverView } from '../state/store';
 import type { Tone } from '../ui/components';
+
+/** How the console names a server among several: adapter and port, or its id when it serves no HTTP. */
+export const serverLabel = ({ serverId, hello }: Pick<ConsoleServer, 'serverId' | 'hello'>): string =>
+  hello.port === null ? `Headless ${serverId}` : `${hello.adapter ?? 'HTTP'} :${hello.port}`;
+
+export interface ServerOption {
+  serverId: string;
+  label: string;
+}
+
+/** Every server the console knows, saying which stopped and which only the previous run reported. */
+export const serverOptions = (state: ConsoleState): ServerOption[] =>
+  state.servers.map((server) => {
+    const note = !isServerLive(state, server) ? ' (previous run)' : server.stopped ? ' (stopped)' : '';
+
+    return { serverId: server.serverId, label: `${serverLabel(server)}${note}` };
+  });
 
 export interface StatusView {
   tone: Tone;
@@ -69,7 +86,13 @@ export const runStatus = (state: ConsoleState): StatusView => {
       break;
   }
 
-  const readiness = state.metrics.at(-1)?.readiness;
+  const view = serverView(state);
+
+  if (view.stopped) {
+    return { tone: 'neutral', label: 'Server stopped', detail: 'This server has stopped; the app process still runs' };
+  }
+
+  const readiness = view.state?.readiness;
 
   if (readiness && 'state' in readiness) {
     return { tone: 'warn', label: 'Not ready', detail: `Lifecycle ${readiness.state}` };

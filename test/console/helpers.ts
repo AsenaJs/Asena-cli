@@ -1,4 +1,16 @@
 import type { ConsoleHostMessage } from '../../lib/console/hostProtocol';
+import type { DevtoolsMetrics, DevtoolsServerState } from '../../lib/console/protocol';
+
+/** The sample with one server's part changed, at the top level too, as the agent of a one-server app sends it. */
+export const sampleWith = (
+  sample: DevtoolsMetrics,
+  state: Partial<DevtoolsServerState>,
+  serverId = 'server-1',
+): DevtoolsMetrics => {
+  const current: DevtoolsServerState = sample.servers[serverId] ?? { readiness: sample.readiness };
+
+  return { ...sample, ...state, servers: { ...sample.servers, [serverId]: { ...current, ...state } } };
+};
 
 // Below the kernel's ephemeral floor, so a server port never collides with the suite's own outbound sockets.
 export const randomPort = (): number => 10000 + Math.floor(Math.random() * 22000);

@@ -57,7 +57,7 @@ const STEP_KINDS = [
   'adapter-default',
   'not-found',
 ] as const;
-const AGENT_TYPES = ['hello', 'snapshot', 'metrics', 'request', 'commandResult'] as const;
+const AGENT_TYPES = ['hello', 'snapshot', 'metrics', 'request', 'commandResult', 'serverStopped'] as const;
 const HOST_TYPES = ['snapshotState', 'agent', 'log', 'child'] as const;
 
 // The fixture checks below enumerate the protocol's unions; a member added to protocol.ts fails typecheck here.
@@ -213,7 +213,7 @@ describe('console fixtures', () => {
         type: 'snapshotState',
         timeZone: 'UTC',
         child: { gen: 1, state: 'running', pid: 1 },
-        snapshot,
+        servers: [{ hello: { serverId: 'server-1' }, snapshot }],
         runs: [],
         metrics: [],
         logs: [],
@@ -239,7 +239,18 @@ describe('console fixtures', () => {
     expect(first.metrics.length).toBeLessThanOrEqual(CONSOLE_REPLAY_LIMITS.metrics);
     expect(first.logs.length).toBeLessThanOrEqual(CONSOLE_REPLAY_LIMITS.logs);
     expect(first.requests.length).toBeLessThanOrEqual(CONSOLE_REPLAY_LIMITS.requests);
-    expect(first.snapshot).toEqual(snapshot);
+    expect(first.servers.map((server) => server.snapshot)).toEqual([{ ...snapshot, serverId: 'server-1' }]);
+  });
+
+  test('every recorded hello, snapshot, request and answered command names its server, and samples list it', () => {
+    const agentMessages = (hostMessages as ConsoleHostMessage[]).flatMap((message) =>
+      message.type === 'agent' ? [message.message] : [],
+    );
+
+    for (const message of agentMessages) {
+      if (message.type === 'metrics') expect(Object.keys(message.payload.servers)).toEqual(['server-1']);
+      else expect(message.payload.serverId).toBe('server-1');
+    }
   });
 
   test('the recording covers every message type, child state and log stream', () => {
@@ -270,7 +281,7 @@ describe('console fixtures', () => {
     ];
 
     for (const message of agentMessages) {
-      if (message.type === 'snapshot') expect(message.payload).toEqual(snapshot);
+      if (message.type === 'snapshot') expect(message.payload).toEqual({ ...snapshot, serverId: 'server-1' });
     }
 
     expect(requests.length).toBeGreaterThan(0);
@@ -339,12 +350,21 @@ describe('isConsoleHostMessage', () => {
     type: 'snapshotState',
     timeZone: 'UTC',
     child: { gen: 1, state: 'starting' },
+    servers: [],
     runs: [],
     metrics: [],
     logs: [],
     requests: [],
     commandResults: [{ id: 'c-1', ok: true }],
   };
+  const server = { hello: { serverId: 'server-1' } };
+
+  test('accepts a replay with servers, with and without a snapshot or the stopped mark', () => {
+    expect(isConsoleHostMessage({ ...state, servers: [server] })).toBe(true);
+    expect(isConsoleHostMessage({ ...state, servers: [server, { ...server, snapshot: {}, stopped: true }] })).toBe(
+      true,
+    );
+  });
 
   test('accepts each message type', () => {
     expect(isConsoleHostMessage(log)).toBe(true);
@@ -385,6 +405,10 @@ describe('isConsoleHostMessage', () => {
       { ...child, cause: { kind: 'change', files: [], removed: [1] } },
     ],
     ['a change time that is not a number', { ...child, at: '12:00' }],
+    ['a replay without its servers', { ...state, servers: undefined }],
+    ['a replay with a server without its hello', { ...state, servers: [{ snapshot: {} }] }],
+    ['a replay with a server whose hello has no id', { ...state, servers: [{ hello: { pid: 1 } }] }],
+    ['a replay with a stopped mark that is not `true`', { ...state, servers: [{ ...server, stopped: 'yes' }] }],
     ['a replay without runs', { ...state, runs: undefined }],
     ['a replay with a run without its start time', { ...state, runs: [{ ...run, startedAt: undefined }] }],
     ['an unknown child state', { ...child, state: 'crashed' }],
@@ -437,6 +461,10 @@ describe('isConsoleBrowserMessage', () => {
     expect(accepted.every(isConsoleBrowserMessage)).toBe(true);
   });
 
+  test('accepts a command addressed to a server', () => {
+    expect(isConsoleBrowserMessage(command({ serverId: 'server-2', command: 'runSchedule', name: 'x' }))).toBe(true);
+  });
+
   test('accepts a restart request', () => {
     const restart: ConsoleBrowserMessage = { v: 1, type: 'restart' };
 
@@ -450,6 +478,7 @@ describe('isConsoleBrowserMessage', () => {
     ['a command without an id', { v: 1, type: 'command', command: { command: 'runSchedule', name: 'x' } }],
     ['an empty id', command({ id: '', command: 'runSchedule', name: 'x' })],
     ['an unknown command', command({ command: 'shutdown' })],
+    ['a server id that is not a string', command({ serverId: 2, command: 'runSchedule', name: 'x' })],
     ['runSchedule without a name', command({ command: 'runSchedule' })],
     ['emitEvent without an event', command({ command: 'emitEvent', data: 1 })],
     [
@@ -475,6 +504,7 @@ describe('isConsoleHttpRequest', () => {
   test('accepts a request for the app', () => {
     expect(isConsoleHttpRequest(request)).toBe(true);
     expect(isConsoleHttpRequest({ ...request, method: 'get', path: '/', query: {}, headers: {}, body: '' })).toBe(true);
+    expect(isConsoleHttpRequest({ ...request, serverId: 'server-2' })).toBe(true);
   });
 
   test.each([
@@ -500,6 +530,7 @@ describe('isConsoleHttpRequest', () => {
     ['an empty method', { ...request, method: '' }],
     ['a non-string header value', { ...request, headers: { 'x-count': 1 } }],
     ['a query that is an array', { ...request, query: [['a', '1']] }],
+    ['a server id that is not a string', { ...request, serverId: 2 }],
     ['a missing body', { ...request, body: undefined }],
     ['a JSON body that is not a string', { ...request, body: { name: 'lamp' } }],
   ])('rejects %s', (_, value) => {

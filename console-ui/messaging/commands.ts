@@ -1,5 +1,7 @@
+import type { ConsoleBrowserMessage } from '../../lib/console/hostProtocol';
 import type {
   DevtoolsCommand,
+  DevtoolsCommandRequest,
   DevtoolsCommandResult,
   DevtoolsHello,
   DevtoolsMessageHandler,
@@ -7,6 +9,7 @@ import type {
   DevtoolsRequestRecord,
   DevtoolsTransport,
 } from '../../lib/console/protocol';
+import { serverStateOf } from '../state/store';
 import { wallClockOf } from './cron';
 
 let sequence = 0;
@@ -42,18 +45,36 @@ export const commandBlockedReason = ({
   token,
   connected,
   hello,
+  stopped = false,
 }: {
   canSend: boolean;
   token: string | null;
   connected: boolean;
   hello: DevtoolsHello | null;
+  /** Whether the server the actions are for has stopped. */
+  stopped?: boolean;
 }): string | null => {
   if (!token) return 'No session token in the page URL, so nothing can be sent.';
   if (!canSend || !connected) return 'Not connected to the console host; actions are off until it reconnects.';
   if (!hello) return 'The app has not started yet; actions are off until it reports.';
+  if (stopped) return 'This server has stopped; it takes no commands.';
 
   return null;
 };
+
+/**
+ * Sends each command to the server that said `hello`, the one whose snapshot the item came from.
+ *
+ * @returns `null` while nothing can be sent
+ */
+export const commandSender = (
+  send: ((message: ConsoleBrowserMessage) => boolean) | undefined,
+  hello: DevtoolsHello | null,
+  blockedReason: string | null,
+): ((command: DevtoolsCommandRequest) => boolean) | null =>
+  send && hello && blockedReason === null
+    ? (command) => send({ v: 1, type: 'command', command: { ...command, serverId: hello.serverId } })
+    : null;
 
 /** An empty editor sends no payload at all, which is not the same as `null`. */
 export const parsePayload = (text: string): Payload => {
@@ -74,9 +95,9 @@ export const lastDispatch = (
 ): DevtoolsRequestRecord | null =>
   records.findLast((record) => record.method === method && record.path === path) ?? null;
 
-/** The latest connection state per transport: the newest metrics sample, else the hello. */
+/** The latest connection state per transport of the server that said `hello`: its newest sample, else the hello. */
 export const transportStates = (hello: DevtoolsHello | null, metrics: DevtoolsMetrics[]): DevtoolsTransport[] =>
-  metrics.at(-1)?.transports ?? hello?.transports ?? [];
+  hello ? (serverStateOf(metrics, hello.serverId)?.transports ?? hello.transports ?? []) : [];
 
 export const groupBy = <T>(items: T[], key: (item: T) => string): [string, T[]][] => {
   const groups = new Map<string, T[]>();

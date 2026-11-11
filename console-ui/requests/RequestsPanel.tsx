@@ -1,9 +1,10 @@
 import { type KeyboardEvent, useMemo, useState } from 'react';
-import type { ConsoleRun } from '../../lib/console/hostProtocol';
-import type { DevtoolsRequestRecord, DevtoolsRoute } from '../../lib/console/protocol';
+import type { ConsoleRequestRecord, ConsoleRun } from '../../lib/console/hostProtocol';
+import type { DevtoolsRoute } from '../../lib/console/protocol';
 import { answerTone, STATUS_TEXT, statusTone } from '../endpoints/RouteTester';
 import { formatClock, formatMs } from '../runtime/format';
 import { shownLog } from '../runtime/logs';
+import type { ServerOption } from '../shell/status';
 import { Card, IconButton, MethodBadge, Pill, SearchField, Section, SegmentedControl } from '../ui/components';
 import { Icon } from '../ui/icons';
 import {
@@ -20,11 +21,15 @@ import {
 } from './records';
 
 export interface RequestsPanelProps {
-  requests: DevtoolsRequestRecord[];
+  requests: ConsoleRequestRecord[];
   runs: ConsoleRun[];
-  /** The app's routes, to find the one a request can be replayed on; empty before the first snapshot. */
+  /** The routes of the server on screen, to find the one a request can be replayed on; empty before its snapshot. */
   routes: DevtoolsRoute[];
   onReplay: (focus: EndpointFocus) => void;
+  /** The app's servers when it has several: the list can then be narrowed to one, and each record names its own. */
+  servers?: ServerOption[];
+  /** The id of the server on screen, whose routes `routes` are. */
+  viewedServer?: string | null;
   /** The record to open first. */
   initialSelected?: string | null;
 }
@@ -33,12 +38,15 @@ const RequestDetails = ({
   record,
   runs,
   routes,
+  server,
   onReplay,
   onClose,
 }: {
-  record: DevtoolsRequestRecord;
+  record: ConsoleRequestRecord;
   runs: ConsoleRun[];
   routes: DevtoolsRoute[];
+  /** The record's server among several, and whether the routes on screen are another server's. */
+  server: { label: string; elsewhere: boolean } | null;
   onReplay: (focus: EndpointFocus) => void;
   onClose: () => void;
 }) => {
@@ -48,8 +56,13 @@ const RequestDetails = ({
 
     return log ? [{ ...entry, ...log }] : [];
   });
-  const focus = replayFocus(record, routes);
+  const focus = server?.elsewhere ? null : replayFocus(record, routes);
   const dispatch = isDispatch(record);
+  const noReplay = dispatch
+    ? `A ${record.method} dispatch, not an HTTP request: run it again from Messaging.`
+    : server?.elsewhere
+      ? `Served by ${server.label}: pick that server in the sidebar to replay it.`
+      : `No route of the app serves ${record.method} ${record.path}, so there is nothing to replay.`;
 
   return (
     <Card className="rq-drawer" role="region" aria-labelledby="rq-drawer-title">
@@ -72,6 +85,7 @@ const RequestDetails = ({
         <span>
           At <b>{formatClock(record.startedAt)}</b>
         </span>
+        {server ? <span>{server.label}</span> : null}
         {run === null ? null : <span className="muted resp-run">Run {run}</span>}
       </div>
       <div className="rq-drawer-body">
@@ -119,11 +133,7 @@ const RequestDetails = ({
               Replay in Endpoints →
             </button>
           ) : (
-            <p className="muted pane-note">
-              {dispatch
-                ? `A ${record.method} dispatch, not an HTTP request: run it again from Messaging.`
-                : `No route of the app serves ${record.method} ${record.path}, so there is nothing to replay.`}
-            </p>
+            <p className="muted pane-note">{noReplay}</p>
           )}
         </div>
       </div>
@@ -131,18 +141,35 @@ const RequestDetails = ({
   );
 };
 
-export const RequestsPanel = ({ requests, runs, routes, onReplay, initialSelected = null }: RequestsPanelProps) => {
+export const RequestsPanel = ({
+  requests,
+  runs,
+  routes,
+  onReplay,
+  servers = [],
+  viewedServer = null,
+  initialSelected = null,
+}: RequestsPanelProps) => {
   const [hiddenClasses, setHiddenClasses] = useState<ReadonlySet<string>>(() => new Set());
   const [method, setMethod] = useState('');
+  const [serverId, setServerId] = useState('');
   const [text, setText] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(initialSelected);
+  const several = servers.length > 1;
   const shown = useMemo(
-    () => filterRequests(requests, { hiddenClasses, method, text }),
-    [requests, hiddenClasses, method, text],
+    () => filterRequests(requests, { hiddenClasses, method, text, serverId: several ? serverId : '' }),
+    [requests, hiddenClasses, method, text, serverId, several],
   );
   const counts = useMemo(() => countByClass(requests), [requests]);
   const methods = useMemo(() => methodsOf(requests), [requests]);
   const selected = requests.find((record) => record.id === selectedId) ?? null;
+  const serverOf = (record: ConsoleRequestRecord) =>
+    several
+      ? {
+          label: servers.find((server) => server.serverId === record.serverId)?.label ?? record.serverId,
+          elsewhere: record.serverId !== viewedServer,
+        }
+      : null;
 
   const toggleClass = (name: string) => {
     const next = new Set(hiddenClasses);
@@ -199,6 +226,21 @@ export const RequestsPanel = ({ requests, runs, routes, onReplay, initialSelecte
               </option>
             ))}
           </select>
+          {several ? (
+            <select
+              className="select toolbar-select"
+              aria-label="Server"
+              value={serverId}
+              onChange={(event) => setServerId(event.target.value)}
+            >
+              <option value="">All servers</option>
+              {servers.map((server) => (
+                <option key={server.serverId} value={server.serverId}>
+                  {server.label}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <SearchField label="Filter by path, handler or status" value={text} onChange={setText} />
           <span className="muted toolbar-count num">
             {shown.length === requests.length ? `${requests.length}` : `${shown.length} of ${requests.length}`}
@@ -261,6 +303,7 @@ export const RequestsPanel = ({ requests, runs, routes, onReplay, initialSelecte
           record={selected}
           runs={runs}
           routes={routes}
+          server={serverOf(selected)}
           onReplay={onReplay}
           onClose={() => setSelectedId(null)}
         />

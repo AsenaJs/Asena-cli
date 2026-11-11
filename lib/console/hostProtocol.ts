@@ -3,13 +3,12 @@
 
 import {
   type DevtoolsAgentMessage,
+  type DevtoolsAgentPayloads,
   type DevtoolsCommand,
   type DevtoolsCommandRequest,
   type DevtoolsCommandResult,
   type DevtoolsHello,
   type DevtoolsMetrics,
-  type DevtoolsRequestRecord,
-  type DevtoolsSnapshot,
   isDevtoolsAgentMessage,
 } from './protocol';
 
@@ -88,16 +87,27 @@ export interface ConsoleLogLine {
   at: number;
 }
 
-/** What a browser needs to catch up on connect. `hello` and `snapshot` belong to the current child. */
+/** A request record with the id of the server that opened it. */
+export type ConsoleRequestRecord = DevtoolsAgentPayloads['request'];
+
+/** One `AsenaServer` of the current child, as its agent reported it. */
+export interface ConsoleServerInfo {
+  hello: DevtoolsHello;
+  snapshot?: DevtoolsAgentPayloads['snapshot'];
+  /** Set once the server said `serverStopped`; the app process may live on. */
+  stopped?: true;
+}
+
+/** What a browser needs to catch up on connect. */
 export interface ConsoleSnapshotState {
   child: ConsoleChildStatus;
-  hello?: DevtoolsHello;
-  snapshot?: DevtoolsSnapshot;
+  /** The current child's servers, in the order they attached. */
+  servers: ConsoleServerInfo[];
   /** The most recent generations, oldest first, the current one last. */
   runs: ConsoleRun[];
   metrics: DevtoolsMetrics[];
   logs: ConsoleLogLine[];
-  requests: DevtoolsRequestRecord[];
+  requests: ConsoleRequestRecord[];
   /** The most recent command results, oldest first, so a page that reconnected can settle what it sent. */
   commandResults: DevtoolsCommandResult[];
   /** The IANA zone the app runs in, which `Bun.cron.parse` reads its schedules in. */
@@ -133,8 +143,10 @@ export type ConsoleBrowserMessage = ConsoleCommandMessage | ConsoleRestartMessag
 
 export type ConsoleBrowserMessageType = ConsoleBrowserMessage['type'];
 
-/** The body of `POST /api/http`: one request for the host to send to the app's port. */
+/** The body of `POST /api/http`: one request for the host to send to a port of the app. */
 export interface ConsoleHttpRequest {
+  /** The server whose port gets the request; without it, the most recently attached one that has not stopped. */
+  serverId?: string;
   method: string;
   /** Starts with `/`, path params filled in, no query string. */
   path: string;
@@ -228,11 +240,17 @@ const isLogLine = (value: unknown): boolean =>
   isString(value['line']) &&
   isNumber(value['at']);
 
+const isServerInfo = (value: unknown): boolean =>
+  isObject(value) &&
+  isObject(value['hello']) &&
+  isString(value['hello']['serverId']) &&
+  isOptional(value['snapshot'], isObject) &&
+  isOptional(value['stopped'], (stopped) => stopped === true);
+
 const isSnapshotState = (value: Fields): boolean =>
   isObject(value['child']) &&
   isChildStatus(value['child']) &&
-  isOptional(value['hello'], isObject) &&
-  isOptional(value['snapshot'], isObject) &&
+  isArrayOf(value['servers'], isServerInfo) &&
   isArrayOf(value['runs'], isRun) &&
   isArrayOf(value['metrics'], isObject) &&
   isArrayOf(value['logs'], isLogLine) &&
@@ -260,6 +278,7 @@ export const isConsoleHostMessage = (value: unknown): value is ConsoleHostMessag
 
 const isCommand = (value: unknown): value is DevtoolsCommandRequest => {
   if (!isObject(value) || !isString(value['id']) || value['id'] === '') return false;
+  if (!isOptional(value['serverId'], isString)) return false;
 
   switch (value['command'] as DevtoolsCommand['command']) {
     case 'runSchedule':
@@ -300,6 +319,7 @@ const isAppPath = (value: unknown): value is string =>
 /** The host's input check on the `POST /api/http` body. */
 export const isConsoleHttpRequest = (value: unknown): value is ConsoleHttpRequest =>
   isObject(value) &&
+  isOptional(value['serverId'], isString) &&
   isString(value['method']) &&
   /^[A-Za-z]+$/.test(value['method']) &&
   isAppPath(value['path']) &&

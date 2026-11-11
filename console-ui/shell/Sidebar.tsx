@@ -1,6 +1,7 @@
 import type { DevtoolsHello, DevtoolsSnapshot } from '../../lib/console/protocol';
 import { Icon } from '../ui/icons';
 import { Logo } from '../ui/Logo';
+import type { ServerOption } from './status';
 import { VIEWS, type ViewId, viewHash } from './views';
 
 const GROUPS = ['Inspect', 'Debug'] as const;
@@ -45,15 +46,44 @@ const AppCard = ({ hello }: { hello: DevtoolsHello | null }) => (
   </dl>
 );
 
+/** Shown only when the app has several servers: the one the snapshot views and the app card describe. */
+const ServerPicker = ({
+  servers,
+  selected,
+  onSelect,
+}: {
+  servers: ServerOption[];
+  selected: string | null;
+  onSelect: (serverId: string) => void;
+}) => (
+  <label className="server-pick">
+    <span>Server</span>
+    <select className="select" value={selected ?? ''} onChange={(event) => onSelect(event.target.value)}>
+      {servers.map((server) => (
+        <option key={server.serverId} value={server.serverId}>
+          {server.label}
+        </option>
+      ))}
+    </select>
+  </label>
+);
+
 export const Sidebar = ({
   view,
   snapshot,
   hello,
+  servers = [],
+  selectedServer = null,
+  onSelectServer,
   onNavigate,
 }: {
   view: ViewId;
   snapshot: DevtoolsSnapshot | null;
   hello: DevtoolsHello | null;
+  servers?: ServerOption[];
+  /** The id of the server on screen. */
+  selectedServer?: string | null;
+  onSelectServer?: (serverId: string) => void;
   onNavigate: (view: ViewId) => void;
 }) => (
   <aside className="side" aria-label="Console navigation">
@@ -86,6 +116,9 @@ export const Sidebar = ({
         })}
       </nav>
     ))}
+    {servers.length > 1 && onSelectServer ? (
+      <ServerPicker servers={servers} selected={selectedServer} onSelect={onSelectServer} />
+    ) : null}
     <AppCard hello={hello} />
   </aside>
 );

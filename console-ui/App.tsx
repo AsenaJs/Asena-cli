@@ -1,24 +1,24 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import type { ConsoleBrowserMessage } from '../lib/console/hostProtocol';
-import type { DevtoolsCommandRequest, DevtoolsSnapshot } from '../lib/console/protocol';
+import type { DevtoolsSnapshot } from '../lib/console/protocol';
 import { ConfigPanel } from './config/ConfigPanel';
 import { draftsForOpen, EndpointsPanel } from './endpoints/EndpointsPanel';
 import type { SavedDraft, SavedDrafts } from './endpoints/requestBuilder';
 import { ExceptionsPanel } from './exceptions/ExceptionsPanel';
 import type { GraphViewChoice } from './graph/focus';
 import { GraphPanel } from './graph/GraphPanel';
-import { browserTimeZone, commandBlockedReason } from './messaging/commands';
+import { browserTimeZone, commandBlockedReason, commandSender } from './messaging/commands';
 import { MessagingPanel } from './messaging/MessagingPanel';
 import type { EndpointFocus } from './requests/records';
 import { RequestsPanel } from './requests/RequestsPanel';
 import { RuntimePanel } from './runtime/RuntimePanel';
-import { StaleNotice, WaitingForSnapshot } from './shell/Placeholder';
+import { StaleNotice, StoppedNotice, WaitingForSnapshot } from './shell/Placeholder';
 import { Sidebar } from './shell/Sidebar';
-import { appStatus } from './shell/status';
+import { appStatus, serverOptions } from './shell/status';
 import { type ThemeChoice, useTheme } from './shell/theme';
 import { TopBar } from './shell/TopBar';
 import { type ViewId, viewFromHash, viewHash } from './shell/views';
-import { type ConsoleState, isSnapshotStale } from './state/store';
+import { type ConsoleState, serverView } from './state/store';
 import { useConsole } from './state/useConsole';
 
 export interface ShellProps {
@@ -26,6 +26,8 @@ export interface ShellProps {
   token: string | null;
   initialView?: ViewId;
   send?: (message: ConsoleBrowserMessage) => boolean;
+  /** Picks the server the snapshot views show, when the app has several. */
+  onSelectServer?: (serverId: string) => void;
 }
 
 const currentHash = () => (typeof location === 'undefined' ? '' : location.hash);
@@ -57,22 +59,26 @@ const Panel = ({
   onGraphView,
   send,
 }: PanelProps) => {
+  const { server, hello, snapshot: viewed, stale, stopped } = serverView(state);
+  const servers = serverOptions(state);
+  const several = servers.length > 1;
+  // With one server every record is its own, whichever run it came from.
+  const requests = several ? state.requests.filter((record) => record.serverId === server?.serverId) : state.requests;
   const blockedReason = commandBlockedReason({
     canSend: send !== undefined,
     token,
     connected: state.connection === 'open',
-    hello: state.hello,
+    hello,
+    stopped,
   });
-  const sendCommand =
-    send && blockedReason === null
-      ? (command: DevtoolsCommandRequest) => send({ v: 1, type: 'command', command })
-      : null;
+  const sendCommand = commandSender(send, hello, blockedReason);
 
   const withSnapshot = (render: (snapshot: DevtoolsSnapshot) => ReactNode) =>
-    state.snapshot ? (
+    viewed ? (
       <>
-        {isSnapshotStale(state) ? <StaleNotice gen={state.snapshotGen} /> : null}
-        {render(state.snapshot)}
+        {stale ? <StaleNotice gen={server?.snapshotGen ?? null} /> : null}
+        {stopped ? <StoppedNotice /> : null}
+        {render(viewed)}
       </>
     ) : (
       <WaitingForSnapshot view={view} />
@@ -95,13 +101,14 @@ const Panel = ({
       return withSnapshot((snapshot) => (
         <EndpointsPanel
           snapshot={snapshot}
-          hello={state.hello}
+          hello={hello}
+          stopped={stopped}
           gen={state.child?.gen ?? null}
           token={token}
           focus={focus}
           drafts={drafts}
           onDraft={onDraft}
-          requests={state.requests}
+          requests={requests}
         />
       ));
     case 'requests':
@@ -109,7 +116,9 @@ const Panel = ({
         <RequestsPanel
           requests={state.requests}
           runs={state.runs}
-          routes={state.snapshot?.routes ?? []}
+          routes={viewed?.routes ?? []}
+          servers={servers}
+          viewedServer={server?.serverId ?? null}
           onReplay={onOpenEndpoint}
         />
       );
@@ -117,31 +126,33 @@ const Panel = ({
       return withSnapshot((snapshot) => (
         <MessagingPanel
           snapshot={snapshot}
-          hello={state.hello}
+          hello={hello}
           metrics={state.metrics}
-          requests={state.requests}
+          requests={requests}
           commandResults={state.commandResults}
           send={sendCommand}
           blockedReason={blockedReason}
           timeZone={state.timeZone ?? browserTimeZone()}
+          serverLabels={
+            several ? Object.fromEntries(servers.map((option) => [option.serverId, option.label])) : undefined
+          }
         />
       ));
     case 'config':
-      return withSnapshot((snapshot) => (
-        <ConfigPanel snapshot={snapshot} hello={state.hello} metrics={state.metrics} />
-      ));
+      return withSnapshot((snapshot) => <ConfigPanel snapshot={snapshot} hello={hello} metrics={state.metrics} />);
     case 'exceptions':
-      return withSnapshot((snapshot) => <ExceptionsPanel snapshot={snapshot} hello={state.hello} />);
+      return withSnapshot((snapshot) => <ExceptionsPanel snapshot={snapshot} hello={hello} />);
   }
 };
 
-export const Shell = ({ state, token, initialView, send }: ShellProps) => {
+export const Shell = ({ state, token, initialView, send, onSelectServer }: ShellProps) => {
   const [view, setView] = useState<ViewId>(() => initialView ?? viewFromHash(currentHash()));
   const [theme, setTheme] = useTheme();
   const [focus, setFocus] = useState<EndpointFocus | null>(null);
   const [drafts, setDrafts] = useState<SavedDrafts>({});
   const [graphView, setGraphView] = useState<GraphViewChoice | null>(null);
   const status = appStatus(state, token);
+  const viewed = serverView(state);
 
   useEffect(() => {
     const onHashChange = () => setView((current) => viewFromHash(location.hash, current));
@@ -165,7 +176,15 @@ export const Shell = ({ state, token, initialView, send }: ShellProps) => {
       <a className="skip-link" href="#main">
         Skip to panel
       </a>
-      <Sidebar view={view} snapshot={state.snapshot} hello={state.hello} onNavigate={setView} />
+      <Sidebar
+        view={view}
+        snapshot={viewed.snapshot}
+        hello={viewed.hello}
+        servers={serverOptions(state)}
+        selectedServer={viewed.server?.serverId ?? null}
+        onSelectServer={onSelectServer}
+        onNavigate={setView}
+      />
       <div className="main">
         <TopBar
           view={view}
@@ -201,7 +220,7 @@ export const Shell = ({ state, token, initialView, send }: ShellProps) => {
 };
 
 export const App = () => {
-  const { state, token, send } = useConsole();
+  const { state, token, send, selectServer } = useConsole();
 
-  return <Shell state={state} token={token} send={send} />;
+  return <Shell state={state} token={token} send={send} onSelectServer={selectServer} />;
 };

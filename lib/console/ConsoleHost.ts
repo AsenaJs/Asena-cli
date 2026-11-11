@@ -13,8 +13,10 @@ import {
   type ConsoleHostMessage,
   type ConsoleHttpError,
   type ConsoleLogLine,
+  type ConsoleRequestRecord,
   type ConsoleRun,
   type ConsoleRunCause,
+  type ConsoleServerInfo,
   type ConsoleSnapshotStateMessage,
   isConsoleBrowserMessage,
   isConsoleHttpRequest,
@@ -23,10 +25,7 @@ import { proxyHttpRequest } from './httpProxy';
 import {
   type DevtoolsAgentMessage,
   type DevtoolsCommandResult,
-  type DevtoolsHello,
   type DevtoolsMetrics,
-  type DevtoolsRequestRecord,
-  type DevtoolsSnapshot,
   agentMessage,
   DEVTOOLS_PROTOCOL_VERSION,
   hostMessage,
@@ -125,15 +124,14 @@ export class ConsoleHost {
 
   private child: ConsoleChildStatus = { gen: 0, state: 'starting' };
 
-  private hello?: DevtoolsHello;
-
-  private snapshot?: DevtoolsSnapshot;
+  /** The current child's servers, in the order they attached. */
+  private servers: ConsoleServerInfo[] = [];
 
   private readonly metrics = new ReplayBuffer<DevtoolsMetrics>(CONSOLE_REPLAY_LIMITS.metrics);
 
   private readonly logs = new ReplayBuffer<ConsoleLogLine>(CONSOLE_REPLAY_LIMITS.logs);
 
-  private readonly requests = new ReplayBuffer<DevtoolsRequestRecord>(CONSOLE_REPLAY_LIMITS.requests);
+  private readonly requests = new ReplayBuffer<ConsoleRequestRecord>(CONSOLE_REPLAY_LIMITS.requests);
 
   private readonly commandResults = new ReplayBuffer<DevtoolsCommandResult>(CONSOLE_REPLAY_LIMITS.commandResults);
 
@@ -220,8 +218,7 @@ export class ConsoleHost {
       v: CONSOLE_PROTOCOL_VERSION,
       type: 'snapshotState',
       child: this.child,
-      ...(this.hello ? { hello: this.hello } : {}),
-      ...(this.snapshot ? { snapshot: this.snapshot } : {}),
+      servers: [...this.servers],
       runs: [...this.runs],
       metrics: this.metrics.toArray(),
       logs: this.logs.toArray(),
@@ -253,8 +250,7 @@ export class ConsoleHost {
 
     // A failed start reports only `exited` for its generation, so the boundary is the generation, not `starting`.
     if (status.gen !== this.child.gen) {
-      this.hello = undefined;
-      this.snapshot = undefined;
+      this.servers = [];
       this.metrics.clear();
 
       const cause = this.pendingCause ?? (this.runs.length === 0 ? { kind: 'start' } : { kind: 'restart' });
@@ -321,10 +317,16 @@ export class ConsoleHost {
   private onAgentMessage(message: DevtoolsAgentMessage, gen: number): void {
     switch (message.type) {
       case 'hello':
-        this.hello = message.payload;
+        this.servers = [
+          ...this.servers.filter((server) => server.hello.serverId !== message.payload.serverId),
+          { hello: message.payload },
+        ];
         break;
       case 'snapshot':
-        this.snapshot = message.payload;
+        this.updateServer(message.payload.serverId, (server) => ({ ...server, snapshot: message.payload }));
+        break;
+      case 'serverStopped':
+        this.updateServer(message.payload.serverId, (server) => ({ ...server, stopped: true }));
         break;
       case 'metrics':
         this.metrics.push(message.payload);
@@ -345,6 +347,48 @@ export class ConsoleHost {
     if (message.type === 'hello' && this.child.gen === gen && this.child.state === 'starting') {
       this.onStatus({ gen, state: 'running', pid: message.payload.pid });
     }
+  }
+
+  private updateServer(serverId: string, change: (server: ConsoleServerInfo) => ConsoleServerInfo): void {
+    this.servers = this.servers.map((server) => (server.hello.serverId === serverId ? change(server) : server));
+  }
+
+  /** Why no agent would answer a command now, or `null` when one listens for it. */
+  private commandRefusal(): string | null {
+    if (this.supervisor.pid === undefined) return 'No app is running';
+    if (this.servers.length === 0) return 'The devtools agent has not attached to the app';
+    if (this.servers.every((server) => server.stopped)) return 'Every server of the app has stopped';
+
+    return null;
+  }
+
+  /** The port a proxied request goes to, or why there is none. */
+  private httpTarget(serverId: string | undefined): { port: number } | { reason: string } {
+    if (this.child.state === 'exited') return { reason: 'No app is running' };
+    if (this.child.state === 'restarting') return { reason: 'The app is restarting' };
+
+    if (this.servers.length === 0) {
+      return { reason: 'The app has not reported a server yet, so the console does not know its port' };
+    }
+
+    const server =
+      serverId === undefined
+        ? this.servers.findLast((candidate) => !candidate.stopped)
+        : this.servers.find((candidate) => candidate.hello.serverId === serverId);
+
+    if (!server) {
+      return {
+        reason:
+          serverId === undefined
+            ? 'Every server of the app has stopped'
+            : `The app has no server ${JSON.stringify(serverId)}`,
+      };
+    }
+
+    if (server.stopped) return { reason: 'That server has stopped' };
+    if (server.hello.port === null) return { reason: 'The app runs headless and serves no HTTP' };
+
+    return { port: server.hello.port };
   }
 
   private onInvalidMessage(message: unknown, gen: number): void {
@@ -384,19 +428,15 @@ export class ConsoleHost {
       return;
     }
 
-    // Before its hello no agent listens in the app, so a forwarded command would never be answered.
-    const attached = this.hello !== undefined || this.supervisor.pid === undefined;
+    const refusal = this.commandRefusal();
 
-    if (attached && this.supervisor.send(hostMessage('command', message.command))) {
+    if (refusal === null && this.supervisor.send(hostMessage('command', message.command))) {
       this.pendingCommands.set(message.command.id, this.supervisor.generation);
 
       return;
     }
 
-    const failed = hostFailure(
-      message.command.id,
-      attached ? 'No app is running' : 'The devtools agent has not attached to the app',
-    );
+    const failed = hostFailure(message.command.id, refusal ?? 'No app is running');
 
     this.commandResults.push(failed);
     ws.send(
@@ -474,16 +514,12 @@ export class ConsoleHost {
       return proxyError(400, 'The body is not a console HTTP request');
     }
 
-    if (this.child.state !== 'running' || !this.hello) {
-      return proxyError(502, 'No app is running');
-    }
+    const target = this.httpTarget(body.serverId);
 
-    if (this.hello.port === null) {
-      return proxyError(502, 'The app runs headless and serves no HTTP');
-    }
+    if ('reason' in target) return proxyError(502, target.reason);
 
     try {
-      return json(200, await proxyHttpRequest(body, this.hello.port));
+      return json(200, await proxyHttpRequest(body, target.port));
     } catch (error) {
       return proxyError(502, error instanceof Error ? error.message : String(error));
     }

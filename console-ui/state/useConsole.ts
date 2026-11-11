@@ -9,6 +9,7 @@ export interface ConsoleConnection {
   token: string | null;
   /** @returns Whether the message went out. */
   send: (message: ConsoleBrowserMessage) => boolean;
+  selectServer: (serverId: string) => void;
 }
 
 export const useConsole = (): ConsoleConnection => {
@@ -41,5 +42,7 @@ export const useConsole = (): ConsoleConnection => {
     return went;
   }, []);
 
-  return { state, token, send };
+  const selectServer = useCallback((serverId: string) => dispatch({ kind: 'serverSelected', serverId }), []);
+
+  return { state, token, send, selectServer };
 };

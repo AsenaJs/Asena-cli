@@ -35,9 +35,9 @@ const writeProject = (root: string, coreVersion = '0.13.0') => {
     }),
     'node_modules/@asenajs/asena/devtools.js': [
       'export function attachDevtoolsAgent(context) {',
-      "  const onMessage = (message) => { if (message?.type === 'command') process.send({ v: 1, type: 'commandResult', payload: { id: message.payload.id, ok: true } }); };",
+      "  const onMessage = (message) => { if (message?.type === 'command') process.send({ v: 1, type: 'commandResult', payload: { id: message.payload.id, serverId: 'server-1', ok: true } }); };",
       "  process.on('message', onMessage);",
-      `  process.send({ v: 1, type: 'hello', payload: { coreVersion: '${coreVersion}', adapter: context.adapter, port: context.port, pid: process.pid } });`,
+      `  process.send({ v: 1, type: 'hello', payload: { serverId: 'server-1', coreVersion: '${coreVersion}', adapter: context.adapter, port: context.port, pid: process.pid } });`,
       "  return { detach() { process.off('message', onMessage); } };",
       '}',
       '',

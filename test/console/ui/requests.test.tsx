@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { ConsoleHostMessage } from '../../../lib/console/hostProtocol';
+import type { ConsoleHostMessage, ConsoleRequestRecord } from '../../../lib/console/hostProtocol';
 import type { DevtoolsRequestRecord, DevtoolsRoute } from '../../../lib/console/protocol';
 import {
   countByClass,
@@ -13,7 +13,7 @@ import {
   runOfRecord,
 } from '../../../console-ui/requests/records';
 import { RequestsPanel } from '../../../console-ui/requests/RequestsPanel';
-import { consoleReducer, type ConsoleState, initialConsoleState } from '../../../console-ui/state/store';
+import { consoleReducer, type ConsoleState, initialConsoleState, serverView } from '../../../console-ui/state/store';
 import hostMessagesJson from '../fixtures/host-messages.json';
 
 const recording = hostMessagesJson as unknown as ConsoleHostMessage[];
@@ -21,8 +21,8 @@ const state: ConsoleState = recording.reduce(
   (current, message) => consoleReducer(current, { kind: 'message', message }),
   initialConsoleState,
 );
-const routes = state.snapshot!.routes;
-const record = (id: string): DevtoolsRequestRecord => state.requests.find((candidate) => candidate.id === id)!;
+const routes = serverView(state).snapshot!.routes;
+const record = (id: string): ConsoleRequestRecord => state.requests.find((candidate) => candidate.id === id)!;
 const all: RequestFilter = { hiddenClasses: new Set(), method: '', text: '' };
 const ids = (records: DevtoolsRequestRecord[]) => records.map((candidate) => candidate.id);
 
@@ -49,6 +49,16 @@ describe('request records', () => {
     ]);
     expect([...countByClass([{ ...record('r-1'), status: 101 }])]).toContainEqual(['1xx', 1]);
     expect(methodsOf(state.requests)).toEqual(['POST', 'GET', 'PUT', '@Schedule', '@On', '@MessagePattern']);
+  });
+
+  test('narrows the list to the records one server opened', () => {
+    const mixed = state.requests.map((candidate) =>
+      candidate.id === 'r-5' || candidate.id === 'r-9' ? { ...candidate, serverId: 'server-2' } : candidate,
+    );
+
+    expect(ids(filterRequests(mixed, { ...all, serverId: 'server-2' }))).toEqual(['r-9', 'r-5']);
+    expect(filterRequests(mixed, { ...all, serverId: 'server-1' })).toHaveLength(mixed.length - 2);
+    expect(filterRequests(mixed, { ...all, serverId: '' })).toHaveLength(mixed.length);
   });
 
   test('a record belongs to the run that was current when it started', () => {
@@ -174,16 +184,42 @@ describe('requests panel rendering', () => {
     expect(panel({ initialSelected: 'r-10' })).toContain('A @On dispatch, not an HTTP request');
   });
 
+  test('one server: no server filter and no server name on a record', () => {
+    const one = [{ serverId: 'server-1', label: 'Ergenecore :3000' }];
+    const html = panel({ servers: one, viewedServer: 'server-1', initialSelected: 'r-4' });
+
+    expect(html).toBe(panel({ initialSelected: 'r-4' }));
+    expect(html).not.toContain('aria-label="Server"');
+    expect(html).not.toContain('Ergenecore :3000');
+  });
+
+  test('several servers: a filter by server, the server of the open record, and a replay only on its own routes', () => {
+    const servers = [
+      { serverId: 'server-1', label: 'Ergenecore :3000' },
+      { serverId: 'server-2', label: 'Headless server-2' },
+    ];
+    const own = panel({ servers, viewedServer: 'server-1', initialSelected: 'r-4' });
+    const other = panel({ servers, viewedServer: 'server-2', initialSelected: 'r-4' });
+
+    expect(own).toContain('<select class="select toolbar-select" aria-label="Server">');
+    expect(own).toContain('<option value="" selected="">All servers</option>');
+    expect(own).toContain('<option value="server-2">Headless server-2</option>');
+    expect(own).toContain('<span>Ergenecore :3000</span>');
+    expect(own).toContain('Replay in Endpoints');
+    expect(other).not.toContain('Replay in Endpoints');
+    expect(other).toContain('Served by Ergenecore :3000: pick that server in the sidebar to replay it.');
+  });
+
   describe('output during the request', () => {
     const trace = 'ItemConflictError: name "Notebook" is taken\n      at rename (/app/src/items.ts:9:5)';
-    const scoped: DevtoolsRequestRecord = {
+    const scoped: ConsoleRequestRecord = {
       ...record('r-4'),
       logs: [
         { stream: 'stdout', text: 'renaming item 7', at: record('r-4').startedAt + 1 },
         { stream: 'stderr', text: trace, at: record('r-4').startedAt + 2 },
       ],
     };
-    const drawer = (selected: DevtoolsRequestRecord) =>
+    const drawer = (selected: ConsoleRequestRecord) =>
       panel({
         requests: state.requests.map((candidate) => (candidate.id === selected.id ? selected : candidate)),
         initialSelected: selected.id,

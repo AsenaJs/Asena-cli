@@ -7,6 +7,7 @@ import snapshotJson from '../fixtures/snapshot.json';
 
 const snapshot = snapshotJson as unknown as DevtoolsSnapshot;
 const hello = {
+  serverId: 'server-1',
   coreVersion: '0.13.0',
   adapter: 'Ergenecore',
   port: 3000,

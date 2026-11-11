@@ -107,19 +107,23 @@ describe('ConsoleHost with a fake agent child', () => {
     await early.waitFor(isChild('running', 1));
 
     expect(hello.message).toMatchObject({ v: 1, type: 'hello', payload: { coreVersion: '0.13.0', adapter: null } });
-    expect(snapshotMessage.message.payload).toEqual(snapshot as never);
+    expect(snapshotMessage.message.payload).toEqual({ ...snapshot, serverId: 'server-1' } as never);
     expect(early.indexOf(isAgent('hello'))).toBeLessThan(early.indexOf(isChild('running', 1)));
 
     const late = await connect();
     const replay = await late.replay();
 
     expect(replay.child).toMatchObject({ gen: 1, state: 'running', pid: host.supervisor.pid });
-    expect(replay.hello?.pid).toBe(host.supervisor.pid as number);
-    expect(replay.snapshot).toEqual(snapshot as never);
+    expect(replay.servers).toEqual([
+      {
+        hello: expect.objectContaining({ serverId: 'server-1', pid: host.supervisor.pid }),
+        snapshot: { ...snapshot, serverId: 'server-1' },
+      },
+    ] as never);
     expect(replay.logs.some((line) => line.stream === 'stdout' && line.line.startsWith('fake app up'))).toBe(true);
   });
 
-  it('shows the most recent server of an app that starts two, as one run that started once', async () => {
+  it('keeps every server of an app that starts two, in one run that started once', async () => {
     const { host, warnings } = await startHost({ FAKE_SECOND_SERVER: '1', FAKE_HELLO_DELAY_MS: '300' });
     const client = await connect();
 
@@ -127,13 +131,66 @@ describe('ConsoleHost with a fake agent child', () => {
 
     const replay = await (await connect()).replay();
 
-    expect(replay.hello).toMatchObject({ adapter: 'Second', pid: host.supervisor.pid });
-    expect(replay.snapshot?.routes).toEqual([]);
+    expect(replay.servers.map((server) => server.hello)).toMatchObject([
+      { serverId: 'server-1', adapter: null, pid: host.supervisor.pid },
+      { serverId: 'server-2', adapter: 'Second', pid: host.supervisor.pid },
+    ]);
+    expect(replay.servers.map((server) => server.snapshot?.routes.length)).toEqual([snapshot.routes.length, 0]);
+    expect(replay.servers.map((server) => server.snapshot?.serverId)).toEqual(['server-1', 'server-2']);
     expect(replay.runs).toEqual([expect.objectContaining({ gen: 1, state: 'running' })]);
     expect(client.messages.filter((message) => message.type === 'child' && message.state === 'running')).toHaveLength(
       1,
     );
     expect(warnings).toEqual([]);
+  });
+
+  it('marks a server that stopped, relays the message and keeps the other servers', async () => {
+    const { warnings } = await startHost({ FAKE_SECOND_SERVER: '1' });
+    const client = await connect();
+
+    await waitUntil(() => client.messages.filter(isAgent('snapshot')).length === 2, 5000, 'both snapshots');
+
+    client.send({
+      v: 1,
+      type: 'command',
+      command: { id: 'c-1', command: 'emitEvent', event: 'stop-server', data: 'server-2' },
+    });
+
+    const stopped = (await client.waitFor(isAgent('serverStopped'))) as Message<'agent'>;
+
+    await client.waitFor(isResult('c-1'));
+
+    const replay = await (await connect()).replay();
+
+    expect(stopped.message.payload).toEqual({ serverId: 'server-2' });
+    expect(replay.child).toMatchObject({ gen: 1, state: 'running' });
+    expect(replay.servers.map(({ hello, stopped }) => [hello.serverId, stopped])).toEqual([
+      ['server-1', undefined],
+      ['server-2', true],
+    ]);
+    expect(warnings).toEqual([]);
+  });
+
+  it('answers a command itself once every server has stopped, since no agent listens any more', async () => {
+    await startHost();
+    const client = await connect();
+
+    await client.waitFor(isChild('running', 1));
+
+    client.send({
+      v: 1,
+      type: 'command',
+      command: { id: 'c-1', command: 'emitEvent', event: 'stop-server', data: 'server-1' },
+    });
+    await client.waitFor(isResult('c-1'));
+
+    client.send({ v: 1, type: 'command', command: { id: 'c-2', command: 'emitEvent', event: 'x' } });
+
+    expect(((await client.waitFor(isResult('c-2'))) as Message<'agent'>).message.payload).toEqual({
+      id: 'c-2',
+      ok: false,
+      error: { name: 'ConsoleHostError', message: 'Every server of the app has stopped' },
+    });
   });
 
   it('forwards a browser command to the child and its commandResult back', async () => {
@@ -149,7 +206,35 @@ describe('ConsoleHost with a fake agent child', () => {
     expect(result.message).toEqual({
       v: 1,
       type: 'commandResult',
-      payload: { id: 'c-1', ok: true, result: { echo: { id: 'c-1', command: 'emitEvent', event: 'item.created' } } },
+      payload: {
+        id: 'c-1',
+        serverId: 'server-1',
+        ok: true,
+        result: { echo: { id: 'c-1', command: 'emitEvent', event: 'item.created' } },
+      },
+    });
+  });
+
+  it('forwards the server a command names, and drops a frame whose server id is not a string', async () => {
+    await startHost({ FAKE_SECOND_SERVER: '1' });
+    const client = await connect();
+
+    await waitUntil(() => client.messages.filter(isAgent('snapshot')).length === 2, 5000, 'both snapshots');
+
+    client.send({ v: 1, type: 'command', command: { id: 'c-1', serverId: 7, command: 'emitEvent', event: 'x' } });
+    client.send({
+      v: 1,
+      type: 'command',
+      command: { id: 'c-2', serverId: 'server-1', command: 'emitEvent', event: 'x' },
+    });
+
+    const result = (await client.waitFor(isAgent('commandResult'))) as Message<'agent'>;
+
+    expect(result.message.payload).toEqual({
+      id: 'c-2',
+      serverId: 'server-1',
+      ok: true,
+      result: { echo: { id: 'c-2', serverId: 'server-1', command: 'emitEvent', event: 'x' } },
     });
   });
 
@@ -549,8 +634,7 @@ describe('ConsoleHost with a fake agent child', () => {
 
     expect(replay.child).toMatchObject({ gen: 2, state: 'exited' });
     expect(replay.child.pid).toBeUndefined();
-    expect(replay.hello).toBeUndefined();
-    expect(replay.snapshot).toBeUndefined();
+    expect(replay.servers).toEqual([]);
     expect(replay.metrics).toEqual([]);
   });
 
@@ -561,7 +645,7 @@ describe('ConsoleHost with a fake agent child', () => {
     await client.waitFor(isChild('running', 1));
 
     expect(warnings.filter((warning) => warning.includes('does not understand'))).toHaveLength(1);
-    expect(host?.snapshotState().hello).toBeDefined();
+    expect(host?.snapshotState().servers).toHaveLength(1);
     expect(host?.snapshotState().logs.some((line) => line.line.includes('does not understand'))).toBe(true);
   });
 
@@ -675,7 +759,7 @@ describe('ConsoleHost with a fake agent child', () => {
     await client.waitFor(isChild('running', 1));
     await Bun.sleep(50);
 
-    expect(host?.snapshotState().hello?.coreVersion).toBe('0.12.4');
+    expect(host?.snapshotState().servers[0]?.hello.coreVersion).toBe('0.12.4');
     expect(warnings).toEqual([]);
     expect(client.messages.filter((message) => message.type === 'log' && message.stream === 'stderr')).toEqual([]);
   });
@@ -816,6 +900,75 @@ describe('ConsoleHost with a fake agent child', () => {
           .status,
       ).toBe(400);
       expect((await get(`/api/http?t=${host.token}`)).status).toBe(405);
+    });
+
+    it('proxies to the port of the server the request names, the most recent live one without a name', async () => {
+      const [firstPort, secondPort] = [randomPort(), randomPort()];
+      const { host } = await startHost({
+        FAKE_APP_PORT: String(firstPort),
+        FAKE_SECOND_SERVER: '1',
+        FAKE_SECOND_PORT: String(secondPort),
+      });
+      const client = await connect();
+      const post = async (serverId?: string) => {
+        const response = await get(`/api/http?t=${host.token}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            method: 'GET',
+            path: '/',
+            query: {},
+            headers: {},
+            body: '',
+            ...(serverId === undefined ? {} : { serverId }),
+          }),
+        });
+        const answer = (await response.json()) as { body?: string; reason?: string };
+
+        return answer.body === undefined
+          ? { status: response.status, reason: answer.reason }
+          : { status: response.status, host: (JSON.parse(answer.body) as { host: string }).host };
+      };
+
+      await waitUntil(() => client.messages.filter(isAgent('snapshot')).length === 2, 5000, 'both snapshots');
+
+      expect(await post('server-1')).toEqual({ status: 200, host: `127.0.0.1:${firstPort}` });
+      expect(await post('server-2')).toEqual({ status: 200, host: `127.0.0.1:${secondPort}` });
+      expect(await post()).toEqual({ status: 200, host: `127.0.0.1:${secondPort}` });
+      expect(await post('server-9')).toEqual({ status: 502, reason: 'The app has no server "server-9"' });
+
+      client.send({
+        v: 1,
+        type: 'command',
+        command: { id: 'c-1', command: 'emitEvent', event: 'stop-server', data: 'server-2' },
+      });
+      await client.waitFor(isResult('c-1'));
+
+      expect(await post('server-2')).toEqual({ status: 502, reason: 'That server has stopped' });
+      expect(await post()).toEqual({ status: 200, host: `127.0.0.1:${firstPort}` });
+    });
+
+    it('answers 502 with what is true of an app that runs but has not reported', async () => {
+      const { host } = await startHost({ FAKE_HELLO_DELAY_MS: '60000' });
+      const response = await get(`/api/http?t=${host.token}`, {
+        method: 'POST',
+        body: JSON.stringify({ method: 'GET', path: '/', query: {}, headers: {}, body: '' }),
+      });
+
+      expect(host.supervisor.pid).toBeDefined();
+      expect(response.status).toBe(502);
+      expect(await response.json()).toEqual({
+        reason: 'The app has not reported a server yet, so the console does not know its port',
+      });
+    });
+
+    it('answers 400 to a request whose server id is not a string', async () => {
+      const { host } = await startHost();
+      const response = await get(`/api/http?t=${host.token}`, {
+        method: 'POST',
+        body: JSON.stringify({ method: 'GET', path: '/', query: {}, headers: {}, body: '', serverId: 2 }),
+      });
+
+      expect(response.status).toBe(400);
     });
 
     it('answers 502 with a reason when the app is headless or not running', async () => {

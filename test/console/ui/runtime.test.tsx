@@ -29,8 +29,10 @@ import {
 } from '../../../console-ui/runtime/logs';
 import { healthDetail, RunTimeline, RuntimePanel } from '../../../console-ui/runtime/RuntimePanel';
 import { causeText, exitText } from '../../../console-ui/runtime/runs';
+import { runStatus } from '../../../console-ui/shell/status';
 import { consoleReducer, type ConsoleState, initialConsoleState, type LogEntry } from '../../../console-ui/state/store';
 import hostMessagesJson from '../fixtures/host-messages.json';
+import { sampleWith } from '../helpers';
 
 const recording = hostMessagesJson as unknown as ConsoleHostMessage[];
 const recorded: ConsoleState = recording.reduce(
@@ -540,16 +542,31 @@ describe('runtime panel rendering', () => {
     const sample = running.metrics.at(-1)!;
 
     expect(
-      healthDetail({ ...running, metrics: [{ ...sample, readiness: { status: 'not_ready', state: 'STARTING' } }] }),
-    ).toBe('Lifecycle STARTING');
-    expect(
       healthDetail({
         ...running,
-        hello: { ...running.hello!, transports: [] },
-        metrics: [{ ...sample, transports: [] }],
+        metrics: [sampleWith(sample, { readiness: { status: 'not_ready', state: 'STARTING' } })],
       }),
-    ).toBe('Lifecycle STARTED · no transports to wait for');
+    ).toBe('Lifecycle STARTING');
+    expect(healthDetail({ ...running, metrics: [sampleWith(sample, { transports: [] })] })).toBe(
+      'Lifecycle STARTED · no transports to wait for',
+    );
+    expect(healthDetail(running)).toBe('Lifecycle STARTED · default connected');
     expect(healthDetail({ ...running, metrics: [] })).toBe('Waiting for the first sample');
+  });
+
+  test('the health line and the pill say so when the server on screen has stopped while the app runs on', () => {
+    const running = consoleReducer(initialConsoleState, { kind: 'message', message: recording[0]! });
+    const stopped = consoleReducer(running, {
+      kind: 'message',
+      message: { v: 1, type: 'agent', message: { v: 1, type: 'serverStopped', payload: { serverId: 'server-1' } } },
+    });
+
+    expect(runStatus(stopped)).toEqual({
+      tone: 'neutral',
+      label: 'Server stopped',
+      detail: 'This server has stopped; the app process still runs',
+    });
+    expect(healthDetail(stopped)).toContain('takes no commands');
   });
 
   test('says how much the agent dropped, since the request list and the charts are then incomplete', () => {

@@ -5,7 +5,7 @@ const send = (type: string, payload: unknown) => process.send?.({ v: 1, type, pa
 
 const port = process.env['FAKE_APP_PORT'] ? Number(process.env['FAKE_APP_PORT']) : null;
 
-const server =
+const serve = (port: number | null) =>
   port === null
     ? null
     : Bun.serve({
@@ -30,6 +30,13 @@ const server =
         },
       });
 
+const server = serve(port);
+const second =
+  process.env['FAKE_SECOND_SERVER'] === '1'
+    ? serve(process.env['FAKE_SECOND_PORT'] ? Number(process.env['FAKE_SECOND_PORT']) : null)
+    : null;
+const lastServerId = process.env['FAKE_SECOND_SERVER'] === '1' ? 'server-2' : 'server-1';
+
 process.on('SIGTERM', () => {
   if (process.env['FAKE_IGNORE_SIGTERM'] === '1') {
     console.log('fake app ignores SIGTERM');
@@ -39,6 +46,7 @@ process.on('SIGTERM', () => {
 
   console.log('fake app stopping');
   server?.stop(true);
+  second?.stop(true);
   process.exit(0);
 });
 
@@ -60,7 +68,16 @@ process.on('message', (message: { type?: string; payload?: Record<string, unknow
     console.log(Array.from({ length: lines }, (_, i) => `flood ${i}`).join('\n'));
   }
 
-  send('commandResult', { id: command['id'], ok: true, result: { echo: command } });
+  if (command['command'] === 'emitEvent' && command['event'] === 'stop-server') {
+    send('serverStopped', { serverId: command['data'] });
+  }
+
+  send('commandResult', {
+    id: command['id'],
+    serverId: command['serverId'] ?? lastServerId,
+    ok: true,
+    result: { echo: command },
+  });
 });
 
 if (process.env['FAKE_SEND_INVALID'] === 'v2') {
@@ -80,17 +97,24 @@ console.log(`fake app up pid=${process.pid}`);
 await Bun.sleep(Number(process.env['FAKE_HELLO_DELAY_MS'] ?? 0));
 
 send('hello', {
+  serverId: 'server-1',
   coreVersion: process.env['FAKE_CORE_VERSION'] ?? '0.13.0',
   adapter: server ? 'Fake' : null,
   port: server ? server.port : null,
   pid: process.pid,
 });
 
-send('snapshot', snapshot);
+send('snapshot', { ...snapshot, serverId: 'server-1' });
 
 if (process.env['FAKE_SECOND_SERVER'] === '1') {
-  send('hello', { coreVersion: '0.13.0', adapter: 'Second', port: null, pid: process.pid });
-  send('snapshot', { ...snapshot, routes: [] });
+  send('hello', {
+    serverId: 'server-2',
+    coreVersion: '0.13.0',
+    adapter: 'Second',
+    port: second ? second.port : null,
+    pid: process.pid,
+  });
+  send('snapshot', { ...snapshot, routes: [], serverId: 'server-2' });
 }
 
 for (let i = 0; i < Number(process.env['FAKE_METRICS'] ?? 0); i++) {
@@ -102,5 +126,6 @@ for (let i = 0; i < Number(process.env['FAKE_METRICS'] ?? 0); i++) {
     eventLoopLagMs: 0,
     uptimeSeconds: i,
     readiness: { status: 'up' },
+    servers: { [lastServerId]: { readiness: { status: 'up' } } },
   });
 }

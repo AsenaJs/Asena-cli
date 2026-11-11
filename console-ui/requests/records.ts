@@ -1,4 +1,4 @@
-import type { ConsoleRun } from '../../lib/console/hostProtocol';
+import type { ConsoleRequestRecord, ConsoleRun } from '../../lib/console/hostProtocol';
 import type {
   DevtoolsRequestRecord,
   DevtoolsRequestStep,
@@ -32,6 +32,8 @@ export interface RequestFilter {
   /** `''` for every method. */
   method: string;
   text: string;
+  /** Left out or `''` for every server. */
+  serverId?: string;
 }
 
 const searchable = (record: DevtoolsRequestRecord): string =>
@@ -40,7 +42,7 @@ const searchable = (record: DevtoolsRequestRecord): string =>
     .toLowerCase();
 
 /** The matching records, newest first. */
-export const filterRequests = (records: DevtoolsRequestRecord[], filter: RequestFilter): DevtoolsRequestRecord[] => {
+export const filterRequests = (records: ConsoleRequestRecord[], filter: RequestFilter): ConsoleRequestRecord[] => {
   const text = filter.text.trim().toLowerCase();
 
   return records
@@ -48,6 +50,7 @@ export const filterRequests = (records: DevtoolsRequestRecord[], filter: Request
       (record) =>
         !filter.hiddenClasses.has(statusClass(record.status)) &&
         (filter.method === '' || record.method === filter.method) &&
+        (!filter.serverId || record.serverId === filter.serverId) &&
         (text === '' || searchable(record).includes(text)),
     )
     .reverse();

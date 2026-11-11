@@ -20,365 +20,371 @@
         "state": "running"
       }
     ],
-    "hello": {
-      "coreVersion": "0.13.0",
-      "adapter": "Ergenecore",
-      "port": 3000,
-      "pid": 48211,
-      "transports": [
-        {
-          "name": "default",
-          "connected": true
-        }
-      ]
-    },
-    "snapshot": {
-      "components": [
-        {
-          "name": "AdminPages",
-          "type": "FRONTEND_CONTROLLER",
-          "scope": "singleton",
-          "interfaces": [],
-          "className": "AdminPages",
-          "dependencies": [],
-          "values": []
-        },
-        {
-          "name": "ApiExceptionHandler",
-          "type": "EXCEPTION_HANDLER",
-          "scope": "singleton",
-          "interfaces": [],
-          "className": "ApiExceptionHandler",
-          "dependencies": [],
-          "values": []
-        },
-        {
-          "name": "AppConfig",
-          "type": "CONFIG",
-          "scope": "singleton",
-          "interfaces": [],
-          "className": "AppConfig",
-          "dependencies": [],
-          "values": []
-        },
-        {
-          "name": "AuditTrail",
-          "type": "MIDDLEWARE",
-          "scope": "singleton",
-          "interfaces": [],
-          "className": "AuditTrail",
-          "dependencies": [],
-          "values": []
-        },
-        {
-          "name": "CorsHeaders",
-          "type": "MIDDLEWARE",
-          "scope": "singleton",
-          "interfaces": [],
-          "className": "CorsHeaders",
-          "dependencies": [],
-          "values": []
-        },
-        {
-          "name": "CreateItemValidator",
-          "type": "MIDDLEWARE",
-          "scope": "singleton",
-          "interfaces": [],
-          "className": "CreateItemValidator",
-          "dependencies": [],
-          "values": []
-        },
-        {
-          "name": "DollarFormatter",
-          "type": "SERVICE",
-          "scope": "singleton",
-          "interfaces": ["PriceFormatter"],
-          "className": "DollarFormatter",
-          "dependencies": [],
-          "values": []
-        },
-        {
-          "name": "EuroFormatter",
-          "type": "SERVICE",
-          "scope": "singleton",
-          "interfaces": ["PriceFormatter"],
-          "className": "EuroFormatter",
-          "dependencies": [],
-          "values": []
-        },
-        {
-          "name": "InventoryHandler",
-          "type": "MESSAGE_CONTROLLER",
-          "scope": "singleton",
-          "interfaces": [],
-          "className": "InventoryHandler",
-          "dependencies": [],
-          "values": []
-        },
-        {
-          "name": "ItemController",
-          "type": "CONTROLLER",
-          "scope": "singleton",
-          "interfaces": [],
-          "className": "ItemController",
-          "dependencies": [
+    "servers": [
+      {
+        "hello": {
+          "serverId": "server-1",
+          "coreVersion": "0.13.0",
+          "adapter": "Ergenecore",
+          "port": 3000,
+          "pid": 48211,
+          "transports": [
             {
-              "field": "itemService",
-              "target": "ItemService",
-              "kind": "inject"
-            },
-            {
-              "field": null,
-              "target": "AuditTrail",
-              "kind": "soft"
-            },
-            {
-              "field": null,
-              "target": "RequestTimer",
-              "kind": "soft"
-            }
-          ],
-          "values": []
-        },
-        {
-          "name": "ItemDraft",
-          "type": "SERVICE",
-          "scope": "prototype",
-          "interfaces": [],
-          "className": "ItemDraft",
-          "dependencies": [],
-          "values": []
-        },
-        {
-          "name": "ItemEvents",
-          "type": "EVENT",
-          "scope": "singleton",
-          "interfaces": [],
-          "className": "ItemEvents",
-          "dependencies": [],
-          "values": []
-        },
-        {
-          "name": "ItemFeed",
-          "type": "WEBSOCKET",
-          "scope": "singleton",
-          "interfaces": [],
-          "className": "ItemFeed",
-          "dependencies": [],
-          "values": []
-        },
-        {
-          "name": "ItemImages",
-          "type": "MIDDLEWARE",
-          "scope": "singleton",
-          "interfaces": [],
-          "className": "ItemImages",
-          "dependencies": [],
-          "values": []
-        },
-        {
-          "name": "ItemService",
-          "type": "SERVICE",
-          "scope": "singleton",
-          "interfaces": [],
-          "className": "ItemService",
-          "dependencies": [
-            {
-              "field": "formatters",
-              "target": "PriceFormatter",
-              "kind": "strategy"
-            }
-          ],
-          "values": [
-            {
-              "field": "pageSize",
-              "key": "DEVTOOLS_FIXTURE_PAGE_SIZE",
-              "hasDefault": true,
-              "parsed": true,
-              "isSet": false
-            },
-            {
-              "field": "region",
-              "key": "DEVTOOLS_FIXTURE_REGION",
-              "hasDefault": false,
-              "parsed": false,
-              "isSet": true
+              "name": "default",
+              "connected": true
             }
           ]
         },
-        {
-          "name": "NightlyCleanup",
-          "type": "SCHEDULE",
-          "scope": "singleton",
-          "interfaces": [],
-          "className": "NightlyCleanup",
-          "dependencies": [],
-          "values": []
-        },
-        {
-          "name": "PassThroughPostProcessor",
-          "type": "POST_PROCESSOR",
-          "scope": "singleton",
-          "interfaces": [],
-          "className": "PassThroughPostProcessor",
-          "dependencies": [],
-          "values": []
-        },
-        {
-          "name": "RequestTimer",
-          "type": "MIDDLEWARE",
-          "scope": "singleton",
-          "interfaces": [],
-          "className": "RequestTimerMiddleware",
-          "dependencies": [],
-          "values": []
-        }
-      ],
-      "routes": [
-        {
-          "controller": "ItemController",
-          "method": "create",
-          "httpMethod": "POST",
-          "path": "/items/",
-          "middlewares": ["AuditTrail", "RequestTimer"],
-          "validator": "CreateItemValidator",
-          "contract": null,
-          "hasBodySchema": true,
-          "staticServe": false
-        },
-        {
-          "controller": "ItemController",
-          "method": "find",
-          "httpMethod": "GET",
-          "path": "/items/:id",
-          "middlewares": ["AuditTrail"],
-          "validator": null,
-          "contract": null,
-          "hasBodySchema": false,
-          "staticServe": false
-        },
-        {
-          "controller": "ItemController",
-          "method": "rename",
-          "httpMethod": "PUT",
-          "path": "/items/:id/name",
-          "middlewares": ["AuditTrail"],
-          "validator": null,
-          "contract": "RenameItemContext",
-          "hasBodySchema": true,
-          "staticServe": false
-        },
-        {
-          "controller": "ItemController",
-          "method": "images",
-          "httpMethod": "GET",
-          "path": "/items/images/*",
-          "middlewares": ["AuditTrail"],
-          "validator": null,
-          "contract": null,
-          "hasBodySchema": false,
-          "staticServe": true
-        }
-      ],
-      "pages": [
-        {
-          "controller": "AdminPages",
-          "method": "home",
-          "path": "/admin"
-        },
-        {
-          "controller": "AdminPages",
-          "method": "reports",
-          "path": "/admin/reports"
-        }
-      ],
-      "websockets": [
-        {
-          "namespace": "ws/items",
-          "component": "ItemFeed"
-        }
-      ],
-      "schedules": [
-        {
-          "name": "NightlyCleanup",
-          "cron": "0 3 * * *"
-        }
-      ],
-      "events": [
-        {
-          "component": "ItemEvents",
-          "method": "onAudit",
-          "event": "audit.*"
-        },
-        {
-          "component": "ItemEvents",
-          "method": "onCreated",
-          "event": "item.created"
-        }
-      ],
-      "messageHandlers": [
-        {
-          "controller": "InventoryHandler",
-          "method": "onRestocked",
-          "pattern": "inventory.restocked",
-          "kind": "event",
-          "transport": "default"
-        },
-        {
-          "controller": "InventoryHandler",
-          "method": "reserve",
-          "pattern": "inventory.reserve",
-          "kind": "message",
-          "transport": "default"
-        }
-      ],
-      "exceptionHandlers": [
-        {
-          "component": "ApiExceptionHandler",
-          "catches": [
+        "snapshot": {
+          "components": [
             {
-              "method": "conflict",
-              "types": [
-                {
-                  "name": "ItemConflict",
-                  "chain": ["ItemConflict", "ConflictException", "HttpException", "Error"],
-                  "httpException": true
-                }
-              ]
+              "name": "AdminPages",
+              "type": "FRONTEND_CONTROLLER",
+              "scope": "singleton",
+              "interfaces": [],
+              "className": "AdminPages",
+              "dependencies": [],
+              "values": []
             },
             {
-              "method": "fallback",
-              "types": "catch-all"
+              "name": "ApiExceptionHandler",
+              "type": "EXCEPTION_HANDLER",
+              "scope": "singleton",
+              "interfaces": [],
+              "className": "ApiExceptionHandler",
+              "dependencies": [],
+              "values": []
             },
             {
-              "method": "known",
-              "types": [
+              "name": "AppConfig",
+              "type": "CONFIG",
+              "scope": "singleton",
+              "interfaces": [],
+              "className": "AppConfig",
+              "dependencies": [],
+              "values": []
+            },
+            {
+              "name": "AuditTrail",
+              "type": "MIDDLEWARE",
+              "scope": "singleton",
+              "interfaces": [],
+              "className": "AuditTrail",
+              "dependencies": [],
+              "values": []
+            },
+            {
+              "name": "CorsHeaders",
+              "type": "MIDDLEWARE",
+              "scope": "singleton",
+              "interfaces": [],
+              "className": "CorsHeaders",
+              "dependencies": [],
+              "values": []
+            },
+            {
+              "name": "CreateItemValidator",
+              "type": "MIDDLEWARE",
+              "scope": "singleton",
+              "interfaces": [],
+              "className": "CreateItemValidator",
+              "dependencies": [],
+              "values": []
+            },
+            {
+              "name": "DollarFormatter",
+              "type": "SERVICE",
+              "scope": "singleton",
+              "interfaces": ["PriceFormatter"],
+              "className": "DollarFormatter",
+              "dependencies": [],
+              "values": []
+            },
+            {
+              "name": "EuroFormatter",
+              "type": "SERVICE",
+              "scope": "singleton",
+              "interfaces": ["PriceFormatter"],
+              "className": "EuroFormatter",
+              "dependencies": [],
+              "values": []
+            },
+            {
+              "name": "InventoryHandler",
+              "type": "MESSAGE_CONTROLLER",
+              "scope": "singleton",
+              "interfaces": [],
+              "className": "InventoryHandler",
+              "dependencies": [],
+              "values": []
+            },
+            {
+              "name": "ItemController",
+              "type": "CONTROLLER",
+              "scope": "singleton",
+              "interfaces": [],
+              "className": "ItemController",
+              "dependencies": [
                 {
-                  "name": "ItemMissing",
-                  "chain": ["ItemMissing", "ItemError", "Error"]
+                  "field": "itemService",
+                  "target": "ItemService",
+                  "kind": "inject"
                 },
                 {
-                  "name": "ItemRejected",
-                  "chain": ["ItemRejected", "ItemError", "Error"]
+                  "field": null,
+                  "target": "AuditTrail",
+                  "kind": "soft"
+                },
+                {
+                  "field": null,
+                  "target": "RequestTimer",
+                  "kind": "soft"
+                }
+              ],
+              "values": []
+            },
+            {
+              "name": "ItemDraft",
+              "type": "SERVICE",
+              "scope": "prototype",
+              "interfaces": [],
+              "className": "ItemDraft",
+              "dependencies": [],
+              "values": []
+            },
+            {
+              "name": "ItemEvents",
+              "type": "EVENT",
+              "scope": "singleton",
+              "interfaces": [],
+              "className": "ItemEvents",
+              "dependencies": [],
+              "values": []
+            },
+            {
+              "name": "ItemFeed",
+              "type": "WEBSOCKET",
+              "scope": "singleton",
+              "interfaces": [],
+              "className": "ItemFeed",
+              "dependencies": [],
+              "values": []
+            },
+            {
+              "name": "ItemImages",
+              "type": "MIDDLEWARE",
+              "scope": "singleton",
+              "interfaces": [],
+              "className": "ItemImages",
+              "dependencies": [],
+              "values": []
+            },
+            {
+              "name": "ItemService",
+              "type": "SERVICE",
+              "scope": "singleton",
+              "interfaces": [],
+              "className": "ItemService",
+              "dependencies": [
+                {
+                  "field": "formatters",
+                  "target": "PriceFormatter",
+                  "kind": "strategy"
+                }
+              ],
+              "values": [
+                {
+                  "field": "pageSize",
+                  "key": "DEVTOOLS_FIXTURE_PAGE_SIZE",
+                  "hasDefault": true,
+                  "parsed": true,
+                  "isSet": false
+                },
+                {
+                  "field": "region",
+                  "key": "DEVTOOLS_FIXTURE_REGION",
+                  "hasDefault": false,
+                  "parsed": false,
+                  "isSet": true
                 }
               ]
+            },
+            {
+              "name": "NightlyCleanup",
+              "type": "SCHEDULE",
+              "scope": "singleton",
+              "interfaces": [],
+              "className": "NightlyCleanup",
+              "dependencies": [],
+              "values": []
+            },
+            {
+              "name": "PassThroughPostProcessor",
+              "type": "POST_PROCESSOR",
+              "scope": "singleton",
+              "interfaces": [],
+              "className": "PassThroughPostProcessor",
+              "dependencies": [],
+              "values": []
+            },
+            {
+              "name": "RequestTimer",
+              "type": "MIDDLEWARE",
+              "scope": "singleton",
+              "interfaces": [],
+              "className": "RequestTimerMiddleware",
+              "dependencies": [],
+              "values": []
             }
           ],
-          "notFound": "missingRoute"
+          "routes": [
+            {
+              "controller": "ItemController",
+              "method": "create",
+              "httpMethod": "POST",
+              "path": "/items/",
+              "middlewares": ["AuditTrail", "RequestTimer"],
+              "validator": "CreateItemValidator",
+              "contract": null,
+              "hasBodySchema": true,
+              "staticServe": false
+            },
+            {
+              "controller": "ItemController",
+              "method": "find",
+              "httpMethod": "GET",
+              "path": "/items/:id",
+              "middlewares": ["AuditTrail"],
+              "validator": null,
+              "contract": null,
+              "hasBodySchema": false,
+              "staticServe": false
+            },
+            {
+              "controller": "ItemController",
+              "method": "rename",
+              "httpMethod": "PUT",
+              "path": "/items/:id/name",
+              "middlewares": ["AuditTrail"],
+              "validator": null,
+              "contract": "RenameItemContext",
+              "hasBodySchema": true,
+              "staticServe": false
+            },
+            {
+              "controller": "ItemController",
+              "method": "images",
+              "httpMethod": "GET",
+              "path": "/items/images/*",
+              "middlewares": ["AuditTrail"],
+              "validator": null,
+              "contract": null,
+              "hasBodySchema": false,
+              "staticServe": true
+            }
+          ],
+          "pages": [
+            {
+              "controller": "AdminPages",
+              "method": "home",
+              "path": "/admin"
+            },
+            {
+              "controller": "AdminPages",
+              "method": "reports",
+              "path": "/admin/reports"
+            }
+          ],
+          "websockets": [
+            {
+              "namespace": "ws/items",
+              "component": "ItemFeed"
+            }
+          ],
+          "schedules": [
+            {
+              "name": "NightlyCleanup",
+              "cron": "0 3 * * *"
+            }
+          ],
+          "events": [
+            {
+              "component": "ItemEvents",
+              "method": "onAudit",
+              "event": "audit.*"
+            },
+            {
+              "component": "ItemEvents",
+              "method": "onCreated",
+              "event": "item.created"
+            }
+          ],
+          "messageHandlers": [
+            {
+              "controller": "InventoryHandler",
+              "method": "onRestocked",
+              "pattern": "inventory.restocked",
+              "kind": "event",
+              "transport": "default"
+            },
+            {
+              "controller": "InventoryHandler",
+              "method": "reserve",
+              "pattern": "inventory.reserve",
+              "kind": "message",
+              "transport": "default"
+            }
+          ],
+          "exceptionHandlers": [
+            {
+              "component": "ApiExceptionHandler",
+              "catches": [
+                {
+                  "method": "conflict",
+                  "types": [
+                    {
+                      "name": "ItemConflict",
+                      "chain": ["ItemConflict", "ConflictException", "HttpException", "Error"],
+                      "httpException": true
+                    }
+                  ]
+                },
+                {
+                  "method": "fallback",
+                  "types": "catch-all"
+                },
+                {
+                  "method": "known",
+                  "types": [
+                    {
+                      "name": "ItemMissing",
+                      "chain": ["ItemMissing", "ItemError", "Error"]
+                    },
+                    {
+                      "name": "ItemRejected",
+                      "chain": ["ItemRejected", "ItemError", "Error"]
+                    }
+                  ]
+                }
+              ],
+              "notFound": "missingRoute"
+            }
+          ],
+          "config": {
+            "component": "AppConfig",
+            "hasOnError": false,
+            "hasOnNotFound": false,
+            "globalMiddlewares": [
+              {
+                "middleware": "CorsHeaders",
+                "exclude": ["/health"]
+              }
+            ]
+          },
+          "serverId": "server-1"
         }
-      ],
-      "config": {
-        "component": "AppConfig",
-        "hasOnError": false,
-        "hasOnNotFound": false,
-        "globalMiddlewares": [
-          {
-            "middleware": "CorsHeaders",
-            "exclude": ["/health"]
-          }
-        ]
       }
-    },
+    ],
     "metrics": [
       {
         "rss": 63963136,
@@ -398,7 +404,23 @@
             "name": "default",
             "connected": true
           }
-        ]
+        ],
+        "servers": {
+          "server-1": {
+            "readiness": {
+              "status": "up",
+              "transports": {
+                "default": "connected"
+              }
+            },
+            "transports": [
+              {
+                "name": "default",
+                "connected": true
+              }
+            ]
+          }
+        }
       },
       {
         "rss": 65011712,
@@ -418,7 +440,23 @@
             "name": "default",
             "connected": true
           }
-        ]
+        ],
+        "servers": {
+          "server-1": {
+            "readiness": {
+              "status": "up",
+              "transports": {
+                "default": "connected"
+              }
+            },
+            "transports": [
+              {
+                "name": "default",
+                "connected": true
+              }
+            ]
+          }
+        }
       },
       {
         "rss": 65011712,
@@ -438,7 +476,23 @@
             "name": "default",
             "connected": true
           }
-        ]
+        ],
+        "servers": {
+          "server-1": {
+            "readiness": {
+              "status": "up",
+              "transports": {
+                "default": "connected"
+              }
+            },
+            "transports": [
+              {
+                "name": "default",
+                "connected": true
+              }
+            ]
+          }
+        }
       }
     ],
     "logs": [
@@ -518,7 +572,8 @@
         "answeredBy": {
           "kind": "controller",
           "name": "ItemController.create"
-        }
+        },
+        "serverId": "server-1"
       },
       {
         "id": "r-2",
@@ -548,7 +603,8 @@
         "answeredBy": {
           "kind": "catch",
           "name": "ApiExceptionHandler.known"
-        }
+        },
+        "serverId": "server-1"
       }
     ]
   },
@@ -576,7 +632,23 @@
             "name": "default",
             "connected": true
           }
-        ]
+        ],
+        "servers": {
+          "server-1": {
+            "readiness": {
+              "status": "up",
+              "transports": {
+                "default": "connected"
+              }
+            },
+            "transports": [
+              {
+                "name": "default",
+                "connected": true
+              }
+            ]
+          }
+        }
       }
     }
   },
@@ -606,7 +678,8 @@
         "answeredBy": {
           "kind": "not-found",
           "name": "ApiExceptionHandler.missingRoute"
-        }
+        },
+        "serverId": "server-1"
       }
     }
   },
@@ -634,7 +707,23 @@
             "name": "default",
             "connected": true
           }
-        ]
+        ],
+        "servers": {
+          "server-1": {
+            "readiness": {
+              "status": "up",
+              "transports": {
+                "default": "connected"
+              }
+            },
+            "transports": [
+              {
+                "name": "default",
+                "connected": true
+              }
+            ]
+          }
+        }
       }
     }
   },
@@ -685,7 +774,8 @@
         "answeredBy": {
           "kind": "catch",
           "name": "ApiExceptionHandler.conflict"
-        }
+        },
+        "serverId": "server-1"
       }
     }
   },
@@ -732,7 +822,8 @@
         "answeredBy": {
           "kind": "catch",
           "name": "ApiExceptionHandler.fallback"
-        }
+        },
+        "serverId": "server-1"
       }
     }
   },
@@ -758,8 +849,17 @@
         "path": "NightlyCleanup",
         "status": 200,
         "durationMs": 4.6,
-        "steps": [{ "kind": "controller", "name": "NightlyCleanup.execute" }],
-        "answeredBy": { "kind": "controller", "name": "NightlyCleanup.execute" }
+        "steps": [
+          {
+            "kind": "controller",
+            "name": "NightlyCleanup.execute"
+          }
+        ],
+        "answeredBy": {
+          "kind": "controller",
+          "name": "NightlyCleanup.execute"
+        },
+        "serverId": "server-1"
       }
     }
   },
@@ -774,7 +874,8 @@
         "ok": true,
         "result": {
           "ran": "NightlyCleanup"
-        }
+        },
+        "serverId": "server-1"
       }
     }
   },
@@ -790,7 +891,8 @@
         "error": {
           "name": "TimeoutError",
           "message": "No reply on inventory.reserve within 5000 ms"
-        }
+        },
+        "serverId": "server-1"
       }
     }
   },
@@ -801,6 +903,17 @@
     "state": "restarting",
     "pid": 48211,
     "at": 1762329615000
+  },
+  {
+    "v": 1,
+    "type": "agent",
+    "message": {
+      "v": 1,
+      "type": "serverStopped",
+      "payload": {
+        "serverId": "server-1"
+      }
+    }
   },
   {
     "v": 1,
@@ -887,6 +1000,7 @@
       "v": 1,
       "type": "hello",
       "payload": {
+        "serverId": "server-1",
         "coreVersion": "0.13.0",
         "adapter": "Ergenecore",
         "port": 3000,
@@ -1259,7 +1373,8 @@
               "exclude": ["/health"]
             }
           ]
-        }
+        },
+        "serverId": "server-1"
       }
     }
   },
@@ -1287,7 +1402,23 @@
             "name": "default",
             "connected": true
           }
-        ]
+        ],
+        "servers": {
+          "server-1": {
+            "readiness": {
+              "status": "up",
+              "transports": {
+                "default": "connected"
+              }
+            },
+            "transports": [
+              {
+                "name": "default",
+                "connected": true
+              }
+            ]
+          }
+        }
       }
     }
   },
@@ -1305,12 +1436,28 @@
         "status": 400,
         "durationMs": 1.3,
         "steps": [
-          { "kind": "global-middleware", "name": "CorsHeaders.handle" },
-          { "kind": "middleware", "name": "AuditTrail.handle" },
-          { "kind": "middleware", "name": "RequestTimer.handle" },
-          { "kind": "validator", "name": "CreateItemValidator" }
+          {
+            "kind": "global-middleware",
+            "name": "CorsHeaders.handle"
+          },
+          {
+            "kind": "middleware",
+            "name": "AuditTrail.handle"
+          },
+          {
+            "kind": "middleware",
+            "name": "RequestTimer.handle"
+          },
+          {
+            "kind": "validator",
+            "name": "CreateItemValidator"
+          }
         ],
-        "answeredBy": { "kind": "validator", "name": "CreateItemValidator" }
+        "answeredBy": {
+          "kind": "validator",
+          "name": "CreateItemValidator"
+        },
+        "serverId": "server-1"
       }
     }
   },
@@ -1328,10 +1475,20 @@
         "status": 403,
         "durationMs": 0.6,
         "steps": [
-          { "kind": "global-middleware", "name": "CorsHeaders.handle" },
-          { "kind": "middleware", "name": "AuditTrail.handle" }
+          {
+            "kind": "global-middleware",
+            "name": "CorsHeaders.handle"
+          },
+          {
+            "kind": "middleware",
+            "name": "AuditTrail.handle"
+          }
         ],
-        "answeredBy": { "kind": "middleware", "name": "AuditTrail.handle" }
+        "answeredBy": {
+          "kind": "middleware",
+          "name": "AuditTrail.handle"
+        },
+        "serverId": "server-1"
       }
     }
   },
@@ -1349,12 +1506,28 @@
         "status": 404,
         "durationMs": 0.8,
         "steps": [
-          { "kind": "global-middleware", "name": "CorsHeaders.handle" },
-          { "kind": "middleware", "name": "AuditTrail.handle" },
-          { "kind": "controller", "name": "ItemController.images" },
-          { "kind": "adapter-default", "name": "Ergenecore" }
+          {
+            "kind": "global-middleware",
+            "name": "CorsHeaders.handle"
+          },
+          {
+            "kind": "middleware",
+            "name": "AuditTrail.handle"
+          },
+          {
+            "kind": "controller",
+            "name": "ItemController.images"
+          },
+          {
+            "kind": "adapter-default",
+            "name": "Ergenecore"
+          }
         ],
-        "answeredBy": { "kind": "adapter-default", "name": "Ergenecore" }
+        "answeredBy": {
+          "kind": "adapter-default",
+          "name": "Ergenecore"
+        },
+        "serverId": "server-1"
       }
     }
   },
@@ -1380,8 +1553,17 @@
         "path": "item.created",
         "status": 200,
         "durationMs": 2.4,
-        "steps": [{ "kind": "controller", "name": "ItemEvents.onCreated" }],
-        "answeredBy": { "kind": "controller", "name": "ItemEvents.onCreated" }
+        "steps": [
+          {
+            "kind": "controller",
+            "name": "ItemEvents.onCreated"
+          }
+        ],
+        "answeredBy": {
+          "kind": "controller",
+          "name": "ItemEvents.onCreated"
+        },
+        "serverId": "server-1"
       }
     }
   },
@@ -1396,7 +1578,8 @@
         "ok": true,
         "result": {
           "delivered": true
-        }
+        },
+        "serverId": "server-1"
       }
     }
   },
@@ -1422,8 +1605,17 @@
         "path": "inventory.reserve",
         "status": 200,
         "durationMs": 5.2,
-        "steps": [{ "kind": "controller", "name": "InventoryHandler.reserve" }],
-        "answeredBy": { "kind": "controller", "name": "InventoryHandler.reserve" }
+        "steps": [
+          {
+            "kind": "controller",
+            "name": "InventoryHandler.reserve"
+          }
+        ],
+        "answeredBy": {
+          "kind": "controller",
+          "name": "InventoryHandler.reserve"
+        },
+        "serverId": "server-1"
       }
     }
   },
@@ -1437,8 +1629,12 @@
         "id": "c-4",
         "ok": true,
         "result": {
-          "reply": { "reserved": 2, "sku": "lamp-01" }
-        }
+          "reply": {
+            "reserved": 2,
+            "sku": "lamp-01"
+          }
+        },
+        "serverId": "server-1"
       }
     }
   }

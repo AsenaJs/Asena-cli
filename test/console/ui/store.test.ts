@@ -6,13 +6,14 @@ import {
   consoleReducer,
   type ConsoleState,
   initialConsoleState,
-  isSnapshotStale,
+  serverStateOf,
+  serverView,
 } from '../../../console-ui/state/store';
 import hostMessagesJson from '../fixtures/host-messages.json';
 import snapshotJson from '../fixtures/snapshot.json';
 
 const recording = hostMessagesJson as unknown as ConsoleHostMessage[];
-const snapshot = snapshotJson as unknown as DevtoolsSnapshot;
+const snapshot = { ...(snapshotJson as unknown as DevtoolsSnapshot), serverId: 'server-1' };
 
 const feed = (messages: ConsoleHostMessage[], from: ConsoleState = initialConsoleState): ConsoleState =>
   messages.reduce((state, message) => consoleReducer(state, { kind: 'message', message }), from);
@@ -34,6 +35,13 @@ const metrics = (uptimeSeconds: number): DevtoolsMetrics => ({
   eventLoopLagMs: 0,
   uptimeSeconds,
   readiness: { status: 'up' },
+  servers: { 'server-1': { readiness: { status: 'up' } } },
+});
+
+const agent = (message: Extract<ConsoleHostMessage, { type: 'agent' }>['message']): ConsoleHostMessage => ({
+  v: 1,
+  type: 'agent',
+  message,
 });
 
 /** The page that recorded host-messages.json had sent the commands its results answer. */
@@ -48,45 +56,138 @@ describe('consoleReducer over the recorded host messages', () => {
     const state = feed(recording.slice(0, 1));
 
     expect(state.child).toMatchObject({ gen: 1, state: 'running', pid: 48211 });
-    expect(state.hello?.pid).toBe(48211);
-    expect(state.snapshot).toEqual(snapshot);
-    expect(state.snapshotGen).toBe(1);
+    expect(state.servers.map((server) => server.serverId)).toEqual(['server-1']);
+    expect(serverView(state).hello?.pid).toBe(48211);
+    expect(serverView(state).snapshot).toEqual(snapshot);
+    expect(state.servers[0]?.snapshotGen).toBe(1);
     expect(state.timeZone).toBe('Europe/Istanbul');
     expect(state.metrics.map((sample) => sample.uptimeSeconds)).toEqual([3, 4, 5]);
     expect(state.logs.map((entry) => entry.seq)).toEqual([0, 1, 2, 3, 4, 5]);
     expect(state.requests.map((record) => record.id)).toEqual(['r-1', 'r-2']);
     expect(runSummary(state)).toEqual([{ gen: 1, state: 'running', code: undefined, cause: 'start' }]);
-    expect(isSnapshotStale(state)).toBe(false);
+    expect(serverView(state)).toMatchObject({ stale: false, stopped: false });
   });
 
-  test('a second server in the same child replaces hello and snapshot and keeps everything else', () => {
+  describe('with a second server in the same child', () => {
     const first = feed(recording.slice(0, 1));
+    const firstHello = first.servers[0]!.hello;
     const second = feed(
       [
-        { v: 1, type: 'agent', message: { v: 1, type: 'hello', payload: { ...first.hello!, port: 3001 } } },
-        { v: 1, type: 'agent', message: { v: 1, type: 'snapshot', payload: { ...snapshot, routes: [] } } },
+        agent({ v: 1, type: 'hello', payload: { ...firstHello, serverId: 'server-2', port: 3001 } }),
+        agent({ v: 1, type: 'snapshot', payload: { ...snapshot, routes: [], serverId: 'server-2' } }),
       ],
       first,
     );
+    const select = (state: ConsoleState, serverId: string) =>
+      consoleReducer(state, { kind: 'serverSelected', serverId });
 
-    expect(second.hello?.port).toBe(3001);
-    expect(second.snapshot?.routes).toEqual([]);
-    expect(isSnapshotStale(second)).toBe(false);
-    expect(second.child).toBe(first.child);
-    expect(second.runs).toBe(first.runs);
-    expect(second.metrics).toBe(first.metrics);
-    expect(second.requests).toBe(first.requests);
+    test('keeps both, each with its own snapshot, and everything else as it was', () => {
+      expect(
+        second.servers.map((server) => [server.serverId, server.hello.port, server.snapshot?.routes.length]),
+      ).toEqual([
+        ['server-1', 3000, snapshot.routes.length],
+        ['server-2', 3001, 0],
+      ]);
+      expect(second.child).toBe(first.child);
+      expect(second.runs).toBe(first.runs);
+      expect(second.metrics).toBe(first.metrics);
+      expect(second.requests).toBe(first.requests);
+    });
+
+    test('views the most recent server until the user picks another', () => {
+      expect(serverView(second).hello?.port).toBe(3001);
+      expect(serverView(second).snapshot?.routes).toEqual([]);
+      expect(serverView(select(second, 'server-1')).hello?.port).toBe(3000);
+      expect(serverView(select(second, 'server-1')).snapshot).toEqual(snapshot);
+      expect(serverView(select(second, 'server-9')).hello?.port).toBe(3001);
+    });
+
+    test('marks a stopped server, keeps what it reported and views a running one by default', () => {
+      const stopped = feed([agent({ v: 1, type: 'serverStopped', payload: { serverId: 'server-2' } })], second);
+
+      expect(stopped.servers.map((server) => [server.serverId, server.stopped])).toEqual([
+        ['server-1', false],
+        ['server-2', true],
+      ]);
+      expect(serverView(stopped).server?.serverId).toBe('server-1');
+      expect(serverView(select(stopped, 'server-2'))).toMatchObject({ stopped: true, stale: false });
+      expect(serverView(select(stopped, 'server-2')).snapshot?.routes).toEqual([]);
+    });
+
+    // Every restart and every exit stops the servers first; that is the app going down, not a stopped server.
+    test('a server that stops while the app is being restarted or has exited is not viewed as stopped', () => {
+      const stop = agent({ v: 1, type: 'serverStopped', payload: { serverId: 'server-1' } });
+      const restarting = feed([{ v: 1, type: 'child', gen: 1, state: 'restarting', pid: 48211 }, stop], first);
+      const exited = feed([stop, { v: 1, type: 'child', gen: 1, state: 'exited', code: 0 }], first);
+
+      expect(serverView(feed([stop], first)).stopped).toBe(true);
+      expect(serverView(restarting).stopped).toBe(false);
+      expect(serverView(exited).stopped).toBe(false);
+    });
+
+    test('a respawn keeps both snapshots as stale ones until a server of the next child reports', () => {
+      const respawned = feed([{ v: 1, type: 'child', gen: 2, state: 'starting', pid: 2 }], select(second, 'server-1'));
+
+      expect(serverView(respawned)).toMatchObject({ hello: null, stale: true, stopped: false });
+      expect(serverView(respawned).snapshot).toEqual(snapshot);
+      expect(respawned.servers).toHaveLength(2);
+
+      const helloAgain = feed([agent({ v: 1, type: 'hello', payload: { ...firstHello, pid: 2 } })], respawned);
+
+      // The same id keeps its old snapshot on screen until its own arrives; the other server of the old child goes.
+      expect(helloAgain.servers.map((server) => server.serverId)).toEqual(['server-1']);
+      expect(serverView(helloAgain)).toMatchObject({ hello: { pid: 2 }, stale: true });
+      expect(serverView(helloAgain).snapshot).toEqual(snapshot);
+
+      const reported = feed([agent({ v: 1, type: 'snapshot', payload: { ...snapshot, events: [] } })], helloAgain);
+
+      expect(serverView(reported)).toMatchObject({ stale: false, snapshot: { events: [] } });
+    });
+
+    test('reads each server its own readiness, from the newest sample that names it', () => {
+      const down = { status: 'not_ready', state: 'STOPPING' } as const;
+      const samples: DevtoolsMetrics[] = [
+        { ...metrics(1), servers: { 'server-1': { readiness: { status: 'up' } }, 'server-2': { readiness: down } } },
+        { ...metrics(2), servers: { 'server-1': { readiness: { status: 'up' } } } },
+      ];
+
+      expect(serverStateOf(samples, 'server-1')?.readiness).toEqual({ status: 'up' });
+      expect(serverStateOf(samples, 'server-2')?.readiness).toEqual(down);
+      expect(serverStateOf(samples, 'server-3')).toBeNull();
+      expect(serverView({ ...second, metrics: samples }).state?.readiness).toEqual(down);
+    });
+
+    test('a replay restores every server with its stopped mark', () => {
+      const replay = recording[0] as Extract<ConsoleHostMessage, { type: 'snapshotState' }>;
+      const state = feed([
+        {
+          ...replay,
+          servers: [
+            ...replay.servers,
+            { hello: { ...firstHello, serverId: 'server-2', adapter: null, port: null }, stopped: true },
+          ],
+        },
+      ]);
+
+      expect(
+        state.servers.map(({ serverId, stopped, snapshot: reported }) => [serverId, stopped, reported !== null]),
+      ).toEqual([
+        ['server-1', false, true],
+        ['server-2', true, false],
+      ]);
+      expect(serverView(state).server?.serverId).toBe('server-1');
+    });
   });
 
   test('a respawn drops the old child hello and metrics, keeps the snapshot marked stale and keeps the logs', () => {
     const state = feedUntil((message) => message.type === 'child' && message.gen === 2);
 
     expect(state.child).toMatchObject({ gen: 2, state: 'starting', pid: 48390 });
-    expect(state.hello).toBeNull();
+    expect(serverView(state).hello).toBeNull();
     expect(state.metrics).toEqual([]);
-    expect(state.snapshot).toEqual(snapshot);
-    expect(state.snapshotGen).toBe(1);
-    expect(isSnapshotStale(state)).toBe(true);
+    expect(serverView(state).snapshot).toEqual(snapshot);
+    expect(state.servers[0]?.snapshotGen).toBe(1);
+    expect(serverView(state).stale).toBe(true);
     expect(state.logs.some((entry) => entry.line.includes('SIGTERM received'))).toBe(true);
     expect(state.runs.at(-1)).toEqual({
       gen: 2,
@@ -109,14 +210,19 @@ describe('consoleReducer over the recorded host messages', () => {
     const logLines = recording.filter((message) => message.type === 'log').length;
 
     expect(state.child).toMatchObject({ gen: 3, state: 'running', pid: 48466 });
-    expect(state.hello?.pid).toBe(48466);
-    expect(state.snapshotGen).toBe(3);
-    expect(isSnapshotStale(state)).toBe(false);
+    expect(serverView(state).hello?.pid).toBe(48466);
+    expect(state.servers.map((server) => server.snapshotGen)).toEqual([3]);
+    expect(serverView(state)).toMatchObject({ stale: false, stopped: false });
     expect(state.metrics.map((sample) => sample.uptimeSeconds)).toEqual([1]);
     expect(state.logs).toHaveLength(6 + logLines);
     expect(state.logs.map((entry) => entry.seq)).toEqual(state.logs.map((_, i) => i));
     expect(state.requests.map((record) => record.id)).toEqual(Array.from({ length: 11 }, (_, i) => `r-${i + 1}`));
-    expect(state.commandResults['c-1']).toEqual({ id: 'c-1', ok: true, result: { ran: 'NightlyCleanup' } });
+    expect(state.commandResults['c-1']).toEqual({
+      id: 'c-1',
+      ok: true,
+      result: { ran: 'NightlyCleanup' },
+      serverId: 'server-1',
+    });
     expect(state.commandResults['c-2']?.ok).toBe(false);
     expect(Object.keys(state.commandResults)).toEqual(['c-1', 'c-2', 'c-3', 'c-4']);
     expect(runSummary(state)).toEqual([
@@ -150,7 +256,8 @@ describe('consoleReducer generations', () => {
     const restarting = feed([{ v: 1, type: 'child', gen: 1, state: 'restarting', pid: 48211 }], running);
 
     expect(restarting.child?.state).toBe('restarting');
-    expect(restarting.hello).toBe(running.hello);
+    expect(restarting.servers).toBe(running.servers);
+    expect(serverView(restarting).hello).toBe(serverView(running).hello);
     expect(restarting.metrics).toBe(running.metrics);
     expect(restarting.runs).toEqual([{ ...running.runs[0]!, state: 'restarting' }]);
   });
@@ -174,6 +281,7 @@ describe('consoleReducer generations', () => {
           type: 'snapshotState',
           timeZone: 'UTC',
           child: { gen: 1, state: 'starting' },
+          servers: [],
           runs: [],
           metrics: [],
           logs: [],
@@ -185,9 +293,15 @@ describe('consoleReducer generations', () => {
     );
 
     expect(replay.child).toEqual({ gen: 1, state: 'starting' });
-    expect(replay.hello).toBeNull();
-    expect(replay.snapshot).toBeNull();
-    expect(replay.snapshotGen).toBeNull();
+    expect(replay.servers).toEqual([]);
+    expect(serverView(replay)).toEqual({
+      server: null,
+      hello: null,
+      snapshot: null,
+      stale: false,
+      stopped: false,
+      state: null,
+    });
     expect(replay.logs).toEqual([]);
     expect(replay.runs).toEqual([]);
     expect(replay.commandResults).toEqual(withResult.commandResults);
@@ -203,6 +317,7 @@ describe('consoleReducer generations', () => {
           type: 'snapshotState',
           timeZone: 'UTC',
           child: live.child!,
+          servers: [],
           runs: live.runs,
           metrics: [],
           logs: live.logs,
@@ -277,6 +392,7 @@ describe('consoleReducer limits', () => {
         type: 'snapshotState',
         timeZone: 'UTC',
         child: { gen: 51, state: 'exited' },
+        servers: [],
         runs,
         metrics: Array.from({ length: 121 }, (_, i) => metrics(i)),
         logs,
@@ -307,6 +423,7 @@ describe('consoleReducer command results', () => {
     type: 'snapshotState',
     timeZone: 'UTC',
     child: running.child!,
+    servers: [],
     runs: running.runs,
     metrics: [],
     logs: [],
@@ -344,6 +461,6 @@ describe('consoleReducer connection', () => {
     const closed = consoleReducer(running, { kind: 'connection', status: 'closed' });
 
     expect(closed.connection).toBe('closed');
-    expect(closed.snapshot).toBe(running.snapshot);
+    expect(closed.servers).toBe(running.servers);
   });
 });
