@@ -15,14 +15,17 @@ export interface WrapperOptions {
   sourceFolder: string;
   rootFile: string;
   controllers: ComponentExports;
-  /** Extra modules written next to the wrapper, file name -> source, imported in order before the entry. */
+  /**
+   * Extra modules written next to the wrapper, file name -> source, imported in order before any module of the
+   * app, so a prelude cannot use the components.
+   */
   preludes?: Record<string, string>;
 }
 
 /**
- * Writes the wrapper entry into `dir`: `asena.components.js` fills
- * `globalThis[Symbol.for('asena.buildComponents')]` with every scanned component, then each prelude runs,
- * then the entry is imported. Every import is an absolute path, so the wrapper can live outside the project.
+ * Writes the wrapper entry into `dir`: each prelude runs, then `asena.components.js` fills
+ * `globalThis[Symbol.for('asena.buildComponents')]` with every scanned component, then the entry is
+ * imported. Every import is an absolute path, so the wrapper can live outside the project.
  *
  * @returns The absolute path of the wrapper entry, `index.asena.js`.
  */
@@ -48,14 +51,17 @@ export const writeWrapperFiles = (dir: string, options: WrapperOptions): string 
     `${imports.join('\n')}\n\nglobalThis[Symbol.for('asena.buildComponents')] = [${aliases.join(', ')}];\n`,
   );
 
-  const entryImports = [`import './asena.components.js';`];
+  const entryImports: string[] = [];
 
   for (const [file, source] of Object.entries(options.preludes ?? {})) {
     fs.writeFileSync(path.join(dir, file), source);
     entryImports.push(`import './${file}';`);
   }
 
-  entryImports.push(`import '${toImportPath(path.resolve(options.root, options.rootFile))}';`);
+  entryImports.push(
+    `import './asena.components.js';`,
+    `import '${toImportPath(path.resolve(options.root, options.rootFile))}';`,
+  );
 
   const entry = path.join(dir, 'index.asena.js');
 

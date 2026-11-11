@@ -30,7 +30,7 @@ describe('console wrapper', () => {
     return agentPath;
   };
 
-  it('imports the components, then the devtools prelude, then the entry, all by absolute path', () => {
+  it('imports the devtools prelude, then the components, then the entry, all by absolute path', () => {
     const agentPath = writeAgent('export const attachDevtoolsAgent = () => {};\n');
 
     const entry = writeConsoleWrapper(wrapperDir, {
@@ -47,8 +47,8 @@ describe('console wrapper', () => {
 
     expect(entrySource).toBe(
       [
-        `import './asena.components.js';`,
         `import './${DEVTOOLS_PRELUDE_FILE}';`,
+        `import './asena.components.js';`,
         `import '${toImportPath(path.join(project, 'src', 'index.ts'))}';`,
         '',
       ].join('\n'),
@@ -60,6 +60,54 @@ describe('console wrapper', () => {
     for (const source of [entrySource, prelude, components]) {
       expect(source).not.toMatch(/from '@|import '@/);
     }
+  });
+
+  // The agent module wraps console.log when it loads, as core's output capture does. Loaded before the app's
+  // modules, its wrapper sits beneath the one a component module installs, so it sees what that one lets through.
+  it('loads the agent module before any component module, so the app console wrapper stays on top', async () => {
+    const agentPath = writeAgent(
+      [
+        'const print = console.log;',
+        'globalThis.captured = [];',
+        'console.log = (...args) => { globalThis.captured.push(args.join(" ")); print(...args); };',
+        'export function attachDevtoolsAgent() {}',
+        '',
+      ].join('\n'),
+    );
+
+    fs.writeFileSync(
+      path.join(project, 'src', 'ItemService.js'),
+      [
+        'const print = console.log;',
+        'console.log = (...args) => print(...args.map((arg) => String(arg).replace(/token=\\S+/, "token=[redacted]")));',
+        'export class ItemService {}',
+        '',
+      ].join('\n'),
+    );
+    fs.writeFileSync(
+      path.join(project, 'src', 'index.js'),
+      ['console.log("login token=s3cret");', 'process.stderr.write(JSON.stringify(globalThis.captured));', ''].join(
+        '\n',
+      ),
+    );
+
+    const entry = writeConsoleWrapper(wrapperDir, {
+      root: project,
+      sourceFolder: 'src',
+      rootFile: 'src/index.js',
+      controllers: { 'ItemService.js': [{ exportName: 'ItemService' }] },
+      agentPath,
+    });
+    const child = Bun.spawn(appCommand(project, entry), { cwd: project, stdout: 'pipe', stderr: 'pipe' });
+    const [stdout, stderr, code] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ]);
+
+    expect(code).toBe(0);
+    expect(stdout).toBe('login token=[redacted]\n');
+    expect(JSON.parse(stderr)).toEqual(['login token=[redacted]']);
   });
 
   const runWrapper = async (agentSource: string) => {

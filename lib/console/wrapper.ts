@@ -7,8 +7,9 @@ import { DEVTOOLS_AGENT_EXPORT } from './coreVersion';
 export const DEVTOOLS_PRELUDE_FILE = 'asena.devtools.js';
 
 /**
- * The module that sets `globalThis[Symbol.for('asena.devtools')]`. It is its own module, imported before the
- * entry, so the hook is set before the entry's top-level code starts the server.
+ * The module that sets `globalThis[Symbol.for('asena.devtools')]`. It is its own module, imported before every
+ * module of the app: the hook is set before the entry's top-level code starts the server, and the agent's output
+ * capture sits beneath any console wrapper an app module installs, so a record holds what that wrapper prints.
  */
 export const devtoolsPreludeSource = (agentPath: string): string =>
   [

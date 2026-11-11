@@ -34,7 +34,7 @@ describe('writeWrapperFiles', () => {
     );
   });
 
-  it('writes each prelude and imports them in order between the components and the entry', () => {
+  it('writes each prelude and imports them in order before the components and the entry', () => {
     const entry = writeWrapperFiles(dir, {
       root,
       sourceFolder: 'src',
@@ -47,9 +47,9 @@ describe('writeWrapperFiles', () => {
     expect(fs.readFileSync(path.join(dir, 'second.js'), 'utf-8')).toBe('export const b = 2;\n');
     expect(fs.readFileSync(entry, 'utf-8')).toBe(
       [
-        `import './asena.components.js';`,
         `import './first.js';`,
         `import './second.js';`,
+        `import './asena.components.js';`,
         `import '${toImportPath(path.join(root, 'src', 'index.ts'))}';`,
         '',
       ].join('\n'),
