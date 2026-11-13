@@ -16,9 +16,9 @@ describe('WebSocketHandler', () => {
     const handler = new WebSocketHandler('');
     const result = handler.addWebSocketNamespace('ChatNamespace', '/chat');
 
-    expect(result.code).toContain('protected async onOpen(ws: Socket)');
-    expect(result.code).toContain('protected async onMessage(ws: Socket, message: string)');
-    expect(result.code).toContain('protected async onClose(ws: Socket)');
+    expect(result.code).toContain('protected async onOpen(_ws: Socket)');
+    expect(result.code).toContain('protected async onMessage(_ws: Socket, message: string)');
+    expect(result.code).toContain('protected async onClose(_ws: Socket)');
   });
 
   it('should have minimal implementation in methods', () => {

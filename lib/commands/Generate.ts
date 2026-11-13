@@ -17,7 +17,6 @@ import {
   convertToPascalCase,
   getAdapterConfig,
   getConfigImports,
-  getControllerImports,
   getExceptionHandlerImports,
   getImportType,
   getMiddlewareImports,
@@ -127,11 +126,10 @@ export class Generate implements BaseCommand {
     const controllerName = baseName + suffix;
 
     const importType = await getImportType();
-    const adapter = await getAdapterConfig();
-    const controllerImports = getControllerImports(adapter);
 
+    // Only the decorator: the class has no routes yet, so `Get` and `Context` would be unused.
     const controllerCode =
-      new ImportHandler('', importType).importToCode(controllerImports, importType) +
+      new ImportHandler('', importType).importToCode({ '@asenajs/asena/decorators': ['Controller'] }, importType) +
       new ControllerHandler('').addController(controllerName, null).code;
 
     await this.generate(controllerCode, 'controllers', controllerName);
@@ -242,7 +240,7 @@ export class Generate implements BaseCommand {
     const fileExists = await Bun.file(path.normalize(elementFilePath)).exists();
 
     if (!fileExists) {
-      await Bun.write(elementFilePath, code);
+      await Bun.write(elementFilePath, code.endsWith('\n') ? code : `${code}\n`);
     } else {
       console.error('\x1b[31m%s\x1b[0m', `${elementName} already exists`);
 

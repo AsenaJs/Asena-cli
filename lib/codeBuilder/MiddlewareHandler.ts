@@ -8,7 +8,7 @@ export class MiddlewareHandler {
   }
 
   public addMiddleware(serviceName: string) {
-    const service = `\n@Middleware()\nexport class ${serviceName} extends MiddlewareService {\n\n}`;
+    const service = `\n@Middleware()\nexport class ${serviceName} extends MiddlewareService {}\n`;
 
     this._code = this._code + service;
 
@@ -18,14 +18,15 @@ export class MiddlewareHandler {
   public addDefaultHandle(serviceName: string) {
     // `next: Function` and a synchronous body used to be generated here, but that does not
     // type-check against Ergenecore's MiddlewareService - the scaffold must compile as-is.
-    const handle = `\n\n  public async handle(context: Context, next: () => Promise<void>) {\n    context.setValue('testValue', 'test');\n    await next();\n  }`;
+    const handle = `  public async handle(context: Context, next: () => Promise<void>) {\n    context.setValue('testValue', 'test');\n    await next();\n  }`;
 
-    const controllerEndIndex = RegexHelper.getElementIndexByName(this._code, 'Middleware', serviceName);
+    const classEndIndex = RegexHelper.getElementIndexByName(this._code, 'Middleware', serviceName);
 
-    if (!controllerEndIndex) throw new Error('Controller is not exists');
+    if (!classEndIndex) throw new Error('Controller is not exists');
 
-    this._code =
-      this._code.substring(0, controllerEndIndex - 2) + handle + this._code.substring(controllerEndIndex - 2);
+    const head = this._code.substring(0, classEndIndex).trimEnd();
+
+    this._code = `${head}\n${handle}\n${this._code.substring(classEndIndex)}`;
 
     return this;
   }
