@@ -40,6 +40,12 @@ objectWrap = "preserve"
 experimentalTernaries = false
 experimentalOperatorPosition = "end"
 singleAttributePerLine = false
+checkIgnorePragma = false
+insertFinalNewline = true
+sortImports = false
+jsdoc = false
+sortTailwindcss = false
+sortPackageJson = false
 ignorePatterns = [
   ".changeset/",
   ".claude/",
