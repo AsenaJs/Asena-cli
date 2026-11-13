@@ -189,6 +189,27 @@ const TSC_VERSION_7: Check = {
 const TYPECHECK: Check = { name: 'typecheck', args: ['run', 'typecheck'] };
 const DOCTOR: Check = { name: 'doctor', args: [CLI, 'doctor'] };
 
+const installedVersion = (dir: string, name: string): string | undefined => {
+  const manifest = path.join(dir, 'node_modules', name, 'package.json');
+
+  return fs.existsSync(manifest) ? JSON.parse(fs.readFileSync(manifest, 'utf8')).version : undefined;
+};
+
+// node_modules/prettier must be absent. The one exception: @asenajs/asena-cli depends on @changesets/cli, whose
+// 2.x line requires prettier@2 through @changesets/* packages. Anything else that brings Prettier fails.
+const prettierInstalled = async (dir: string): Promise<string[]> => {
+  if (!fs.existsSync(path.join(dir, 'node_modules/prettier'))) return [];
+
+  const why = await run(dir, ['why', 'prettier', '--top']);
+  const requiredBy = [...why.output.matchAll(/[├└]─ (.+?) \(requires /g)].map(([, by]) => by ?? '');
+  const onlyChangesets2 =
+    installedVersion(dir, '@changesets/cli')?.startsWith('2.') === true &&
+    requiredBy.length > 0 &&
+    requiredBy.every((by) => by.startsWith('@changesets/'));
+
+  return onlyChangesets2 ? [] : [`node_modules/prettier is installed:\n${why.output}`];
+};
+
 type InstallPreference = Parameters<typeof installSelection>[0];
 
 describe('asena create scaffold passes its own checks', () => {
@@ -198,9 +219,9 @@ describe('asena create scaffold passes its own checks', () => {
 
   for (const adapter of ['hono', 'ergenecore'] as const) {
     it(
-      `${adapter} with default options: default install, generators, lint, format:check, typecheck and doctor exit 0 on TypeScript 7`,
+      `${adapter} with default options: default install, generators, lint, format:check (bun fmt), typecheck and doctor exit 0 on TypeScript 7, without Prettier`,
       async () => {
-        const preference: InstallPreference = { adapter, logger: true, eslint: true, prettier: true };
+        const preference: InstallPreference = { adapter, logger: true, eslint: true, format: true };
         const { root, dir } = await scaffold(adapter, [], preference);
 
         try {
@@ -208,11 +229,12 @@ describe('asena create scaffold passes its own checks', () => {
             ...(await runGenerators(root, dir)),
             ...(await runChecks(dir, [
               { name: 'lint', args: ['run', 'lint'] },
-              { name: 'format:check', args: ['run', 'format:check'] },
+              { name: 'format:check', args: ['run', 'format:check'], expectOutput: /All \d+ files are formatted\./ },
               TSC_VERSION_7,
               TYPECHECK,
               DOCTOR,
             ])),
+            ...(await prettierInstalled(dir)),
           ];
 
           expect(failures).toEqual([]);
@@ -225,15 +247,16 @@ describe('asena create scaffold passes its own checks', () => {
   }
 
   it(
-    'hono with --no-eslint --no-prettier: default install, generators, typecheck and doctor exit 0 on TypeScript 7',
+    'hono with --no-eslint --no-prettier: default install, generators, typecheck and doctor exit 0 on TypeScript 7, without Prettier',
     async () => {
-      const preference: InstallPreference = { adapter: 'hono', logger: true, eslint: false, prettier: false };
+      const preference: InstallPreference = { adapter: 'hono', logger: true, eslint: false, format: false };
       const { root, dir } = await scaffold('hono', ['--no-eslint', '--no-prettier'], preference);
 
       try {
         const failures = [
           ...(await runGenerators(root, dir)),
           ...(await runChecks(dir, [TSC_VERSION_7, TYPECHECK, DOCTOR])),
+          ...(await prettierInstalled(dir)),
         ];
 
         expect(failures).toEqual([]);

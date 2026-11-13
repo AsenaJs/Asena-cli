@@ -2,11 +2,11 @@ import { describe, expect, it } from 'bun:test';
 import { installCommands, installManifest, installSelection } from '../../lib/commands/createInstallCommands';
 import { DOCTOR_REQUIRED_DEPENDENCIES } from '../../lib/constants';
 
-const defaults = { adapter: 'hono', logger: true, eslint: true, prettier: true } as const;
+const defaults = { adapter: 'hono', logger: true, eslint: true, format: true } as const;
 
 const ALL_OPTION_SETS = (['hono', 'ergenecore'] as const).flatMap((adapter) =>
   [true, false].flatMap((logger) =>
-    [true, false].flatMap((eslint) => [true, false].map((prettier) => ({ adapter, logger, eslint, prettier }))),
+    [true, false].flatMap((eslint) => [true, false].map((format) => ({ adapter, logger, eslint, format }))),
   ),
 );
 
@@ -39,17 +39,26 @@ describe('installCommands', () => {
   });
 
   it('installs plain TypeScript 7 when ESLint is disabled', () => {
-    const [, devDependencies] = installCommands({ ...defaults, eslint: false, prettier: false });
+    const [, devDependencies] = installCommands({ ...defaults, eslint: false, format: false });
 
     expect(devDependencies).toEqual(['bun', 'add', '-D', '@types/bun', 'typescript@^7.0.2']);
   });
 
-  it('installs the ESLint packages and the Prettier integration, in that order, when both are enabled', () => {
+  it('installs the ESLint packages and then eslint-config-prettier when ESLint and formatting are enabled', () => {
     const [, devDependencies] = installCommands(defaults);
 
     expect(devDependencies).toContain('@eslint/js');
-    expect(devDependencies.slice(-2)).toEqual(['eslint-config-prettier', 'prettier']);
+    expect(devDependencies.at(-1)).toBe('eslint-config-prettier');
   });
+
+  for (const options of ALL_OPTION_SETS) {
+    it(`installs neither prettier nor eslint-plugin-prettier for ${JSON.stringify(options)}`, () => {
+      const names = installCommands(options).flatMap((command) => command.map(nameOf));
+
+      expect(names).not.toContain('prettier');
+      expect(names).not.toContain('eslint-plugin-prettier');
+    });
+  }
 
   it('adds the logger package only when the logger is enabled', () => {
     expect(installCommands(defaults)[0]).toContain('@asenajs/asena-logger');
@@ -57,7 +66,7 @@ describe('installCommands', () => {
   });
 
   it('never installs the ESLint or Prettier integration when those are disabled', () => {
-    const [, devDependencies] = installCommands({ ...defaults, eslint: false, prettier: false });
+    const [, devDependencies] = installCommands({ ...defaults, eslint: false, format: false });
 
     expect(devDependencies.join(' ')).not.toMatch(/eslint|prettier-integration/);
   });

@@ -169,7 +169,7 @@ describe('Create command package.json generation', () => {
       adapter: 'hono',
       logger: false,
       eslint: true,
-      prettier: false,
+      format: false,
     };
 
     await (create as any).createPackageJson(projectPath);
@@ -183,17 +183,16 @@ describe('Create command package.json generation', () => {
     expect(packageJson.scripts['lint:fix']).toBe('eslint . --fix');
   });
 
-  it('should include prettier scripts when prettier is enabled', async () => {
+  it('should include bun fmt scripts when formatting is enabled', async () => {
     const create = new Create();
     const projectPath = tempDir;
 
-    // Set preference to include prettier
     (create as any).preference = {
       projectName: 'TestProject',
       adapter: 'hono',
       logger: false,
       eslint: false,
-      prettier: true,
+      format: true,
     };
 
     await (create as any).createPackageJson(projectPath);
@@ -202,22 +201,22 @@ describe('Create command package.json generation', () => {
     const packageJsonContent = await Bun.file(packageJsonPath).text();
     const packageJson = JSON.parse(packageJsonContent);
 
-    // Verify prettier scripts exist
-    expect(packageJson.scripts.format).toBe('prettier --write .');
-    expect(packageJson.scripts['format:check']).toBe('prettier --check .');
+    expect(packageJson.scripts.format).toBe('bun fmt --no-config');
+    expect(packageJson.scripts['format:check']).toBe('bun fmt --check --no-config');
+    // A script named fmt would shadow the built-in `bun fmt`.
+    expect(packageJson.scripts.fmt).toBeUndefined();
   });
 
-  it('should include combined check scripts when both eslint and prettier are enabled', async () => {
+  it('should include combined check scripts when both eslint and formatting are enabled', async () => {
     const create = new Create();
     const projectPath = tempDir;
 
-    // Set preference to include both eslint and prettier
     (create as any).preference = {
       projectName: 'TestProject',
       adapter: 'hono',
       logger: false,
       eslint: true,
-      prettier: true,
+      format: true,
     };
 
     await (create as any).createPackageJson(projectPath);
@@ -229,23 +228,23 @@ describe('Create command package.json generation', () => {
     // Verify all scripts exist
     expect(packageJson.scripts.lint).toBe('eslint .');
     expect(packageJson.scripts['lint:fix']).toBe('eslint . --fix');
-    expect(packageJson.scripts.format).toBe('prettier --write .');
-    expect(packageJson.scripts['format:check']).toBe('prettier --check .');
+    expect(packageJson.scripts.format).toBe('bun fmt --no-config');
+    expect(packageJson.scripts['format:check']).toBe('bun fmt --check --no-config');
     expect(packageJson.scripts.check).toBe('bun run lint && bun run format:check');
     expect(packageJson.scripts['check:fix']).toBe('bun run lint:fix && bun run format');
   });
 
-  it('should not include eslint/prettier scripts when disabled', async () => {
+  it('should not include eslint/format scripts when disabled', async () => {
     const create = new Create();
     const projectPath = tempDir;
 
-    // Set preference to exclude both eslint and prettier
+    // Set preference to exclude both eslint and formatting
     (create as any).preference = {
       projectName: 'TestProject',
       adapter: 'hono',
       logger: false,
       eslint: false,
-      prettier: false,
+      format: false,
     };
 
     await (create as any).createPackageJson(projectPath);
@@ -254,7 +253,7 @@ describe('Create command package.json generation', () => {
     const packageJsonContent = await Bun.file(packageJsonPath).text();
     const packageJson = JSON.parse(packageJsonContent);
 
-    // Verify eslint/prettier scripts do NOT exist
+    // Verify eslint/format scripts do NOT exist
     expect(packageJson.scripts.lint).toBeUndefined();
     expect(packageJson.scripts['lint:fix']).toBeUndefined();
     expect(packageJson.scripts.format).toBeUndefined();
@@ -304,7 +303,7 @@ describe('Create command package.json generation', () => {
       adapter: 'hono',
       logger: true,
       eslint: true,
-      prettier: true,
+      format: true,
     };
 
     await (create as any).createPackageJson(projectPath, true);
@@ -339,7 +338,8 @@ describe('Create command package.json generation', () => {
     expect(packageJson.devDependencies['@typescript/native']).toBe('npm:typescript@^7.0.2');
     expect(packageJson.devDependencies['@asenajs/asena-cli']).toBe('latest');
     expect(packageJson.devDependencies['eslint']).toBe('latest');
-    expect(packageJson.devDependencies['prettier']).toBe('latest');
+    expect(packageJson.devDependencies['eslint-config-prettier']).toBe('latest');
+    expect(packageJson.devDependencies['prettier']).toBeUndefined();
   });
 
   it('should not include dependencies when skipInstall is false', async () => {
@@ -365,7 +365,7 @@ describe('Create command package.json generation', () => {
       adapter: 'ergenecore',
       logger: false,
       eslint: false,
-      prettier: false,
+      format: false,
     };
 
     await (create as any).createPackageJson(projectPath, true);
@@ -395,7 +395,7 @@ describe('Create command package.json generation', () => {
         adapter,
         logger: false,
         eslint: false,
-        prettier: false,
+        format: false,
       };
 
       await (create as any).createPackageJson(tempDir, true);
@@ -425,7 +425,7 @@ describe('Create command package.json generation', () => {
       adapter: 'hono',
       logger: false,
       eslint: false,
-      prettier: false,
+      format: false,
     };
 
     await (create as any).createPackageJson(tempDir, true);
@@ -437,7 +437,7 @@ describe('Create command package.json generation', () => {
 
   it('installs plain TypeScript 7 without ESLint, and the side-by-side layout with it', async () => {
     const create = new Create();
-    const base = { projectName: 'TestProject', adapter: 'hono', logger: false, prettier: false } as const;
+    const base = { projectName: 'TestProject', adapter: 'hono', logger: false, format: false } as const;
 
     (create as any).preference = { ...base, eslint: false };
     await (create as any).createPackageJson(tempDir, true);

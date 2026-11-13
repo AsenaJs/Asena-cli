@@ -2,7 +2,6 @@ import { describe, expect, it } from 'bun:test';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import * as prettier from 'prettier';
 import { AsenaLoggerCreator } from '../../lib/codeBuilder/AsenaLoggerCreator';
 import { AsenaServerHandler } from '../../lib/codeBuilder/AsenaServerHandler';
 import { ControllerHandler } from '../../lib/codeBuilder/ControllerHandler';
@@ -12,17 +11,34 @@ import { ServerConfigHandler } from '../../lib/codeBuilder/ServerConfigHandler';
 import { ServiceHandler } from '../../lib/codeBuilder/ServiceHandler';
 import { WebSocketHandler } from '../../lib/codeBuilder/WebSocketHandler';
 import { Generate } from '../../lib/commands/Generate';
-import { PRETTIER } from '../../lib/constants/create';
+import { BUNFIG_FMT } from '../../lib/constants/create';
 import { ImportType } from '../../lib/types';
 import type { AdapterType } from '../../lib/types/adapterConfig';
 
-// Evaluates the `.prettierrc.js` source the scaffold writes, so this test follows the shipped config.
-const generatedPrettierOptions = (): prettier.Options => {
-  const shipped: { exports: prettier.Options } = { exports: {} };
+// Runs the generated project's format:check command over `files`, beside the bunfig.toml the scaffold writes
+// (which it checks too). `bun fmt --check` lists the unformatted files on stdout and its summary on stderr.
+const bunFmtCheck = async (files: Record<string, string>) => {
+  const dir = await mkdtemp(join(tmpdir(), 'asena-bun-fmt-'));
 
-  new Function('module', PRETTIER)(shipped);
+  try {
+    await Bun.write(join(dir, 'bunfig.toml'), BUNFIG_FMT);
 
-  return { ...shipped.exports, parser: 'typescript' };
+    for (const [file, text] of Object.entries(files)) await Bun.write(join(dir, file), text);
+
+    const result = Bun.spawnSync([process.execPath, 'fmt', '--check', '--no-config'], {
+      cwd: dir,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+
+    return {
+      exitCode: result.exitCode,
+      unformatted: result.stdout.toString().split('\n').filter(Boolean),
+      summary: result.stderr.toString().trim(),
+    };
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 };
 
 const GENERATOR_METHODS = {
@@ -78,8 +94,8 @@ const generatorOutputs = async (adapter: AdapterType): Promise<Record<string, st
 };
 
 // The emitted text is what a generated project's format:check, tsc and lint read. These pin the
-// exact output so a template that drifts from Prettier's style fails here, not in a scaffold.
-describe('generated source is written in the style Prettier expects', () => {
+// exact output so a template that drifts from the formatter's style fails here, not in a scaffold.
+describe('generated source is written in the style bun fmt expects', () => {
   it('emits imports as `import { A, B } from` with a final newline', () => {
     const code = new ImportHandler('', ImportType.IMPORT).importToCode(
       { '@asenajs/asena': ['AsenaServer', 'Controller'] },
@@ -172,18 +188,28 @@ describe('generated source is written in the style Prettier expects', () => {
   });
 
   for (const adapter of ['hono', 'ergenecore'] as const) {
-    it(`emits every ${adapter} generator output as Prettier-clean TypeScript under the shipped Prettier config`, async () => {
-      const options = generatedPrettierOptions();
-      const dirty: string[] = [];
+    it(`emits every ${adapter} generator output formatted for bun fmt under the shipped [fmt] table`, async () => {
+      const outputs = await generatorOutputs(adapter);
+      // Generate writes each file with exactly one final newline; check what it would write.
+      const files = Object.fromEntries(
+        Object.entries(outputs).map(([generator, code]) => [`src/${generator}.ts`, code.replace(/\n*$/, '\n')]),
+      );
 
-      for (const [generator, code] of Object.entries(await generatorOutputs(adapter))) {
-        // Generate writes each file with exactly one final newline; check what it would write.
-        if (!(await prettier.check(code.replace(/\n*$/, '\n'), options))) dirty.push(generator);
-      }
-
-      expect(dirty).toEqual([]);
+      expect(Object.keys(files)).toHaveLength(Object.keys(GENERATOR_METHODS).length);
+      expect(await bunFmtCheck(files)).toEqual({
+        exitCode: 0,
+        unformatted: [],
+        summary: `All ${Object.keys(files).length + 1} files are formatted.`,
+      });
     });
   }
+
+  it('reports a generator output that is not formatted, so the check above can fail', async () => {
+    const result = await bunFmtCheck({ 'src/service.ts': '@Service()\nexport class UserService {\n\n}\n' });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.unformatted).toEqual(['src/service.ts']);
+  });
 
   it('emits the logger module formatted', () => {
     expect(AsenaLoggerCreator.createLogger()).toBe(

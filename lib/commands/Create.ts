@@ -4,7 +4,7 @@ import { Command } from 'commander';
 import inquirer from 'inquirer';
 import ora, { type Ora } from 'ora';
 import { AsenaLoggerCreator, AsenaServerHandler, ControllerHandler, ImportHandler } from '../codeBuilder';
-import { GITIGNORE, PRETTIER, PRETTIER_IGNORE, TSCONFIG } from '../constants';
+import { BUNFIG_FMT, GITIGNORE, TSCONFIG } from '../constants';
 import { getAdapterFunctionName, getControllerImports, getRootImports } from '../helpers';
 import { ImportType } from '../types';
 import { runningCliVersion } from './cliInstall';
@@ -19,7 +19,7 @@ export class Create implements BaseCommand {
     adapter: 'hono',
     logger: true,
     eslint: true,
-    prettier: true,
+    format: true,
   };
 
   public command() {
@@ -68,6 +68,8 @@ export class Create implements BaseCommand {
 
     const projectPath = currentFolder ? process.cwd() : path.resolve(process.cwd(), this.preference.projectName);
 
+    if (this.preference.format) await this.createFormatConfig(projectPath);
+
     await this.createPackageJson(projectPath, skipInstall);
 
     await this.createDefaultController(projectPath);
@@ -83,8 +85,6 @@ export class Create implements BaseCommand {
     }
 
     if (this.preference.eslint) await this.createEslintConfig();
-
-    if (this.preference.prettier) await this.createPrettierConfig();
 
     await this.createTsConfig();
 
@@ -164,14 +164,14 @@ export class Create implements BaseCommand {
       scripts['lint:fix'] = 'eslint . --fix';
     }
 
-    // Add Prettier scripts if enabled
-    if (this.preference.prettier) {
-      scripts['format'] = 'prettier --write .';
-      scripts['format:check'] = 'prettier --check .';
+    // --no-config stops bun fmt from reading a Prettier config in a parent directory; [fmt] still applies
+    if (this.preference.format) {
+      scripts['format'] = 'bun fmt --no-config';
+      scripts['format:check'] = 'bun fmt --check --no-config';
     }
 
     // Add combined check scripts if both are enabled
-    if (this.preference.eslint && this.preference.prettier) {
+    if (this.preference.eslint && this.preference.format) {
       scripts['check'] = 'bun run lint && bun run format:check';
       scripts['check:fix'] = 'bun run lint:fix && bun run format';
     }
@@ -201,12 +201,12 @@ export class Create implements BaseCommand {
   }
 
   private getEslintConfig(): string {
-    const usePrettier = this.preference.prettier;
+    const useFormat = this.preference.format;
 
     return `// @ts-check
 const eslint = require('@eslint/js');
 const tseslint = require('typescript-eslint');
-${usePrettier ? "const eslintConfigPrettier = require('eslint-config-prettier');" : ''}
+${useFormat ? "const eslintConfigPrettier = require('eslint-config-prettier');" : ''}
 
 module.exports = tseslint.config(
   // ESLint recommended rules
@@ -215,7 +215,7 @@ module.exports = tseslint.config(
   // TypeScript ESLint recommended rules
   ...tseslint.configs.recommendedTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
-${usePrettier ? '\n  // Prettier config to disable conflicting rules\n  eslintConfigPrettier,\n' : ''}
+${useFormat ? '\n  // Turn off the rules that conflict with bun fmt\n  eslintConfigPrettier,\n' : ''}
   // Global ignores
   {
     ignores: [
@@ -288,9 +288,32 @@ ${usePrettier ? '\n  // Prettier config to disable conflicting rules\n  eslintCo
     await Bun.write(process.cwd() + '/eslint.config.cjs', eslintConfig);
   }
 
-  private async createPrettierConfig() {
-    await Bun.write(process.cwd() + '/.prettierrc.js', PRETTIER);
-    await Bun.write(process.cwd() + '/.prettierignore', PRETTIER_IGNORE);
+  private async createFormatConfig(projectPath: string) {
+    const bunfigPath = path.join(projectPath, 'bunfig.toml');
+    const bunfig = Bun.file(bunfigPath);
+
+    if (!(await bunfig.exists())) {
+      await Bun.write(bunfigPath, BUNFIG_FMT);
+
+      return;
+    }
+
+    const existing = await bunfig.text();
+    let settings: object;
+
+    try {
+      settings = Bun.TOML.parse(existing);
+    } catch (error) {
+      throw new Error(`${bunfigPath} is not valid TOML: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    if ('fmt' in settings) {
+      console.warn(`${bunfigPath} already has a [fmt] table, left it unchanged`);
+
+      return;
+    }
+
+    await Bun.write(bunfigPath, existing.trim() ? `${existing.trimEnd()}\n\n${BUNFIG_FMT}` : BUNFIG_FMT);
   }
 
   private async createTsConfig() {
@@ -326,7 +349,7 @@ ${usePrettier ? '\n  // Prettier config to disable conflicting rules\n  eslintCo
         adapter: options.adapter || 'hono',
         logger: options.logger !== undefined ? options.logger : true,
         eslint: options.eslint !== undefined ? options.eslint : true,
-        prettier: options.prettier !== undefined ? options.prettier : true,
+        format: options.prettier !== undefined ? options.prettier : true,
       };
     }
 
@@ -370,8 +393,8 @@ ${usePrettier ? '\n  // Prettier config to disable conflicting rules\n  eslintCo
       },
       {
         type: 'confirm',
-        name: 'prettier',
-        message: 'Do you want to setup Prettier?[Yes by default]',
+        name: 'format',
+        message: 'Set up formatting (bun fmt)?',
         default: true,
       },
     );
@@ -383,7 +406,7 @@ ${usePrettier ? '\n  // Prettier config to disable conflicting rules\n  eslintCo
       adapter: answers.adapter,
       logger: answers.logger,
       eslint: answers.eslint,
-      prettier: answers.prettier,
+      format: answers.format,
     };
   }
 }

@@ -5,5 +5,5 @@ export interface ProjectSetupOptions {
   adapter: AdapterType;
   logger: boolean;
   eslint: boolean;
-  prettier: boolean;
+  format: boolean;
 }

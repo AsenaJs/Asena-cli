@@ -1,15 +1,14 @@
 import {
   DOCTOR_REQUIRED_DEPENDENCIES,
   ESLINT_INSTALLATIONS,
-  ESLINT_WITH_PRETTIER_INSTALLATIONS,
-  PRETTIER_INSTALLATIONS,
+  ESLINT_WITH_FORMAT_INSTALLATIONS,
   TYPESCRIPT_DEV_DEPENDENCIES,
   TYPESCRIPT_WITH_ESLINT_DEV_DEPENDENCIES,
 } from '../constants';
 import { getAdapterInstallPackages } from '../helpers';
 import type { ProjectSetupOptions } from '../types/create';
 
-type InstallOptions = Pick<ProjectSetupOptions, 'adapter' | 'logger' | 'eslint' | 'prettier'>;
+type InstallOptions = Pick<ProjectSetupOptions, 'adapter' | 'logger' | 'eslint' | 'format'>;
 
 // A package without a version is installed unpinned: `latest` in package.json.
 interface InstallPackage {
@@ -46,10 +45,8 @@ export const installSelection = (options: InstallOptions): InstallSelection => {
   if (options.eslint) {
     devDependencies.push(...unpinned(ESLINT_INSTALLATIONS));
 
-    if (options.prettier) devDependencies.push(...unpinned(ESLINT_WITH_PRETTIER_INSTALLATIONS));
+    if (options.format) devDependencies.push(...unpinned(ESLINT_WITH_FORMAT_INSTALLATIONS));
   }
-
-  if (options.prettier) devDependencies.push(...unpinned([PRETTIER_INSTALLATIONS]));
 
   return { dependencies, devDependencies };
 };

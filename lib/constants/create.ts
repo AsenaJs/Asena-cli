@@ -30,47 +30,38 @@ export const TSCONFIG = `{
 }
 `;
 
-export const PRETTIER = `module.exports = {
-  // max 120 characters per line
-  printWidth: 120,
-  // use 2 spaces for indentation
-  tabWidth: 2,
-  // use spaces instead of indentations
-  useTabs: false,
-  // semicolon at the end of the line
-  semi: true,
-  // use single quotes
-  singleQuote: true,
-  // object's key is quoted only when necessary
-  quoteProps: 'as-needed',
-  // use double quotes instead of single quotes in jsx
-  jsxSingleQuote: false,
-  // no comma at the end
-  trailingComma: 'all',
-  // spaces are required at the beginning and end of the braces
-  bracketSpacing: true,
-  // end tag of jsx need to wrap
-  jsxBracketSameLine: false,
-  // brackets are required for arrow function parameter, even when there is only one parameter
-  arrowParens: 'always',
-  // format the entire contents of the file
-  rangeStart: 0,
-  rangeEnd: Infinity,
-  // no need to write the beginning @prettier of the file
-  requirePragma: false,
-  // No need to automatically insert @prettier at the beginning of the file
-  insertPragma: false,
-  // use default break criteria
-  proseWrap: 'preserve',
-  // decide whether to break the html according to the display style
-  htmlWhitespaceSensitivity: 'css',
-  // vue files script and style tags indentation
-  vueIndentScriptAndStyle: false,
-  // lf for newline
-  endOfLine: 'lf',
-  // formats quoted code embedded
-  embeddedLanguageFormatting: 'auto',
-};
+// Options at Bun's defaults are pinned too: bun fmt takes every option [fmt] leaves unset from a Prettier
+// config in a parent directory, and only an explicit value overrides .editorconfig.
+export const BUNFIG_FMT = `[fmt]
+printWidth = 120
+singleQuote = true
+tabWidth = 2
+useTabs = false
+endOfLine = "lf"
+semi = true
+quoteProps = "as-needed"
+jsxSingleQuote = false
+trailingComma = "all"
+bracketSpacing = true
+bracketSameLine = false
+arrowParens = "always"
+proseWrap = "preserve"
+htmlWhitespaceSensitivity = "css"
+vueIndentScriptAndStyle = false
+embeddedLanguageFormatting = "auto"
+objectWrap = "preserve"
+experimentalTernaries = false
+experimentalOperatorPosition = "end"
+singleAttributePerLine = false
+requirePragma = false
+insertPragma = false
+checkIgnorePragma = false
+insertFinalNewline = true
+sortImports = false
+jsdoc = false
+sortTailwindcss = false
+sortPackageJson = false
+ignorePatterns = ["coverage/", "bun.lockb", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "*.md"]
 `;
 
 // Not a dependency of asena itself in the generated project, but `asena doctor` requires each of these
@@ -85,7 +76,7 @@ export const ESLINT_INSTALLATIONS = [
   'typescript-eslint',
 ];
 
-export const ESLINT_WITH_PRETTIER_INSTALLATIONS = ['eslint-config-prettier'];
+export const ESLINT_WITH_FORMAT_INSTALLATIONS = ['eslint-config-prettier'];
 
 // typescript-eslint refuses to start on TypeScript 7 (its API is not in the package), so with ESLint
 // the `typescript` name keeps the TS 6 API and `@typescript/native` carries the TS 7 compiler.
@@ -95,29 +86,6 @@ export const TYPESCRIPT_WITH_ESLINT_DEV_DEPENDENCIES: Record<string, string> = {
   typescript: 'npm:@typescript/typescript6@^6.0.2',
   '@typescript/native': 'npm:typescript@^7.0.2',
 };
-
-export const PRETTIER_INSTALLATIONS = `prettier`;
-
-export const PRETTIER_IGNORE = `# Dependencies
-node_modules/
-
-# Build output
-dist/
-
-# Logs
-*.log
-
-# Coverage
-coverage/
-
-# Lock files
-bun.lockb
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
-
-*.md
-`;
 
 export const GITIGNORE = `# Dependencies
 node_modules/
