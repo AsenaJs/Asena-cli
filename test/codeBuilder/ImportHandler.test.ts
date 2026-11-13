@@ -58,7 +58,7 @@ const x = 1;
         ImportType.IMPORT,
       );
 
-      expect(result).toContain("import {AsenaServer} from '@asenajs/asena'");
+      expect(result).toContain("import { AsenaServer } from '@asenajs/asena';\n");
     });
 
     it('should add multiple imports from same file', () => {
@@ -108,7 +108,7 @@ const x = 1;
         ImportType.IMPORT,
       );
 
-      expect(result).toContain('import {AsenaServer}');
+      expect(result).toContain('import { AsenaServer } from');
 
       expect(result).toContain('const x = 1;');
 

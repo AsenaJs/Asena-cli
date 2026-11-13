@@ -15,10 +15,10 @@ export const TSCONFIG = `{
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
+    "types": ["bun"],
 
     // Best practices
-    "strict": false,
-    "strictNullChecks": true,
+    "strict": true,
     "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
 
@@ -27,7 +27,8 @@ export const TSCONFIG = `{
     "noUnusedParameters": true,
     "noPropertyAccessFromIndexSignature": true
   }
-}`;
+}
+`;
 
 export const PRETTIER = `module.exports = {
   // max 120 characters per line
@@ -74,12 +75,22 @@ export const PRETTIER = `module.exports = {
 
 export const ESLINT_INSTALLATIONS = [
   'eslint',
+  '@eslint/js',
   '@typescript-eslint/parser',
   '@typescript-eslint/eslint-plugin',
   'typescript-eslint',
 ];
 
 export const ESLINT_WITH_PRETTIER_INSTALLATIONS = ['eslint-config-prettier'];
+
+// typescript-eslint refuses to start on TypeScript 7 (its API is not in the package), so with ESLint
+// the `typescript` name keeps the TS 6 API and `@typescript/native` carries the TS 7 compiler.
+export const TYPESCRIPT_DEV_DEPENDENCIES: Record<string, string> = { typescript: '^7.0.2' };
+
+export const TYPESCRIPT_WITH_ESLINT_DEV_DEPENDENCIES: Record<string, string> = {
+  typescript: 'npm:@typescript/typescript6@^6.0.2',
+  '@typescript/native': 'npm:typescript@^7.0.2',
+};
 
 export const PRETTIER_INSTALLATIONS = `prettier`;
 

@@ -323,10 +323,16 @@ describe('Create command package.json generation', () => {
     expect(packageJson.dependencies['hono']).toBe('latest');
     expect(packageJson.dependencies['zod']).toBe('^4');
 
+    // asena doctor requires it as a direct dependency.
+    expect(packageJson.dependencies['reflect-metadata']).toBe('latest');
+
     // Should have devDependencies
     expect(packageJson.devDependencies).toBeDefined();
     expect(packageJson.devDependencies['@types/bun']).toBe('latest');
-    expect(packageJson.devDependencies['typescript']).toBe('latest');
+    // With ESLint the TS 7 compiler rides on `@typescript/native`; `typescript` keeps the TS 6 API that
+    // typescript-eslint loads. See TYPESCRIPT_WITH_ESLINT_DEV_DEPENDENCIES.
+    expect(packageJson.devDependencies['typescript']).toBe('npm:@typescript/typescript6@^6.0.2');
+    expect(packageJson.devDependencies['@typescript/native']).toBe('npm:typescript@^7.0.2');
     expect(packageJson.devDependencies['@asenajs/asena-cli']).toBe('latest');
     expect(packageJson.devDependencies['eslint']).toBe('latest');
     expect(packageJson.devDependencies['prettier']).toBe('latest');
@@ -393,7 +399,7 @@ describe('Create command package.json generation', () => {
       const packageJson = JSON.parse(await Bun.file(join(tempDir, 'package.json')).text());
       const written = Object.keys(packageJson.dependencies).filter((key) => key !== '@asenajs/asena');
 
-      expect(written.sort()).toEqual(Object.keys(getAdapterInstallPackages(adapter)).sort());
+      expect(written.sort()).toEqual([...Object.keys(getAdapterInstallPackages(adapter)), 'reflect-metadata'].sort());
     }
   });
 });

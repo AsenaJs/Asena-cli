@@ -60,7 +60,7 @@ export class ImportHandler {
     const from = `${prefix}${filePath}`;
 
     if (importType === ImportType.IMPORT) {
-      return `import {${imports.join(',')}} from '${from}'; \n`;
+      return `import { ${imports.join(', ')} } from '${from}';\n`;
     }
 
     const types = imports.filter((name) => name.startsWith('type ')).map((name) => name.slice('type '.length));

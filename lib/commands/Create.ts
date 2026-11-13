@@ -12,6 +12,8 @@ import {
   PRETTIER_IGNORE,
   PRETTIER_INSTALLATIONS,
   TSCONFIG,
+  TYPESCRIPT_DEV_DEPENDENCIES,
+  TYPESCRIPT_WITH_ESLINT_DEV_DEPENDENCIES,
 } from '../constants';
 import { getAdapterFunctionName, getAdapterInstallPackages, getControllerImports, getRootImports } from '../helpers';
 import { ImportType } from '../types';
@@ -173,6 +175,7 @@ export class Create implements BaseCommand {
       start: 'bun src/index.ts',
       build: 'asena build',
       'start:prod': 'bun run dist/index.asena.js',
+      typecheck: 'tsc --noEmit',
     };
 
     // Add ESLint scripts if enabled
@@ -209,13 +212,17 @@ export class Create implements BaseCommand {
         ...getAdapterInstallPackages(this.preference.adapter),
       };
 
+      // Not a dependency of asena itself in the generated project, but asena doctor requires it as a
+      // direct one: the scaffold declares what the framework's own checks expect.
+      dependencies['reflect-metadata'] = 'latest';
+
       if (this.preference.logger) {
         dependencies['@asenajs/asena-logger'] = 'latest';
       }
 
       const devDependencies: Record<string, string> = {
         '@types/bun': 'latest',
-        typescript: 'latest',
+        ...this.typescriptDevDependencies(),
         '@asenajs/asena-cli': 'latest',
       };
 
@@ -239,7 +246,7 @@ export class Create implements BaseCommand {
       packageJson['devDependencies'] = devDependencies;
     }
 
-    await Bun.write(projectPath + '/package.json', JSON.stringify(packageJson, null, 2));
+    await Bun.write(projectPath + '/package.json', JSON.stringify(packageJson, null, 2) + '\n');
   }
 
   private async installPreRequests() {
@@ -250,13 +257,21 @@ export class Create implements BaseCommand {
       ([name, version]) => `${name}@${version}`,
     );
 
-    await $`bun add @asenajs/asena ${packages}`.quiet();
+    await $`bun add @asenajs/asena reflect-metadata ${packages}`.quiet();
 
     if (this.preference.logger) {
       await $`bun add @asenajs/asena-logger`.quiet();
     }
 
-    await $`bun add -D @types/bun typescript`.quiet();
+    const typescriptPackages = Object.entries(this.typescriptDevDependencies()).map(
+      ([name, version]) => `${name}@${version}`,
+    );
+
+    await $`bun add -D @types/bun ${typescriptPackages}`.quiet();
+  }
+
+  private typescriptDevDependencies(): Record<string, string> {
+    return this.preference.eslint ? TYPESCRIPT_WITH_ESLINT_DEV_DEPENDENCIES : TYPESCRIPT_DEV_DEPENDENCIES;
   }
 
   private getEslintConfig(): string {
@@ -323,9 +338,6 @@ ${usePrettier ? '\n  // Prettier config to disable conflicting rules\n  eslintCo
 
       // Allow require() in specific cases (Bun compatibility)
       '@typescript-eslint/no-require-imports': 'off',
-
-      // Disable rules that require strictNullChecks (tsconfig has strict: false)
-      '@typescript-eslint/prefer-nullish-coalescing': 'off',
 
       // Allow any in union types (common in adapter interfaces)
       '@typescript-eslint/no-redundant-type-constituents': 'off',
