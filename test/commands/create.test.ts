@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import stripJsonComments from 'strip-json-comments';
+import { DOCTOR_REQUIRED_DEPENDENCIES, TSCONFIG } from '../../lib/constants';
 import { Create } from '../../lib/commands/Create';
 import { getAdapterInstallPackages } from '../../lib/helpers';
 
@@ -324,7 +326,9 @@ describe('Create command package.json generation', () => {
     expect(packageJson.dependencies['zod']).toBe('^4');
 
     // asena doctor requires it as a direct dependency.
-    expect(packageJson.dependencies['reflect-metadata']).toBe('latest');
+    for (const pkg of DOCTOR_REQUIRED_DEPENDENCIES) {
+      expect(packageJson.dependencies[pkg]).toBe('latest');
+    }
 
     // Should have devDependencies
     expect(packageJson.devDependencies).toBeDefined();
@@ -399,7 +403,56 @@ describe('Create command package.json generation', () => {
       const packageJson = JSON.parse(await Bun.file(join(tempDir, 'package.json')).text());
       const written = Object.keys(packageJson.dependencies).filter((key) => key !== '@asenajs/asena');
 
-      expect(written.sort()).toEqual([...Object.keys(getAdapterInstallPackages(adapter)), 'reflect-metadata'].sort());
+      expect(written.sort()).toEqual(
+        [...Object.keys(getAdapterInstallPackages(adapter)), ...DOCTOR_REQUIRED_DEPENDENCIES].sort(),
+      );
     }
+  });
+
+  it('writes a strict tsconfig with the bun types, since TypeScript 7 defaults types to none', () => {
+    const compilerOptions = JSON.parse(stripJsonComments(TSCONFIG)).compilerOptions;
+
+    expect(compilerOptions.strict).toBe(true);
+    expect(compilerOptions.strictNullChecks).toBeUndefined();
+    expect(compilerOptions.types).toEqual(['bun']);
+  });
+
+  it('adds a typecheck script to every scaffold', async () => {
+    const create = new Create();
+
+    (create as any).preference = {
+      projectName: 'TestProject',
+      adapter: 'hono',
+      logger: false,
+      eslint: false,
+      prettier: false,
+    };
+
+    await (create as any).createPackageJson(tempDir, true);
+
+    const packageJson = JSON.parse(await Bun.file(join(tempDir, 'package.json')).text());
+
+    expect(packageJson.scripts.typecheck).toBe('tsc --noEmit');
+  });
+
+  it('installs plain TypeScript 7 without ESLint, and the side-by-side layout with it', async () => {
+    const create = new Create();
+    const base = { projectName: 'TestProject', adapter: 'hono', logger: false, prettier: false } as const;
+
+    (create as any).preference = { ...base, eslint: false };
+    await (create as any).createPackageJson(tempDir, true);
+
+    const withoutEslint = JSON.parse(await Bun.file(join(tempDir, 'package.json')).text()).devDependencies;
+
+    expect(withoutEslint['typescript']).toBe('^7.0.2');
+    expect(withoutEslint['@typescript/native']).toBeUndefined();
+
+    (create as any).preference = { ...base, eslint: true };
+    await (create as any).createPackageJson(tempDir, true);
+
+    const withEslint = JSON.parse(await Bun.file(join(tempDir, 'package.json')).text()).devDependencies;
+
+    expect(withEslint['typescript']).toBe('npm:@typescript/typescript6@^6.0.2');
+    expect(withEslint['@typescript/native']).toBe('npm:typescript@^7.0.2');
   });
 });

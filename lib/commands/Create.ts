@@ -5,6 +5,7 @@ import inquirer from 'inquirer';
 import ora, { type Ora } from 'ora';
 import { AsenaLoggerCreator, AsenaServerHandler, ControllerHandler, ImportHandler } from '../codeBuilder';
 import {
+  DOCTOR_REQUIRED_DEPENDENCIES,
   ESLINT_INSTALLATIONS,
   ESLINT_WITH_PRETTIER_INSTALLATIONS,
   GITIGNORE,
@@ -212,9 +213,9 @@ export class Create implements BaseCommand {
         ...getAdapterInstallPackages(this.preference.adapter),
       };
 
-      // Not a dependency of asena itself in the generated project, but asena doctor requires it as a
-      // direct one: the scaffold declares what the framework's own checks expect.
-      dependencies['reflect-metadata'] = 'latest';
+      for (const pkg of DOCTOR_REQUIRED_DEPENDENCIES) {
+        dependencies[pkg] = 'latest';
+      }
 
       if (this.preference.logger) {
         dependencies['@asenajs/asena-logger'] = 'latest';
@@ -257,7 +258,7 @@ export class Create implements BaseCommand {
       ([name, version]) => `${name}@${version}`,
     );
 
-    await $`bun add @asenajs/asena reflect-metadata ${packages}`.quiet();
+    await $`bun add @asenajs/asena ${DOCTOR_REQUIRED_DEPENDENCIES} ${packages}`.quiet();
 
     if (this.preference.logger) {
       await $`bun add @asenajs/asena-logger`.quiet();
