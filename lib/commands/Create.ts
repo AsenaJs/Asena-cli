@@ -7,6 +7,7 @@ import { AsenaLoggerCreator, AsenaServerHandler, ControllerHandler, ImportHandle
 import { GITIGNORE, PRETTIER, PRETTIER_IGNORE, TSCONFIG } from '../constants';
 import { getAdapterFunctionName, getControllerImports, getRootImports } from '../helpers';
 import { ImportType } from '../types';
+import { runningCliVersion } from './cliInstall';
 import { installCommands, installManifest, installSelection } from './createInstallCommands';
 import { Init } from './Init';
 import type { BaseCommand } from '../types/baseCommand';
@@ -33,14 +34,14 @@ export class Create implements BaseCommand {
       .option('--prettier', 'Setup Prettier')
       .option('--no-prettier', 'Skip Prettier setup')
       .option('--skip-install', 'Skip dependency installation (useful for monorepos)')
-      .action(async (projectName, options) => {
+      .action(async (projectName, options, command: Command) => {
         const spinner = ora('Creating asena project...');
 
         try {
           // If no argument provided or '.' provided, create in current folder
           const currentFolder = !projectName || projectName === '.';
 
-          await this.create(currentFolder, spinner, options, projectName);
+          await this.create(currentFolder, spinner, runningCliVersion(command), options, projectName);
 
           console.log('\x1b[32m%s\x1b[0m', '\nAsena project created.');
 
@@ -53,7 +54,7 @@ export class Create implements BaseCommand {
       });
   }
 
-  private async create(currentFolder: boolean, spinner: Ora, options?: any, projectName?: string) {
+  private async create(currentFolder: boolean, spinner: Ora, cliVersion: string, options?: any, projectName?: string) {
     this.preference = await this.askQuestions(currentFolder, options, projectName);
 
     const skipInstall = options?.skipInstall === true;
@@ -89,7 +90,7 @@ export class Create implements BaseCommand {
 
     await this.createGitignore(projectPath);
 
-    await new Init().exec(this.preference.adapter, skipInstall);
+    await new Init().exec(cliVersion, this.preference.adapter, skipInstall);
   }
 
   private async createDefaultIndexFile(projectPath: string) {
