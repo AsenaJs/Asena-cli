@@ -5,6 +5,7 @@ import path from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import type { Command } from 'commander';
 import inquirer from 'inquirer';
+import { CLI_INSTALL_SOURCE_ENV } from '../../lib/commands/cliInstall';
 import { Commands } from '../../lib/commands/Commands';
 import { Init } from '../../lib/commands/Init';
 import * as configHelpers from '../../lib/helpers/configHelpers';
@@ -180,6 +181,7 @@ describe('asena-cli init test', () => {
 describe('the @asenajs/asena-cli that init installs', () => {
   const ORIGINAL_CWD = process.cwd();
   const ORIGINAL_PATH = process.env['PATH'];
+  const ORIGINAL_SOURCE = process.env[CLI_INSTALL_SOURCE_ENV];
   const OWN_CLI_INSTALL = [['add', '-D', `@asenajs/asena-cli@${OWN_VERSION}`]];
   let root: string;
   let callLog: string;
@@ -228,6 +230,7 @@ describe('the @asenajs/asena-cli that init installs', () => {
   };
 
   beforeEach(() => {
+    setEnv(CLI_INSTALL_SOURCE_ENV, undefined);
     root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'asena-init-')));
     callLog = path.join(root, 'bun-calls.jsonl');
 
@@ -242,6 +245,7 @@ describe('the @asenajs/asena-cli that init installs', () => {
   afterEach(() => {
     prompt.mockRestore();
     setEnv('PATH', ORIGINAL_PATH);
+    setEnv(CLI_INSTALL_SOURCE_ENV, ORIGINAL_SOURCE);
     process.chdir(ORIGINAL_CWD);
     fs.rmSync(root, { recursive: true, force: true });
   });
@@ -289,5 +293,77 @@ describe('the @asenajs/asena-cli that init installs', () => {
     expect(bunCalls()).toEqual([]);
     expect(fs.readdirSync('.')).toEqual([]);
     expect(String(reported[0]?.[1])).toContain('Cannot tell which version of @asenajs/asena-cli is running');
+  });
+
+  it(`installs the packed tarball that ${CLI_INSTALL_SOURCE_ENV} names instead of the version`, async () => {
+    stubPath();
+
+    const tarball = path.join(root, 'asena-cli.tgz');
+
+    fs.writeFileSync(tarball, '');
+    process.env[CLI_INSTALL_SOURCE_ENV] = tarball;
+
+    await new Init().exec(OWN_VERSION, 'hono');
+
+    expect(bunCalls()).toEqual([['add', '-D', `@asenajs/asena-cli@file:${tarball}`]]);
+    expect(fs.existsSync('asena-config.ts')).toBe(true);
+  });
+
+  const tarballIn = (dir: string) => {
+    const tarball = path.join(dir, 'asena-cli.tgz');
+
+    fs.writeFileSync(tarball, '');
+
+    return tarball;
+  };
+
+  const INVALID_SOURCES: [string, (dir: string) => string][] = [
+    ['an empty value', () => ''],
+    ['a relative path', (dir) => path.relative(path.join(dir, 'project'), tarballIn(dir))],
+    ['a file: URL', (dir) => `file:${tarballIn(dir)}`],
+    ['a path with a trailing newline', (dir) => `${tarballIn(dir)}\n`],
+    ['a path that does not exist', (dir) => path.join(dir, 'missing.tgz')],
+    [
+      'a directory',
+      (dir) => {
+        const directory = path.join(dir, 'asena-cli.tgz');
+
+        fs.mkdirSync(directory);
+
+        return directory;
+      },
+    ],
+    [
+      'a file that is not a .tgz',
+      (dir) => {
+        const zip = path.join(dir, 'asena-cli.zip');
+
+        fs.writeFileSync(zip, '');
+
+        return zip;
+      },
+    ],
+  ];
+
+  for (const [label, source] of INVALID_SOURCES) {
+    it(`refuses ${label} in ${CLI_INSTALL_SOURCE_ENV} before it writes or installs anything`, async () => {
+      stubPath();
+      process.env[CLI_INSTALL_SOURCE_ENV] = source(root);
+
+      await expect(new Init().exec(OWN_VERSION, 'hono')).rejects.toThrow(CLI_INSTALL_SOURCE_ENV);
+
+      expect(bunCalls()).toEqual([]);
+      expect(fs.readdirSync('.')).toEqual([]);
+    });
+  }
+
+  it(`does not read ${CLI_INSTALL_SOURCE_ENV} when the install is skipped`, async () => {
+    stubPath();
+    process.env[CLI_INSTALL_SOURCE_ENV] = '';
+
+    await new Init().exec(OWN_VERSION, 'hono', true);
+
+    expect(bunCalls()).toEqual([]);
+    expect(fs.existsSync('asena-config.ts')).toBe(true);
   });
 });

@@ -5,7 +5,7 @@ import { INITIAL_ASENA_CONFIG_TS } from '../constants';
 import { getAsenaCliVersion, isAsenaConfigExists, writeAdapterConfig } from '../helpers';
 import type { AdapterType } from '../types';
 import type { BaseCommand } from '../types/baseCommand';
-import { runningCliVersion } from './cliInstall';
+import { cliInstallSpecifier, runningCliVersion } from './cliInstall';
 
 export class Init implements BaseCommand {
   public command() {
@@ -27,6 +27,9 @@ export class Init implements BaseCommand {
 
   public async exec(cliVersion: string, adapter?: AdapterType, skipInstall = false) {
     if (!isAsenaConfigExists()) {
+      // Resolved before anything is written, so that a bad install source leaves nothing behind
+      const cliPackage = !skipInstall && !(await getAsenaCliVersion()) ? cliInstallSpecifier(cliVersion) : null;
+
       // 1. Use provided adapter or ask user which adapter to use
       const selectedAdapter = adapter || (await this.askAdapterQuestion()).adapter;
 
@@ -37,8 +40,8 @@ export class Init implements BaseCommand {
       });
 
       // 3. Install CLI package if needed (skip if --skip-install was used)
-      if (!skipInstall && !(await getAsenaCliVersion())) {
-        await $`bun add -D @asenajs/asena-cli@${cliVersion}`.quiet();
+      if (cliPackage) {
+        await $`bun add -D ${cliPackage}`.quiet();
       }
 
       // 4. Create asena-config.ts

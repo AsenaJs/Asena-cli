@@ -1,12 +1,14 @@
-import { describe, expect, it } from 'bun:test';
+import { afterAll, describe, expect, it } from 'bun:test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { buildConsoleUi } from '../../console-ui/build';
+import { CLI_INSTALL_SOURCE_ENV } from '../../lib/commands/cliInstall';
 import { installManifest, installSelection } from '../../lib/commands/createInstallCommands';
 
 // Runs the real `asena create` with its default install path, then the checks a generated project is
-// expected to pass. Needs the network for `bun add`; a missing network makes the install fail and the
-// test fail - it never skips.
+// expected to pass. @asenajs/asena-cli is this checkout, packed; every other package comes from the
+// registry, so the test needs the network: without it the install fails and the test fails - it never skips.
 const REPO_ROOT = path.resolve(import.meta.dir, '../..');
 const CLI = path.join(REPO_ROOT, 'bin/asena.ts');
 const GENERATE_MODULE = path.join(REPO_ROOT, 'lib/commands/Generate.ts');
@@ -54,26 +56,52 @@ const run = async (
   return { exitCode: await proc.exited, output: `${stdout}${stderr}` };
 };
 
-// `asena create` installs `@asenajs/asena-cli` at the version `asena --version` prints. This checkout's
-// version is not on npm yet, so the scaffold is pointed at a released one.
-const stubAsenaBin = (root: string) => {
-  const bin = path.join(root, 'stub-bin');
+let packDir: string | undefined;
+let packed: Promise<string> | undefined;
 
-  fs.mkdirSync(bin);
-  fs.writeFileSync(path.join(bin, 'asena'), '#!/bin/sh\necho 0.11.1\n', { mode: 0o755 });
+// Builds this checkout the way `bun run build` does, but into a temporary directory, and packs it there.
+const packCheckout = async (): Promise<string> => {
+  const destination = fs.mkdtempSync(path.join(os.tmpdir(), 'asena-cli-pack-'));
 
-  return bin;
+  packDir = destination;
+
+  const packageDir = path.join(destination, 'package');
+  const dist = path.join(packageDir, 'dist');
+
+  fs.mkdirSync(packageDir);
+  fs.copyFileSync(path.join(REPO_ROOT, 'package.json'), path.join(packageDir, 'package.json'));
+
+  const compiled = await run(REPO_ROOT, ['run', 'tsc', '-p', 'tsconfig.json', '--outDir', dist]);
+
+  if (compiled.exitCode !== 0) {
+    throw new Error(`tsc failed (exit ${compiled.exitCode}):\n${compiled.output.slice(-2000)}`);
+  }
+
+  await buildConsoleUi(path.join(dist, 'console-ui'));
+
+  const pack = await run(packageDir, ['pm', 'pack', '--destination', destination, '--ignore-scripts']);
+  const tarballs = fs.readdirSync(destination).filter((file) => file.endsWith('.tgz'));
+
+  if (pack.exitCode !== 0 || tarballs.length !== 1) {
+    throw new Error(`bun pm pack failed (exit ${pack.exitCode}, ${tarballs.length} tarballs):\n${pack.output}`);
+  }
+
+  return path.join(destination, ...tarballs);
 };
 
+const packedCheckout = () => (packed ??= packCheckout());
+
 // Runs the default install path of `asena create` (no --skip-install) and returns the project. Every
-// package the install selection lists must be in the package.json that the install writes.
+// package the install selection lists must be in the package.json that the install writes, and
+// @asenajs/asena-cli must be the packed checkout.
 const scaffold = async (adapter: 'hono' | 'ergenecore', extraArgs: string[], preference: InstallPreference) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), `asena-scaffold-${adapter}-`));
   const projectName = 'scaffold-app';
   const dir = path.join(root, projectName);
 
   try {
-    const env = { ...process.env, PATH: `${stubAsenaBin(root)}${path.delimiter}${process.env.PATH ?? ''}` };
+    const tarball = await packedCheckout();
+    const env = { ...process.env, [CLI_INSTALL_SOURCE_ENV]: tarball };
     const created = await run(root, [CLI, 'create', projectName, '--adapter', adapter, ...extraArgs], env);
 
     if (created.exitCode !== 0 || created.output.includes('Create failed')) {
@@ -93,6 +121,12 @@ const scaffold = async (adapter: 'hono' | 'ergenecore', extraArgs: string[], pre
 
     if (missing.length > 0) {
       throw new Error(`asena create did not write to package.json: ${missing.join(', ')}`);
+    }
+
+    const cli = packageJson.devDependencies?.['@asenajs/asena-cli'];
+
+    if (cli !== `file:${tarball}`) {
+      throw new Error(`asena create installed @asenajs/asena-cli from ${cli}, not from ${tarball}`);
     }
 
     return { root, dir };
@@ -158,6 +192,10 @@ const DOCTOR: Check = { name: 'doctor', args: [CLI, 'doctor'] };
 type InstallPreference = Parameters<typeof installSelection>[0];
 
 describe('asena create scaffold passes its own checks', () => {
+  afterAll(() => {
+    if (packDir) fs.rmSync(packDir, { recursive: true, force: true });
+  });
+
   for (const adapter of ['hono', 'ergenecore'] as const) {
     it(
       `${adapter} with default options: default install, generators, lint, format:check, typecheck and doctor exit 0 on TypeScript 7`,
