@@ -32,6 +32,14 @@ jsxSingleQuote = false
 proseWrap = "preserve"
 htmlWhitespaceSensitivity = "css"
 embeddedLanguageFormatting = "auto"
+requirePragma = false
+insertPragma = false
+bracketSameLine = false
+vueIndentScriptAndStyle = false
+objectWrap = "preserve"
+experimentalTernaries = false
+experimentalOperatorPosition = "end"
+singleAttributePerLine = false
 ignorePatterns = [
   ".changeset/",
   ".claude/",
