@@ -240,7 +240,7 @@ export class Generate implements BaseCommand {
     const fileExists = await Bun.file(path.normalize(elementFilePath)).exists();
 
     if (!fileExists) {
-      await Bun.write(elementFilePath, code.endsWith('\n') ? code : `${code}\n`);
+      await Bun.write(elementFilePath, `${code.replace(/\n*$/, '')}\n`);
     } else {
       console.error('\x1b[31m%s\x1b[0m', `${elementName} already exists`);
 

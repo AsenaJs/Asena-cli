@@ -3,27 +3,57 @@ import * as prettier from 'prettier';
 import { AsenaLoggerCreator } from '../../lib/codeBuilder/AsenaLoggerCreator';
 import { AsenaServerHandler } from '../../lib/codeBuilder/AsenaServerHandler';
 import { ControllerHandler } from '../../lib/codeBuilder/ControllerHandler';
+import { ExceptionHandlerHandler } from '../../lib/codeBuilder/ExceptionHandlerHandler';
 import { ImportHandler } from '../../lib/codeBuilder/ImportHandler';
 import { MiddlewareHandler } from '../../lib/codeBuilder/MiddlewareHandler';
 import { ServerConfigHandler } from '../../lib/codeBuilder/ServerConfigHandler';
 import { ServiceHandler } from '../../lib/codeBuilder/ServiceHandler';
+import { ValidatorHandler } from '../../lib/codeBuilder/ValidatorHandler';
 import { WebSocketHandler } from '../../lib/codeBuilder/WebSocketHandler';
+import { PRETTIER } from '../../lib/constants/create';
+import {
+  getConfigImports,
+  getExceptionHandlerImports,
+  getMiddlewareImports,
+  getValidatorImports,
+  getWebSocketImports,
+} from '../../lib/helpers/adapterImportHelper';
 import { ImportType } from '../../lib/types';
+import type { ImportsByFiles } from '../../lib/types';
+import type { AdapterType } from '../../lib/types/adapterConfig';
 
-// Mirrors the `.prettierrc.js` the scaffold writes (PRETTIER in lib/constants/create.ts).
-const GENERATED_PRETTIER_OPTIONS: prettier.Options = {
-  parser: 'typescript',
-  printWidth: 120,
-  tabWidth: 2,
-  useTabs: false,
-  semi: true,
-  singleQuote: true,
-  quoteProps: 'as-needed',
-  trailingComma: 'all',
-  bracketSpacing: true,
-  arrowParens: 'always',
-  endOfLine: 'lf',
+// Evaluates the `.prettierrc.js` source the scaffold writes, so this test follows the shipped config.
+const generatedPrettierOptions = (): prettier.Options => {
+  const shipped: { exports: prettier.Options } = { exports: {} };
+
+  new Function('module', PRETTIER)(shipped);
+
+  return { ...shipped.exports, parser: 'typescript' };
 };
+
+const importsOf = (imports: ImportsByFiles): string =>
+  new ImportHandler('', ImportType.IMPORT).importToCode(imports, ImportType.IMPORT);
+
+// Built the way `asena generate` builds each file: the same import helpers and handlers, in the same order.
+const generatorOutputs = (adapter: AdapterType): Record<string, string> => ({
+  controller:
+    importsOf({ '@asenajs/asena/decorators': ['Controller'] }) +
+    new ControllerHandler('').addController('UserController', null).code,
+  service:
+    importsOf({ '@asenajs/asena/decorators': ['Service'] }) + new ServiceHandler('').addService('UserService').code,
+  config: importsOf(getConfigImports(adapter)) + new ServerConfigHandler('').addConfigClass('ServerConfig').code,
+  middleware:
+    importsOf(getMiddlewareImports(adapter)) +
+    new MiddlewareHandler('').addMiddleware('AuthMiddleware').addDefaultHandle('AuthMiddleware').code,
+  websocket:
+    importsOf(getWebSocketImports()) + new WebSocketHandler('').addWebSocketNamespace('ChatNamespace', '/chat').code,
+  'exception-handler':
+    importsOf(getExceptionHandlerImports(adapter)) +
+    new ExceptionHandlerHandler('').addExceptionHandler('GlobalExceptionHandler').code,
+  validator:
+    importsOf(getValidatorImports(adapter)) +
+    new ValidatorHandler('').addValidator('CreateValidator').addExampleSchema('CreateValidator').code,
+});
 
 // The emitted text is what a generated project's format:check, tsc and lint read. These pin the
 // exact output so a template that drifts from Prettier's style fails here, not in a scaffold.
@@ -119,42 +149,19 @@ describe('generated source is written in the style Prettier expects', () => {
     );
   });
 
-  it('emits every generator output as Prettier-clean TypeScript under the generated Prettier config', async () => {
-    const samples = {
-      controller:
-        new ImportHandler('', ImportType.IMPORT).importToCode(
-          { '@asenajs/asena/decorators': ['Controller'] },
-          ImportType.IMPORT,
-        ) + new ControllerHandler('').addController('UserController', null).code,
-      service:
-        new ImportHandler('', ImportType.IMPORT).importToCode(
-          { '@asenajs/asena/decorators': ['Service'] },
-          ImportType.IMPORT,
-        ) + new ServiceHandler('').addService('UserService').code,
-      config:
-        new ImportHandler('', ImportType.IMPORT).importToCode(
-          { '@asenajs/asena': ['Config', 'ConfigService'] },
-          ImportType.IMPORT,
-        ) + new ServerConfigHandler('').addConfigClass('ServerConfig').code,
-      middleware:
-        new ImportHandler('', ImportType.IMPORT).importToCode(
-          { '@asenajs/asena': ['Middleware', 'MiddlewareService', 'Context'] },
-          ImportType.IMPORT,
-        ) + new MiddlewareHandler('').addMiddleware('AuthMiddleware').addDefaultHandle('AuthMiddleware').code,
-      websocket:
-        new ImportHandler('', ImportType.IMPORT).importToCode(
-          { '@asenajs/asena': ['AsenaWebSocketService', 'WebSocket'] },
-          ImportType.IMPORT,
-        ) + new WebSocketHandler('').addWebSocketNamespace('ChatNamespace', '/chat').code,
-    };
+  for (const adapter of ['hono', 'ergenecore'] as const) {
+    it(`emits every ${adapter} generator output as Prettier-clean TypeScript under the shipped Prettier config`, async () => {
+      const options = generatedPrettierOptions();
+      const dirty: string[] = [];
 
-    for (const [generator, code] of Object.entries(samples)) {
-      expect({ generator, clean: await prettier.check(code, GENERATED_PRETTIER_OPTIONS) }).toEqual({
-        generator,
-        clean: true,
-      });
-    }
-  });
+      for (const [generator, code] of Object.entries(generatorOutputs(adapter))) {
+        // Generate writes each file with exactly one final newline; check what it would write.
+        if (!(await prettier.check(code.replace(/\n*$/, '\n'), options))) dirty.push(generator);
+      }
+
+      expect(dirty).toEqual([]);
+    });
+  }
 
   it('emits the logger module formatted', () => {
     expect(AsenaLoggerCreator.createLogger()).toBe(

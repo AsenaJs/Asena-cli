@@ -74,7 +74,7 @@ export const PRETTIER = `module.exports = {
 `;
 
 // Not a dependency of asena itself in the generated project, but `asena doctor` requires each of these
-// as a direct dependency. Both install paths read this list, so they cannot drift apart.
+// as a direct dependency. Both install paths and the doctor rule read this list, so they cannot drift apart.
 export const DOCTOR_REQUIRED_DEPENDENCIES = ['reflect-metadata'];
 
 export const ESLINT_INSTALLATIONS = [

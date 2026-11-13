@@ -63,6 +63,7 @@ describe('Generate output', () => {
 
     await generate.generate('export class Unterminated {}', 'controllers', 'Unterminated');
     await generate.generate('export class Terminated {}\n', 'controllers', 'Terminated');
+    await generate.generate('export class Blank {}\n\n', 'controllers', 'Blank');
 
     expect(await Bun.file(join(projectDir, 'src/controllers/Unterminated.ts')).text()).toBe(
       'export class Unterminated {}\n',
@@ -70,5 +71,6 @@ describe('Generate output', () => {
     expect(await Bun.file(join(projectDir, 'src/controllers/Terminated.ts')).text()).toBe(
       'export class Terminated {}\n',
     );
+    expect(await Bun.file(join(projectDir, 'src/controllers/Blank.ts')).text()).toBe('export class Blank {}\n');
   });
 });

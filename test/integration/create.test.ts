@@ -7,7 +7,8 @@ import path from 'node:path';
 // for `bun install`; a missing network makes the install fail and the test fail - it never skips.
 const REPO_ROOT = path.resolve(import.meta.dir, '../..');
 const CLI = path.join(REPO_ROOT, 'bin/asena.ts');
-const SCAFFOLD_TIMEOUT = 900_000;
+// Well under the CI job budget (ci.yml timeout-minutes), so a hung install fails here with its output.
+const SCAFFOLD_TIMEOUT = 240_000;
 
 interface RunResult {
   exitCode: number;
