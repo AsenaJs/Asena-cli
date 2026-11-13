@@ -4,21 +4,10 @@ import { Command } from 'commander';
 import inquirer from 'inquirer';
 import ora, { type Ora } from 'ora';
 import { AsenaLoggerCreator, AsenaServerHandler, ControllerHandler, ImportHandler } from '../codeBuilder';
-import {
-  DOCTOR_REQUIRED_DEPENDENCIES,
-  ESLINT_INSTALLATIONS,
-  ESLINT_WITH_PRETTIER_INSTALLATIONS,
-  GITIGNORE,
-  PRETTIER,
-  PRETTIER_IGNORE,
-  PRETTIER_INSTALLATIONS,
-  TSCONFIG,
-  TYPESCRIPT_DEV_DEPENDENCIES,
-  TYPESCRIPT_WITH_ESLINT_DEV_DEPENDENCIES,
-} from '../constants';
-import { getAdapterFunctionName, getAdapterInstallPackages, getControllerImports, getRootImports } from '../helpers';
+import { GITIGNORE, PRETTIER, PRETTIER_IGNORE, TSCONFIG } from '../constants';
+import { getAdapterFunctionName, getControllerImports, getRootImports } from '../helpers';
 import { ImportType } from '../types';
-import { eslintInstallCommands, preRequestInstallCommands } from './createInstallCommands';
+import { installCommands, installManifest, installSelection } from './createInstallCommands';
 import { Init } from './Init';
 import type { BaseCommand } from '../types/baseCommand';
 import type { ProjectSetupOptions } from '../types/create';
@@ -89,24 +78,12 @@ export class Create implements BaseCommand {
     if (!currentFolder) process.chdir(projectPath);
 
     if (!skipInstall) {
-      await this.installPreRequests();
+      await this.installPackages();
     }
 
-    if (this.preference.eslint) {
-      if (skipInstall) {
-        await this.createEslintConfig();
-      } else {
-        await this.installAndCreateEslint();
-      }
-    }
+    if (this.preference.eslint) await this.createEslintConfig();
 
-    if (this.preference.prettier) {
-      if (skipInstall) {
-        await this.createPrettierConfig();
-      } else {
-        await this.installAndCreatePrettier();
-      }
-    }
+    if (this.preference.prettier) await this.createPrettierConfig();
 
     await this.createTsConfig();
 
@@ -207,58 +184,19 @@ export class Create implements BaseCommand {
     // When skip-install is set, write dependencies directly to package.json
     // so the user can run `bun install` later
     if (skipInstall) {
-      const dependencies: Record<string, string> = {
-        '@asenajs/asena': 'latest',
-        // The adapter and the peers it declares but does not provide - hono and zod. Written out
-        // rather than left to the package manager's auto-install, so they survive a clean install.
-        ...getAdapterInstallPackages(this.preference.adapter),
-      };
-
-      for (const pkg of DOCTOR_REQUIRED_DEPENDENCIES) {
-        dependencies[pkg] = 'latest';
-      }
-
-      if (this.preference.logger) {
-        dependencies['@asenajs/asena-logger'] = 'latest';
-      }
-
-      const devDependencies: Record<string, string> = {
-        '@types/bun': 'latest',
-        ...this.typescriptDevDependencies(),
-        '@asenajs/asena-cli': 'latest',
-      };
-
-      if (this.preference.eslint) {
-        for (const pkg of ESLINT_INSTALLATIONS) {
-          devDependencies[pkg] = 'latest';
-        }
-
-        if (this.preference.prettier) {
-          for (const pkg of ESLINT_WITH_PRETTIER_INSTALLATIONS) {
-            devDependencies[pkg] = 'latest';
-          }
-        }
-      }
-
-      if (this.preference.prettier) {
-        devDependencies['prettier'] = 'latest';
-      }
+      const { dependencies, devDependencies } = installManifest(installSelection(this.preference));
 
       packageJson['dependencies'] = dependencies;
-      packageJson['devDependencies'] = devDependencies;
+      packageJson['devDependencies'] = { ...devDependencies, '@asenajs/asena-cli': 'latest' };
     }
 
     await Bun.write(projectPath + '/package.json', JSON.stringify(packageJson, null, 2) + '\n');
   }
 
-  private async installPreRequests() {
-    for (const command of preRequestInstallCommands(this.preference)) {
+  private async installPackages() {
+    for (const command of installCommands(this.preference)) {
       await $`${command}`.quiet();
     }
-  }
-
-  private typescriptDevDependencies(): Record<string, string> {
-    return this.preference.eslint ? TYPESCRIPT_WITH_ESLINT_DEV_DEPENDENCIES : TYPESCRIPT_DEV_DEPENDENCIES;
   }
 
   private getEslintConfig(): string {
@@ -352,27 +290,6 @@ ${usePrettier ? '\n  // Prettier config to disable conflicting rules\n  eslintCo
   private async createPrettierConfig() {
     await Bun.write(process.cwd() + '/.prettierrc.js', PRETTIER);
     await Bun.write(process.cwd() + '/.prettierignore', PRETTIER_IGNORE);
-  }
-
-  private async installAndCreateEslint() {
-    for (const command of eslintInstallCommands(this.preference)) {
-      const output = await $`${command}`.quiet();
-
-      if (output.exitCode !== 0) return;
-    }
-
-    const eslintConfig = this.getEslintConfig();
-    await Bun.write(process.cwd() + '/eslint.config.cjs', eslintConfig);
-  }
-
-  private async installAndCreatePrettier() {
-    const output = await $`bun add -D ${PRETTIER_INSTALLATIONS}`.quiet();
-
-    await Bun.write(process.cwd() + '/.prettierrc.js', PRETTIER);
-
-    await Bun.write(process.cwd() + '/.prettierignore', PRETTIER_IGNORE);
-
-    return output.stderr.toString() === '';
   }
 
   private async createTsConfig() {

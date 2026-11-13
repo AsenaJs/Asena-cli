@@ -2,6 +2,7 @@ import {
   DOCTOR_REQUIRED_DEPENDENCIES,
   ESLINT_INSTALLATIONS,
   ESLINT_WITH_PRETTIER_INSTALLATIONS,
+  PRETTIER_INSTALLATIONS,
   TYPESCRIPT_DEV_DEPENDENCIES,
   TYPESCRIPT_WITH_ESLINT_DEV_DEPENDENCIES,
 } from '../constants';
@@ -10,28 +11,67 @@ import type { ProjectSetupOptions } from '../types/create';
 
 type InstallOptions = Pick<ProjectSetupOptions, 'adapter' | 'logger' | 'eslint' | 'prettier'>;
 
-// argv of each `bun add` that `asena create` runs on the default install path, in order.
-export const preRequestInstallCommands = (options: InstallOptions): string[][] => {
-  // The adapter plus its peers: `bun add` records them in package.json, which an undeclared peer would not.
-  const adapterPackages = Object.entries(getAdapterInstallPackages(options.adapter)).map(
-    ([name, version]) => `${name}@${version}`,
-  );
-  const typescript = options.eslint ? TYPESCRIPT_WITH_ESLINT_DEV_DEPENDENCIES : TYPESCRIPT_DEV_DEPENDENCIES;
-  const typescriptPackages = Object.entries(typescript).map(([name, version]) => `${name}@${version}`);
+// A package without a version is installed unpinned: `latest` in package.json.
+interface InstallPackage {
+  name: string;
+  version?: string;
+}
 
-  const commands = [['bun', 'add', '@asenajs/asena', ...DOCTOR_REQUIRED_DEPENDENCIES, ...adapterPackages]];
+export interface InstallSelection {
+  dependencies: InstallPackage[];
+  devDependencies: InstallPackage[];
+}
 
-  if (options.logger) commands.push(['bun', 'add', '@asenajs/asena-logger']);
+const unpinned = (names: readonly string[]): InstallPackage[] => names.map((name) => ({ name }));
 
-  commands.push(['bun', 'add', '-D', '@types/bun', ...typescriptPackages]);
+const pinned = (record: Record<string, string>): InstallPackage[] =>
+  Object.entries(record).map(([name, version]) => ({ name, version }));
 
-  return commands;
+// The one list of packages `asena create` installs. The default install path and the --skip-install
+// package.json are both derived from it, so the two cannot list different packages.
+export const installSelection = (options: InstallOptions): InstallSelection => {
+  // The adapter and its peers: an undeclared peer is not written to package.json by the package manager.
+  const dependencies = [
+    ...unpinned(['@asenajs/asena', ...DOCTOR_REQUIRED_DEPENDENCIES]),
+    ...pinned(getAdapterInstallPackages(options.adapter)),
+  ];
+
+  if (options.logger) dependencies.push(...unpinned(['@asenajs/asena-logger']));
+
+  const devDependencies = [
+    ...unpinned(['@types/bun']),
+    ...pinned(options.eslint ? TYPESCRIPT_WITH_ESLINT_DEV_DEPENDENCIES : TYPESCRIPT_DEV_DEPENDENCIES),
+  ];
+
+  if (options.eslint) {
+    devDependencies.push(...unpinned(ESLINT_INSTALLATIONS));
+
+    if (options.prettier) devDependencies.push(...unpinned(ESLINT_WITH_PRETTIER_INSTALLATIONS));
+  }
+
+  if (options.prettier) devDependencies.push(...unpinned([PRETTIER_INSTALLATIONS]));
+
+  return { dependencies, devDependencies };
 };
 
-export const eslintInstallCommands = (options: InstallOptions): string[][] => {
-  const commands = [['bun', 'add', '-D', ...ESLINT_INSTALLATIONS]];
+export const installManifest = (selection: InstallSelection) => {
+  const toRecord = (packages: InstallPackage[]) =>
+    Object.fromEntries(packages.map(({ name, version }) => [name, version ?? 'latest']));
 
-  if (options.prettier) commands.push(['bun', 'add', '-D', ...ESLINT_WITH_PRETTIER_INSTALLATIONS]);
+  return {
+    dependencies: toRecord(selection.dependencies),
+    devDependencies: toRecord(selection.devDependencies),
+  };
+};
 
-  return commands;
+const specifier = ({ name, version }: InstallPackage) => (version ? `${name}@${version}` : name);
+
+// argv of the two `bun add` calls that `asena create` runs on the default install path.
+export const installCommands = (options: InstallOptions): string[][] => {
+  const { dependencies, devDependencies } = installSelection(options);
+
+  return [
+    ['bun', 'add', ...dependencies.map(specifier)],
+    ['bun', 'add', '-D', ...devDependencies.map(specifier)],
+  ];
 };

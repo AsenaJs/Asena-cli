@@ -2,10 +2,11 @@ import { describe, expect, it } from 'bun:test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { eslintInstallCommands, preRequestInstallCommands } from '../../lib/commands/createInstallCommands';
+import { installManifest, installSelection } from '../../lib/commands/createInstallCommands';
 
-// Runs the real scaffold and the checks a generated project is expected to pass. Needs the network
-// for `bun install`; a missing network makes the install fail and the test fail - it never skips.
+// Runs the real `asena create` with its default install path, then the checks a generated project is
+// expected to pass. Needs the network for `bun add`; a missing network makes the install fail and the
+// test fail - it never skips.
 const REPO_ROOT = path.resolve(import.meta.dir, '../..');
 const CLI = path.join(REPO_ROOT, 'bin/asena.ts');
 const GENERATE_MODULE = path.join(REPO_ROOT, 'lib/commands/Generate.ts');
@@ -37,10 +38,14 @@ interface RunResult {
   output: string;
 }
 
-const run = async (cwd: string, args: string[]): Promise<RunResult> => {
+const run = async (
+  cwd: string,
+  args: string[],
+  env: Record<string, string | undefined> = process.env,
+): Promise<RunResult> => {
   const proc = Bun.spawn([process.execPath, ...args], {
     cwd,
-    env: process.env,
+    env,
     stdout: 'pipe',
     stderr: 'pipe',
   });
@@ -49,31 +54,45 @@ const run = async (cwd: string, args: string[]): Promise<RunResult> => {
   return { exitCode: await proc.exited, output: `${stdout}${stderr}` };
 };
 
-// The scaffold installs `@asenajs/asena-cli` at the version this checkout reports, which is not on npm
-// until its release. Skip the scaffold's own install and point the CLI devDependency at this checkout,
-// so the project is checked against the code under test and never fetches an unpublished version.
-const scaffold = async (adapter: 'hono' | 'ergenecore', extraArgs: string[]) => {
+// `asena create` installs `@asenajs/asena-cli` at the version `asena --version` prints. This checkout's
+// version is not on npm yet, so the scaffold is pointed at a released one.
+const stubAsenaBin = (root: string) => {
+  const bin = path.join(root, 'stub-bin');
+
+  fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, 'asena'), '#!/bin/sh\necho 0.11.1\n', { mode: 0o755 });
+
+  return bin;
+};
+
+// Runs the default install path of `asena create` (no --skip-install) and returns the project. Every
+// package the install selection lists must be in the package.json that the install writes.
+const scaffold = async (adapter: 'hono' | 'ergenecore', extraArgs: string[], preference: InstallPreference) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), `asena-scaffold-${adapter}-`));
   const projectName = 'scaffold-app';
   const dir = path.join(root, projectName);
 
   try {
-    const created = await run(root, [CLI, 'create', projectName, '--adapter', adapter, '--skip-install', ...extraArgs]);
+    const env = { ...process.env, PATH: `${stubAsenaBin(root)}${path.delimiter}${process.env.PATH ?? ''}` };
+    const created = await run(root, [CLI, 'create', projectName, '--adapter', adapter, ...extraArgs], env);
 
     if (created.exitCode !== 0 || created.output.includes('Create failed')) {
       throw new Error(`asena create failed (exit ${created.exitCode}):\n${created.output.slice(-2000)}`);
     }
 
-    const packageJsonPath = path.join(dir, 'package.json');
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    const packageJson = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+    const { dependencies, devDependencies } = installManifest(installSelection(preference));
+    const missing = [
+      ...Object.keys(dependencies)
+        .filter((name) => !(name in (packageJson.dependencies ?? {})))
+        .map((name) => `dependencies.${name}`),
+      ...Object.keys(devDependencies)
+        .filter((name) => !(name in (packageJson.devDependencies ?? {})))
+        .map((name) => `devDependencies.${name}`),
+    ];
 
-    packageJson.devDependencies['@asenajs/asena-cli'] = `file:${REPO_ROOT}`;
-    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
-
-    const installed = await run(dir, ['install']);
-
-    if (installed.exitCode !== 0) {
-      throw new Error(`bun install failed (exit ${installed.exitCode}):\n${installed.output.slice(-2000)}`);
+    if (missing.length > 0) {
+      throw new Error(`asena create did not write to package.json: ${missing.join(', ')}`);
     }
 
     return { root, dir };
@@ -82,25 +101,6 @@ const scaffold = async (adapter: 'hono' | 'ergenecore', extraArgs: string[]) => 
 
     throw error;
   }
-};
-
-// The `bun add` calls `asena create` makes on its default install path, which `--skip-install` bypasses.
-const installDefaultPath = async (dir: string, preference: InstallPreference): Promise<string[]> => {
-  const commands = [
-    ...preRequestInstallCommands(preference),
-    ...(preference.eslint ? eslintInstallCommands(preference) : []),
-  ];
-  const failures: string[] = [];
-
-  for (const command of commands) {
-    const result = await run(dir, command.slice(1));
-
-    if (result.exitCode !== 0) {
-      failures.push(`${command.join(' ')} exited ${result.exitCode}:\n${result.output.slice(-1500)}`);
-    }
-  }
-
-  return failures;
 };
 
 const runGenerators = async (root: string, dir: string): Promise<string[]> => {
@@ -155,7 +155,7 @@ const TSC_VERSION_7: Check = {
 const TYPECHECK: Check = { name: 'typecheck', args: ['run', 'typecheck'] };
 const DOCTOR: Check = { name: 'doctor', args: [CLI, 'doctor'] };
 
-type InstallPreference = Parameters<typeof preRequestInstallCommands>[0];
+type InstallPreference = Parameters<typeof installSelection>[0];
 
 describe('asena create scaffold passes its own checks', () => {
   for (const adapter of ['hono', 'ergenecore'] as const) {
@@ -163,11 +163,10 @@ describe('asena create scaffold passes its own checks', () => {
       `${adapter} with default options: default install, generators, lint, format:check, typecheck and doctor exit 0 on TypeScript 7`,
       async () => {
         const preference: InstallPreference = { adapter, logger: true, eslint: true, prettier: true };
-        const { root, dir } = await scaffold(adapter, []);
+        const { root, dir } = await scaffold(adapter, [], preference);
 
         try {
           const failures = [
-            ...(await installDefaultPath(dir, preference)),
             ...(await runGenerators(root, dir)),
             ...(await runChecks(dir, [
               { name: 'lint', args: ['run', 'lint'] },
@@ -191,11 +190,10 @@ describe('asena create scaffold passes its own checks', () => {
     'hono with --no-eslint --no-prettier: default install, generators, typecheck and doctor exit 0 on TypeScript 7',
     async () => {
       const preference: InstallPreference = { adapter: 'hono', logger: true, eslint: false, prettier: false };
-      const { root, dir } = await scaffold('hono', ['--no-eslint', '--no-prettier']);
+      const { root, dir } = await scaffold('hono', ['--no-eslint', '--no-prettier'], preference);
 
       try {
         const failures = [
-          ...(await installDefaultPath(dir, preference)),
           ...(await runGenerators(root, dir)),
           ...(await runChecks(dir, [TSC_VERSION_7, TYPECHECK, DOCTOR])),
         ];
