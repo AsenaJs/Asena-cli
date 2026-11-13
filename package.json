@@ -41,7 +41,7 @@
     "url": "git+https://github.com/AsenaJs/Asena-cli.git"
   },
   "dependencies": {
-    "@changesets/cli": "^2.31.1",
+    "@changesets/cli": "^3.0.3",
     "commander": "^12.1.0",
     "inquirer": "^12.11.1",
     "ora": "^8.2.0",
