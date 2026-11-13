@@ -5,14 +5,30 @@ coverage = true
 coverageSkipTestFiles = true
 
 coveragePathIgnorePatterns = [
-    "lib/defaults/**",
-    "test/utils/*.ts",
-    "test/fixtures/**/**.ts",
-    "dist/**/*.js",
-    "dist/**/*.ts",
-    "../**/*.ts",
-    "../**/*.js"
+  "lib/defaults/**",
+  "test/utils/*.ts",
+  "test/fixtures/**/**.ts",
+  "dist/**/*.js",
+  "dist/**/*.ts",
+  "../**/*.ts",
+  "../**/*.js",
 ]
 
 [test.reporter]
 junit = "junit.xml"
+
+[fmt]
+printWidth = 120
+singleQuote = true
+ignorePatterns = [
+  ".changeset/",
+  ".claude/",
+  ".cursor/",
+  ".github/",
+  "*.log",
+  "*.md",
+  "bun.lockb",
+  "package-lock.json",
+  "yarn.lock",
+  "pnpm-lock.yaml",
+]
