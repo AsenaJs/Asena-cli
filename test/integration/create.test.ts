@@ -247,10 +247,10 @@ describe('asena create scaffold passes its own checks', () => {
   }
 
   it(
-    'hono with --no-eslint --no-prettier: default install, generators, typecheck and doctor exit 0 on TypeScript 7, without Prettier',
+    'hono with --no-eslint --no-format: default install, generators, typecheck and doctor exit 0 on TypeScript 7, without Prettier',
     async () => {
       const preference: InstallPreference = { adapter: 'hono', logger: true, eslint: false, format: false };
-      const { root, dir } = await scaffold('hono', ['--no-eslint', '--no-prettier'], preference);
+      const { root, dir } = await scaffold('hono', ['--no-eslint', '--no-format'], preference);
 
       try {
         const failures = [

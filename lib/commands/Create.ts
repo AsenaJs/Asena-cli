@@ -31,17 +31,20 @@ export class Create implements BaseCommand {
       .option('--no-logger', 'Skip asena logger setup')
       .option('--eslint', 'Setup ESLint')
       .option('--no-eslint', 'Skip ESLint setup')
-      .option('--prettier', 'Setup Prettier')
-      .option('--no-prettier', 'Skip Prettier setup')
+      .option('--format', 'Set up formatting with bun fmt')
+      .option('--no-format', 'Skip formatting setup')
+      .option('--prettier', 'Deprecated, use --format')
+      .option('--no-prettier', 'Deprecated, use --no-format')
       .option('--skip-install', 'Skip dependency installation (useful for monorepos)')
       .action(async (projectName, options, command: Command) => {
+        const format = this.formatFlag(options, command);
         const spinner = ora('Creating asena project...');
 
         try {
           // If no argument provided or '.' provided, create in current folder
           const currentFolder = !projectName || projectName === '.';
 
-          await this.create(currentFolder, spinner, runningCliVersion(command), options, projectName);
+          await this.create(currentFolder, spinner, runningCliVersion(command), { ...options, format }, projectName);
 
           console.log('\x1b[32m%s\x1b[0m', '\nAsena project created.');
 
@@ -52,6 +55,23 @@ export class Create implements BaseCommand {
           console.error('Create failed: ', error);
         }
       });
+  }
+
+  private formatFlag({ format, prettier }: { format?: boolean; prettier?: boolean }, command: Command) {
+    if (prettier === undefined) return format;
+
+    const alias = prettier ? '--prettier' : '--no-prettier';
+    const replacement = prettier ? '--format' : '--no-format';
+
+    if (format !== undefined && format !== prettier) {
+      command.error(
+        `error: ${format ? '--format' : '--no-format'} and ${alias} disagree (${alias} is a deprecated alias of ${replacement})`,
+      );
+    }
+
+    console.warn(`${alias} is deprecated, use ${replacement} (formatting is done by bun fmt)`);
+
+    return prettier;
   }
 
   private async create(currentFolder: boolean, spinner: Ora, cliVersion: string, options?: any, projectName?: string) {
@@ -335,7 +355,7 @@ ${useFormat ? '\n  // Turn off the rules that conflict with bun fmt\n  eslintCon
       (options.adapter !== undefined ||
         options.logger !== undefined ||
         options.eslint !== undefined ||
-        options.prettier !== undefined);
+        options.format !== undefined);
 
     // If CLI options provided, use them for non-interactive mode
     if (hasCliOptions) {
@@ -349,7 +369,7 @@ ${useFormat ? '\n  // Turn off the rules that conflict with bun fmt\n  eslintCon
         adapter: options.adapter || 'hono',
         logger: options.logger !== undefined ? options.logger : true,
         eslint: options.eslint !== undefined ? options.eslint : true,
-        format: options.prettier !== undefined ? options.prettier : true,
+        format: options.format !== undefined ? options.format : true,
       };
     }
 

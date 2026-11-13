@@ -75,18 +75,16 @@ describe('Create command CLI arguments', () => {
     expect(noEslintOption).toBeDefined();
   });
 
-  it('should have prettier options', () => {
+  it('should have format options and keep the prettier options as deprecated aliases', () => {
     const create = new Create();
     const command = create.command();
 
     const options = command.options;
 
-    const prettierOption = options.find((opt) => opt.long === '--prettier');
-    const noPrettierOption = options.find((opt) => opt.long === '--no-prettier');
-
-    expect(prettierOption).toBeDefined();
-
-    expect(noPrettierOption).toBeDefined();
+    expect(options.find((opt) => opt.long === '--format')?.description).toContain('bun fmt');
+    expect(options.find((opt) => opt.long === '--no-format')).toBeDefined();
+    expect(options.find((opt) => opt.long === '--prettier')?.description).toBe('Deprecated, use --format');
+    expect(options.find((opt) => opt.long === '--no-prettier')?.description).toBe('Deprecated, use --no-format');
   });
 
   it('should have skip-install option', () => {
@@ -112,6 +110,8 @@ describe('Create command CLI arguments', () => {
       '--no-logger',
       '--eslint',
       '--no-eslint',
+      '--format',
+      '--no-format',
       '--prettier',
       '--no-prettier',
       '--skip-install',

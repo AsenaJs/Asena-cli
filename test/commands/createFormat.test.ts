@@ -121,8 +121,8 @@ describe('asena create formatting setup', () => {
     expect(formatCheck).toMatchObject({ exitCode: 0 });
   });
 
-  it('sets up no formatting with --no-prettier', async () => {
-    const { exitCode, files } = await createProject(['--no-prettier']);
+  it('sets up no formatting with --no-format', async () => {
+    const { exitCode, files } = await createProject(['--no-format']);
 
     expect(exitCode).toBe(0);
     expect(files['bunfig.toml']).toBeUndefined();
@@ -184,4 +184,81 @@ describe('asena create formatting setup', () => {
       prompt.mockRestore();
     }
   });
+});
+
+describe('asena create formatting flags', () => {
+  const runs = new Map<string, Promise<CreateRun>>();
+  const createOnce = (flags: string[]) => {
+    const key = flags.join(' ');
+    const run = runs.get(key) ?? createProject(flags);
+
+    runs.set(key, run);
+
+    return run;
+  };
+
+  const warnings = ({ stderr }: CreateRun) => stderr.split('\n').filter((line) => line.includes('deprecated'));
+
+  const PRETTIER_WARNING = '--prettier is deprecated, use --format (formatting is done by bun fmt)';
+  const NO_PRETTIER_WARNING = '--no-prettier is deprecated, use --no-format (formatting is done by bun fmt)';
+
+  it('--format and --no-format set formatting up or not, without a warning', async () => {
+    const on = await createOnce(['--format']);
+    const off = await createOnce(['--no-format']);
+
+    expect([on.exitCode, off.exitCode]).toEqual([0, 0]);
+    expect([...warnings(on), ...warnings(off)]).toEqual([]);
+    expect(on.files['bunfig.toml']).toBeDefined();
+    expect(JSON.parse(on.files['package.json'] ?? '{}').scripts.format).toBe('bun fmt --no-config');
+    expect(off.files['bunfig.toml']).toBeUndefined();
+    expect(JSON.parse(off.files['package.json'] ?? '{}').scripts.format).toBeUndefined();
+  });
+
+  it('sets formatting up when neither flag is passed', async () => {
+    const neither = await createOnce([]);
+
+    expect(neither.exitCode).toBe(0);
+    expect(warnings(neither)).toEqual([]);
+    expect(neither.files).toEqual((await createOnce(['--format'])).files);
+  });
+
+  it('--prettier prints one deprecation warning and does what --format does', async () => {
+    const run = await createOnce(['--prettier']);
+
+    expect(run.exitCode).toBe(0);
+    expect(warnings(run)).toEqual([PRETTIER_WARNING]);
+    expect(run.files).toEqual((await createOnce(['--format'])).files);
+  });
+
+  it('--no-prettier prints one deprecation warning and does what --no-format does', async () => {
+    const run = await createOnce(['--no-prettier']);
+
+    expect(run.exitCode).toBe(0);
+    expect(warnings(run)).toEqual([NO_PRETTIER_WARNING]);
+    expect(run.files).toEqual((await createOnce(['--no-format'])).files);
+  });
+
+  it('accepts --format with --prettier and --no-format with --no-prettier', async () => {
+    const on = await createOnce(['--format', '--prettier']);
+    const off = await createOnce(['--no-prettier', '--no-format']);
+
+    expect([on.exitCode, off.exitCode]).toEqual([0, 0]);
+    expect([warnings(on), warnings(off)]).toEqual([[PRETTIER_WARNING], [NO_PRETTIER_WARNING]]);
+    expect(on.files).toEqual((await createOnce(['--format'])).files);
+    expect(off.files).toEqual((await createOnce(['--no-format'])).files);
+  });
+
+  for (const flags of [
+    ['--format', '--no-prettier'],
+    ['--prettier', '--no-format'],
+  ]) {
+    it(`fails with exit code 1 and writes nothing when ${flags.join(' and ')} disagree`, async () => {
+      const run = await createOnce(flags);
+      const [format, alias] = flags[0] === '--format' ? flags : [flags[1], flags[0]];
+
+      expect(run.exitCode).toBe(1);
+      expect(run.stderr).toContain(`error: ${format} and ${alias} disagree`);
+      expect(run.files).toEqual({});
+    });
+  }
 });

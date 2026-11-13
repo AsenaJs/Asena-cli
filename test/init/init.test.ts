@@ -271,7 +271,7 @@ describe('the @asenajs/asena-cli that init installs', () => {
   it('asena create installs its own version, not the one an asena on PATH prints', async () => {
     stubPath('9.9.9');
 
-    await asena('create', 'app', '--adapter', 'hono', '--no-logger', '--no-eslint', '--no-prettier');
+    await asena('create', 'app', '--adapter', 'hono', '--no-logger', '--no-eslint', '--no-format');
 
     expect(bunCalls().filter((call) => call.some((arg) => arg.includes('asena-cli')))).toEqual(OWN_CLI_INSTALL);
     expect(fs.existsSync(path.join(root, 'project', 'app', 'asena-config.ts'))).toBe(true);
