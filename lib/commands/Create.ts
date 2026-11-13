@@ -18,6 +18,7 @@ import {
 } from '../constants';
 import { getAdapterFunctionName, getAdapterInstallPackages, getControllerImports, getRootImports } from '../helpers';
 import { ImportType } from '../types';
+import { eslintInstallCommands, preRequestInstallCommands } from './createInstallCommands';
 import { Init } from './Init';
 import type { BaseCommand } from '../types/baseCommand';
 import type { ProjectSetupOptions } from '../types/create';
@@ -251,24 +252,9 @@ export class Create implements BaseCommand {
   }
 
   private async installPreRequests() {
-    // The adapter plus its peers. `bun add` records them in the project's package.json, which the
-    // package manager's own peer auto-install would not - and an undeclared peer is a dependency
-    // that disappears on the next clean install.
-    const packages = Object.entries(getAdapterInstallPackages(this.preference.adapter)).map(
-      ([name, version]) => `${name}@${version}`,
-    );
-
-    await $`bun add @asenajs/asena ${DOCTOR_REQUIRED_DEPENDENCIES} ${packages}`.quiet();
-
-    if (this.preference.logger) {
-      await $`bun add @asenajs/asena-logger`.quiet();
+    for (const command of preRequestInstallCommands(this.preference)) {
+      await $`${command}`.quiet();
     }
-
-    const typescriptPackages = Object.entries(this.typescriptDevDependencies()).map(
-      ([name, version]) => `${name}@${version}`,
-    );
-
-    await $`bun add -D @types/bun ${typescriptPackages}`.quiet();
   }
 
   private typescriptDevDependencies(): Record<string, string> {
@@ -369,21 +355,14 @@ ${usePrettier ? '\n  // Prettier config to disable conflicting rules\n  eslintCo
   }
 
   private async installAndCreateEslint() {
-    // Install base ESLint packages
-    const output = await $`bun add -D ${ESLINT_INSTALLATIONS}`.quiet();
+    for (const command of eslintInstallCommands(this.preference)) {
+      const output = await $`${command}`.quiet();
 
-    if (output.exitCode !== 0) return;
-
-    // Install prettier integration if prettier is enabled
-    if (this.preference.prettier) {
-      await $`bun add -D ${ESLINT_WITH_PRETTIER_INSTALLATIONS}`.quiet();
+      if (output.exitCode !== 0) return;
     }
 
-    // Generate and write dynamic config
     const eslintConfig = this.getEslintConfig();
     await Bun.write(process.cwd() + '/eslint.config.cjs', eslintConfig);
-
-    return output.stderr.toString() === '';
   }
 
   private async installAndCreatePrettier() {

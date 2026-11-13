@@ -2,13 +2,35 @@ import { describe, expect, it } from 'bun:test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { eslintInstallCommands, preRequestInstallCommands } from '../../lib/commands/createInstallCommands';
 
 // Runs the real scaffold and the checks a generated project is expected to pass. Needs the network
 // for `bun install`; a missing network makes the install fail and the test fail - it never skips.
 const REPO_ROOT = path.resolve(import.meta.dir, '../..');
 const CLI = path.join(REPO_ROOT, 'bin/asena.ts');
+const GENERATE_MODULE = path.join(REPO_ROOT, 'lib/commands/Generate.ts');
+const INQUIRER_MODULE = Bun.resolveSync('inquirer', REPO_ROOT);
 // Well under the CI job budget (ci.yml timeout-minutes), so a hung install fails here with its output.
 const SCAFFOLD_TIMEOUT = 240_000;
+
+const GENERATOR_KINDS = [
+  'controller',
+  'service',
+  'middleware',
+  'validator',
+  'config',
+  'exception-handler',
+  'websocket',
+] as const;
+
+// Answers every prompt the generators ask, so the real `asena generate` code runs unattended.
+const GENERATOR_DRIVER = `import inquirer from ${JSON.stringify(INQUIRER_MODULE)};
+import { Generate } from ${JSON.stringify(GENERATE_MODULE)};
+
+inquirer.prompt = async () => ({ elementName: 'Sample', path: '/sample' });
+
+await new Generate().command().parseAsync([process.argv[2]], { from: 'user' });
+`;
 
 interface RunResult {
   exitCode: number;
@@ -62,6 +84,50 @@ const scaffold = async (adapter: 'hono' | 'ergenecore', extraArgs: string[]) => 
   }
 };
 
+// The `bun add` calls `asena create` makes on its default install path, which `--skip-install` bypasses.
+const installDefaultPath = async (dir: string, preference: InstallPreference): Promise<string[]> => {
+  const commands = [
+    ...preRequestInstallCommands(preference),
+    ...(preference.eslint ? eslintInstallCommands(preference) : []),
+  ];
+  const failures: string[] = [];
+
+  for (const command of commands) {
+    const result = await run(dir, command.slice(1));
+
+    if (result.exitCode !== 0) {
+      failures.push(`${command.join(' ')} exited ${result.exitCode}:\n${result.output.slice(-1500)}`);
+    }
+  }
+
+  return failures;
+};
+
+const runGenerators = async (root: string, dir: string): Promise<string[]> => {
+  const driver = path.join(root, 'generate-driver.mjs');
+  const failures: string[] = [];
+
+  fs.writeFileSync(driver, GENERATOR_DRIVER);
+
+  for (const kind of GENERATOR_KINDS) {
+    const result = await run(dir, [driver, kind]);
+
+    if (result.exitCode !== 0 || /Build failed|already exists/.test(result.output)) {
+      failures.push(`generate ${kind} exited ${result.exitCode}:\n${result.output.slice(-1500)}`);
+    }
+  }
+
+  const generated = (fs.readdirSync(path.join(dir, 'src'), { recursive: true }) as string[]).filter((file) =>
+    path.basename(file).startsWith('Sample'),
+  );
+
+  if (generated.length !== GENERATOR_KINDS.length) {
+    failures.push(`expected ${GENERATOR_KINDS.length} generated Sample files, found: ${generated.join(', ')}`);
+  }
+
+  return failures;
+};
+
 type Check = { name: string; args: string[]; expectOutput?: RegExp };
 
 const runChecks = async (dir: string, checks: Check[]) => {
@@ -89,21 +155,28 @@ const TSC_VERSION_7: Check = {
 const TYPECHECK: Check = { name: 'typecheck', args: ['run', 'typecheck'] };
 const DOCTOR: Check = { name: 'doctor', args: [CLI, 'doctor'] };
 
+type InstallPreference = Parameters<typeof preRequestInstallCommands>[0];
+
 describe('asena create scaffold passes its own checks', () => {
   for (const adapter of ['hono', 'ergenecore'] as const) {
     it(
-      `${adapter} with default options: lint, format:check, typecheck and doctor exit 0 on TypeScript 7`,
+      `${adapter} with default options: default install, generators, lint, format:check, typecheck and doctor exit 0 on TypeScript 7`,
       async () => {
+        const preference: InstallPreference = { adapter, logger: true, eslint: true, prettier: true };
         const { root, dir } = await scaffold(adapter, []);
 
         try {
-          const failures = await runChecks(dir, [
-            { name: 'lint', args: ['run', 'lint'] },
-            { name: 'format:check', args: ['run', 'format:check'] },
-            TSC_VERSION_7,
-            TYPECHECK,
-            DOCTOR,
-          ]);
+          const failures = [
+            ...(await installDefaultPath(dir, preference)),
+            ...(await runGenerators(root, dir)),
+            ...(await runChecks(dir, [
+              { name: 'lint', args: ['run', 'lint'] },
+              { name: 'format:check', args: ['run', 'format:check'] },
+              TSC_VERSION_7,
+              TYPECHECK,
+              DOCTOR,
+            ])),
+          ];
 
           expect(failures).toEqual([]);
         } finally {
@@ -115,12 +188,17 @@ describe('asena create scaffold passes its own checks', () => {
   }
 
   it(
-    'hono with --no-eslint --no-prettier: typecheck and doctor exit 0 on TypeScript 7',
+    'hono with --no-eslint --no-prettier: default install, generators, typecheck and doctor exit 0 on TypeScript 7',
     async () => {
+      const preference: InstallPreference = { adapter: 'hono', logger: true, eslint: false, prettier: false };
       const { root, dir } = await scaffold('hono', ['--no-eslint', '--no-prettier']);
 
       try {
-        const failures = await runChecks(dir, [TSC_VERSION_7, TYPECHECK, DOCTOR]);
+        const failures = [
+          ...(await installDefaultPath(dir, preference)),
+          ...(await runGenerators(root, dir)),
+          ...(await runChecks(dir, [TSC_VERSION_7, TYPECHECK, DOCTOR])),
+        ];
 
         expect(failures).toEqual([]);
       } finally {

@@ -22,6 +22,11 @@ describe('checkDirectDependencies', () => {
   const everyRequiredPackage = (): Record<string, string> =>
     Object.fromEntries(['@asenajs/asena', ...DOCTOR_REQUIRED_DEPENDENCIES].map((name) => [name, 'latest']));
 
+  // Pinned by name: the loop below makes no assertion when the shared list is empty.
+  it('requires reflect-metadata, which the scaffold declares and the doctor checks', () => {
+    expect(DOCTOR_REQUIRED_DEPENDENCIES).toContain('reflect-metadata');
+  });
+
   it('passes when every package the scaffold declares is a direct dependency', async () => {
     await writeDependencies(everyRequiredPackage());
 
