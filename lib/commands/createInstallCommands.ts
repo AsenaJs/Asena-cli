@@ -26,8 +26,6 @@ const unpinned = (names: readonly string[]): InstallPackage[] => names.map((name
 const pinned = (record: Record<string, string>): InstallPackage[] =>
   Object.entries(record).map(([name, version]) => ({ name, version }));
 
-// The one list of packages `asena create` installs. The default install path and the --skip-install
-// package.json are both derived from it, so the two cannot list different packages.
 export const installSelection = (options: InstallOptions): InstallSelection => {
   // The adapter and its peers: an undeclared peer is not written to package.json by the package manager.
   const dependencies = [
