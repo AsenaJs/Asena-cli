@@ -22,7 +22,12 @@ const isTable = (value: unknown): value is Record<string, unknown> =>
 const fmtTable = (settings: object): Record<string, unknown> =>
   'fmt' in settings && isTable(settings.fmt) ? settings.fmt : {};
 
-const fmtKey = (line: string) => line.slice(0, line.indexOf(' = '));
+const SCAFFOLD_FMT = fmtTable(Bun.TOML.parse(BUNFIG_FMT));
+
+const tomlValue = (value: unknown): string =>
+  Array.isArray(value) ? `[${value.map(tomlValue).join(', ')}]` : JSON.stringify(value);
+
+const fmtLine = (key: string) => `${key} = ${tomlValue(SCAFFOLD_FMT[key])}`;
 
 export class Create implements BaseCommand {
   private preference: ProjectSetupOptions = {
@@ -352,8 +357,8 @@ ${useFormat ? '\n  // Turn off the rules that conflict with bun fmt\n  eslintCon
 
     if (kept.length) {
       console.warn(
-        `${bunfigPath} keeps what its [fmt] table sets for ${kept.map(fmtKey).join(', ')} (asena create sets ` +
-          `${kept.join(', ')}); bun run format:check follows the table, so run bun run format if it reports the generated files`,
+        `${bunfigPath} keeps what its [fmt] table sets for ${kept.join(', ')} (asena create sets ` +
+          `${kept.map(fmtLine).join(', ')}); bun run format:check follows the table, so run bun run format if it reports the generated files`,
       );
     }
   }
@@ -369,23 +374,22 @@ ${useFormat ? '\n  // Turn off the rules that conflict with bun fmt\n  eslintCon
 
     if (!('fmt' in settings)) return { text: `${existing.trimEnd()}\n\n${BUNFIG_FMT}`, kept: [] };
 
-    const pins = BUNFIG_FMT.trimEnd().split('\n').slice(1);
+    const keys = Object.keys(SCAFFOLD_FMT);
     const own = fmtTable(settings);
-    const missing = pins.filter((line) => !(fmtKey(line) in own));
+    const missing = keys.filter((key) => !(key in own));
     const text = missing.length
-      ? existing.replace(FMT_HEADER, (header) => `${header}\n${missing.join('\n')}`)
+      ? existing.replace(FMT_HEADER, (header) => `${header}\n${missing.map(fmtLine).join('\n')}`)
       : existing;
     const merged = fmtTable(Bun.TOML.parse(text));
-    const ours = fmtTable(Bun.TOML.parse(BUNFIG_FMT));
 
-    if (pins.some((line) => !(fmtKey(line) in merged))) {
+    if (keys.some((key) => !(key in merged))) {
       throw new Error(
         `${bunfigPath} defines fmt without a [fmt] header, so asena create cannot add its keys to it; ` +
           'move them under a [fmt] header or pass --no-format',
       );
     }
 
-    return { text, kept: pins.filter((line) => !Bun.deepEquals(merged[fmtKey(line)], ours[fmtKey(line)])) };
+    return { text, kept: keys.filter((key) => !Bun.deepEquals(merged[key], SCAFFOLD_FMT[key])) };
   }
 
   private async createTsConfig() {
