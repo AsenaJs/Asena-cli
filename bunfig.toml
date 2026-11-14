@@ -5,14 +5,56 @@ coverage = true
 coverageSkipTestFiles = true
 
 coveragePathIgnorePatterns = [
-    "lib/defaults/**",
-    "test/utils/*.ts",
-    "test/fixtures/**/**.ts",
-    "dist/**/*.js",
-    "dist/**/*.ts",
-    "../**/*.ts",
-    "../**/*.js"
+  "lib/defaults/**",
+  "test/utils/*.ts",
+  "test/fixtures/**/**.ts",
+  "dist/**/*.js",
+  "dist/**/*.ts",
+  "../**/*.ts",
+  "../**/*.js",
 ]
 
 [test.reporter]
 junit = "junit.xml"
+
+[fmt]
+printWidth = 120
+singleQuote = true
+tabWidth = 2
+useTabs = false
+endOfLine = "lf"
+semi = true
+trailingComma = "all"
+quoteProps = "as-needed"
+bracketSpacing = true
+arrowParens = "always"
+jsxSingleQuote = false
+proseWrap = "preserve"
+htmlWhitespaceSensitivity = "css"
+embeddedLanguageFormatting = "auto"
+requirePragma = false
+insertPragma = false
+bracketSameLine = false
+vueIndentScriptAndStyle = false
+objectWrap = "preserve"
+experimentalTernaries = false
+experimentalOperatorPosition = "end"
+singleAttributePerLine = false
+checkIgnorePragma = false
+insertFinalNewline = true
+sortImports = false
+jsdoc = false
+sortTailwindcss = false
+sortPackageJson = false
+ignorePatterns = [
+  ".changeset/",
+  ".claude/",
+  ".cursor/",
+  ".github/",
+  "*.log",
+  "*.md",
+  "bun.lockb",
+  "package-lock.json",
+  "yarn.lock",
+  "pnpm-lock.yaml",
+]
