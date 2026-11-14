@@ -253,7 +253,7 @@ describe('asena create formatting setup', () => {
     expect(formatCheck?.stdout).toContain('src/index.ts');
   });
 
-  for (const header of ['["fmt"]', "['fmt']"]) {
+  for (const header of ['[fmt] # mine', '["fmt"]', "['fmt']"]) {
     it(`adds the missing keys under a ${header} header`, async () => {
       const { exitCode, files, formatCheck } = await createProject([], {
         'bunfig.toml': `${header}\nprintWidth = 120\n`,
@@ -276,6 +276,19 @@ describe('asena create formatting setup', () => {
       expect(formatCheck).toMatchObject({ exitCode: 0 });
     });
   }
+
+  it('accepts a fmt table without a [fmt] header that already sets every key, and formats the file', async () => {
+    const keys = Object.entries(EXPECTED_FMT).map(([key, value]) => `${key} = ${JSON.stringify(value)}`);
+    const { exitCode, stderr, files, formatCheck } = await createProject([], {
+      'bunfig.toml': `fmt = { ${keys.join(', ')} }\n`,
+    });
+
+    expect(exitCode).toBe(0);
+    expect(stderr).not.toContain('[fmt]');
+    expect(files['bunfig.toml']).toStartWith('fmt = { printWidth = 120, ');
+    expect(Bun.TOML.parse(files['bunfig.toml'] ?? '')).toEqual({ fmt: EXPECTED_FMT });
+    expect(formatCheck).toMatchObject({ exitCode: 0 });
+  });
 
   it('refuses a fmt table that bunfig.toml defines without a [fmt] header and exits 1 before it writes anything', async () => {
     const existing = 'fmt = { printWidth = 120 }\n';
