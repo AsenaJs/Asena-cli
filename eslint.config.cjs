@@ -66,7 +66,6 @@ module.exports = tseslint.config(
       // Allow require() in specific cases (Bun compatibility)
       '@typescript-eslint/no-require-imports': 'off',
 
-      // Disable rules that require strictNullChecks (tsconfig has strict: false)
       '@typescript-eslint/prefer-nullish-coalescing': 'off',
 
       // Allow any in union types (common in adapter interfaces)
