@@ -167,6 +167,17 @@ describe('asena create formatting setup', () => {
     expect(formatCheck).toMatchObject({ exitCode: 0 });
   });
 
+  it('formats that bunfig.toml when a .gitignore already in the directory lists it, since asena create replaces it', async () => {
+    const { exitCode, files, formatCheck } = await createProject([], {
+      'bunfig.toml': '[install]\nexact=true\n',
+      '.gitignore': 'bunfig.toml\n',
+    });
+
+    expect(exitCode).toBe(0);
+    expect(files['bunfig.toml']).toStartWith('[install]\nexact = true\n\n[fmt]\n');
+    expect(formatCheck).toMatchObject({ exitCode: 0 });
+  });
+
   it('leaves a bunfig.toml that bun fmt cannot format as it was and exits 1 before it writes anything else', async () => {
     const existing = 'logLevel="nope"\n';
     const { exitCode, stderr, files } = await createProject([], { 'bunfig.toml': existing });

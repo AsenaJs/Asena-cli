@@ -1,3 +1,4 @@
+import { devNull } from 'node:os';
 import path from 'node:path';
 import { $ } from 'bun';
 import { Command } from 'commander';
@@ -334,9 +335,12 @@ ${useFormat ? '\n  // Turn off the rules that conflict with bun fmt\n  eslintCon
 
     await Bun.write(bunfigPath, text);
 
-    // The kept text has its own layout, which the project's format:check would report. --no-script: a fmt
-    // script in a package.json already in the directory would run in place of the formatter.
-    const formatted = await $`bun fmt --no-config --no-script bunfig.toml`.cwd(projectPath).quiet().nothrow();
+    // The kept text has its own layout, which format:check would report. --no-script and --ignore-path keep a fmt
+    // script or an ignore file already in the directory from skipping it; asena create replaces .gitignore later.
+    const formatted = await $`bun fmt --no-config --no-script --ignore-path=${devNull} bunfig.toml`
+      .cwd(projectPath)
+      .quiet()
+      .nothrow();
 
     if (formatted.exitCode !== 0) {
       await Bun.write(bunfigPath, existing);
