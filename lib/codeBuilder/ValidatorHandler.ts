@@ -10,7 +10,7 @@ export class ValidatorHandler {
    * @param validatorName Name of the validator class
    */
   public addValidator(validatorName: string) {
-    const validator = `\n@Middleware({ validator: true })\nexport class ${validatorName} extends ValidationService {\n\n}`;
+    const validator = `\n@Middleware({ validator: true })\nexport class ${validatorName} extends ValidationService {}`;
 
     this._code = this._code + validator;
 
@@ -71,11 +71,7 @@ export class ValidatorHandler {
 
     // Insert example schema before the closing brace
     this._code =
-      this._code.substring(0, closingBraceIndex) +
-      '\n' +
-      exampleSchema +
-      '\n' +
-      this._code.substring(closingBraceIndex);
+      this._code.substring(0, closingBraceIndex) + '\n' + exampleSchema + this._code.substring(closingBraceIndex);
 
     return this;
   }

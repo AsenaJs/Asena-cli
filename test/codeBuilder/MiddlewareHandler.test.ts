@@ -68,5 +68,11 @@ describe('MiddlewareHandler', () => {
 
       expect(handler.code).not.toContain(';\n\n    await next()');
     });
+
+    it('should say that the middleware does not exist when its class is not in the code', () => {
+      const handler = new MiddlewareHandler('');
+
+      expect(() => handler.addDefaultHandle('AuthMiddleware')).toThrow(/^Middleware does not exist$/);
+    });
   });
 });

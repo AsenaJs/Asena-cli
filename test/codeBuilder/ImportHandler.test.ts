@@ -58,7 +58,7 @@ const x = 1;
         ImportType.IMPORT,
       );
 
-      expect(result).toContain("import {AsenaServer} from '@asenajs/asena'");
+      expect(result).toContain("import { AsenaServer } from '@asenajs/asena';\n");
     });
 
     it('should add multiple imports from same file', () => {
@@ -108,7 +108,7 @@ const x = 1;
         ImportType.IMPORT,
       );
 
-      expect(result).toContain('import {AsenaServer}');
+      expect(result).toContain('import { AsenaServer } from');
 
       expect(result).toContain('const x = 1;');
 
@@ -182,7 +182,7 @@ const x = 1;
         ImportType.REQUIRE,
       );
 
-      expect(result).toContain("const {AsenaServer} = require('@asenajs/asena')");
+      expect(result).toBe("const { AsenaServer } = require('@asenajs/asena');\n");
     });
 
     it('should add multiple requires from same file', () => {
@@ -225,11 +225,10 @@ const x = 1;
         ImportType.REQUIRE,
       );
 
-      expect(result).toContain("import type {ExceptionContext} from '@asenajs/asena/exception'");
-
-      expect(result).toContain("const {Catch} = require('@asenajs/asena/exception')");
-
-      expect(result).not.toContain('type ExceptionContext}');
+      expect(result).toBe(
+        "import type { ExceptionContext } from '@asenajs/asena/exception';\n" +
+          "const { Catch } = require('@asenajs/asena/exception');\n",
+      );
     });
 
     it('should emit no require when every name is type-only', () => {
@@ -241,9 +240,18 @@ const x = 1;
         ImportType.REQUIRE,
       );
 
-      expect(result).toContain("import type {Context} from '@asenajs/hono-adapter'");
+      expect(result).toBe("import type { Context } from '@asenajs/hono-adapter';\n");
+    });
 
-      expect(result).not.toContain('require(');
+    it('should read back the names of the require lines it writes', () => {
+      const code = new ImportHandler('', ImportType.REQUIRE).importToCode(
+        {
+          '@asenajs/asena': ['AsenaServer', 'Controller'],
+        },
+        ImportType.REQUIRE,
+      );
+
+      expect(new ImportHandler(code, ImportType.REQUIRE).getImports).toEqual(['AsenaServer', 'Controller']);
     });
   });
 

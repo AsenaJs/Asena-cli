@@ -8,14 +8,7 @@ export class ControllerHandler {
   }
 
   public addController(controllerName: string, controllerPath: string | null) {
-    const controller = [
-      '',
-      `@Controller(${controllerPath ?? ''})`,
-      `export class ${controllerName} {`,
-      '',
-      '}',
-      '',
-    ].join('\n');
+    const controller = ['', `@Controller(${controllerPath ?? ''})`, `export class ${controllerName} {}`, ''].join('\n');
 
     this._code = this._code + controller;
 
@@ -23,8 +16,7 @@ export class ControllerHandler {
   }
 
   public addGetRouterToController(controllerName: string, path: string, name: string) {
-    const controller = [
-      '',
+    const route = [
       `  @Get('/${path}')`,
       `  public async ${name}(context: Context) {`,
       `    return context.send('Hello asena');`,
@@ -35,8 +27,9 @@ export class ControllerHandler {
 
     if (!controllerEndIndex) throw new Error('Controller is not exists');
 
-    this._code =
-      this._code.substring(0, controllerEndIndex - 2) + controller + this._code.substring(controllerEndIndex - 2);
+    const head = this._code.substring(0, controllerEndIndex).trimEnd();
+
+    this._code = `${head}\n${route}\n${this._code.substring(controllerEndIndex)}`;
 
     return this._code;
   }

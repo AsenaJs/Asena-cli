@@ -8,7 +8,6 @@ export class ExceptionHandlerHandler {
   public addExceptionHandler(className: string) {
     const exceptionHandlerClass = `\n@ExceptionHandler()
 export class ${className} {
-
   @Catch()
   public fallback(error: unknown, ctx: ExceptionContext<Context>) {
     if (ctx.scope !== 'http' || isHttpException(error)) return;
@@ -17,7 +16,6 @@ export class ${className} {
 
     return ctx.context.send({ error: 'Internal Server Error' }, 500);
   }
-
 }`;
 
     this._code = this._code + exceptionHandlerClass;

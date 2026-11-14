@@ -6,7 +6,7 @@ export class ServiceHandler {
   }
 
   public addService(serviceName: string) {
-    const service = `\n@Service()\nexport class ${serviceName} {\n\n}`;
+    const service = `\n@Service()\nexport class ${serviceName} {}\n`;
 
     this._code = this._code + service;
 

@@ -24,6 +24,7 @@
     "strict": true,
     "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
+    "types": ["bun"],
 
     // Some stricter flags
     "noUnusedLocals": true,

@@ -16,10 +16,10 @@ export class AsenaServerHandler {
 const server = await AsenaServerFactory.create({
   adapter: ${adapterVar},
   logger: ${loggerVar},
-  port: ${port}
+  port: ${port},
 });
 
-await server.start();`;
+await server.start();\n`;
 
     return this;
   }

@@ -57,16 +57,17 @@
     "@types/yargs": "^17.0.35",
     "@typescript-eslint/eslint-plugin": "^8.72.1",
     "@typescript-eslint/parser": "^8.72.1",
+    "@typescript/native": "npm:typescript@^7.0.2",
     "@xyflow/react": "^12.12.1",
     "elkjs": "^0.12.1",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^9.1.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "typescript": "^5.9.3",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.72.1"
   },
   "peerDependencies": {
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0 || ^6.0.0 || ^7.0.0"
   }
 }

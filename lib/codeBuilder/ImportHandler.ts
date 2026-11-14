@@ -60,15 +60,15 @@ export class ImportHandler {
     const from = `${prefix}${filePath}`;
 
     if (importType === ImportType.IMPORT) {
-      return `import {${imports.join(',')}} from '${from}'; \n`;
+      return `import { ${imports.join(', ')} } from '${from}';\n`;
     }
 
     const types = imports.filter((name) => name.startsWith('type ')).map((name) => name.slice('type '.length));
     const values = imports.filter((name) => !name.startsWith('type '));
 
     return (
-      (types.length > 0 ? `import type {${types.join(',')}} from '${from}'; \n` : '') +
-      (values.length > 0 ? `const {${values.join(',')}} = require('${from}'); \n` : '')
+      (types.length > 0 ? `import type { ${types.join(', ')} } from '${from}';\n` : '') +
+      (values.length > 0 ? `const { ${values.join(', ')} } = require('${from}');\n` : '')
     );
   }
 

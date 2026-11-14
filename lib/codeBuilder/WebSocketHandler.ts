@@ -8,20 +8,19 @@ export class WebSocketHandler {
   public addWebSocketNamespace(className: string, path: string) {
     const websocketClass = `\n@WebSocket({ path: '${path}', name: '${className}' })
 export class ${className} extends AsenaWebSocketService {
-
-  protected async onOpen(ws: Socket): Promise<void> {
+  protected async onOpen(_ws: Socket): Promise<void> {
     console.log('Client connected');
   }
 
-  protected async onMessage(ws: Socket, message: string): Promise<void> {
+  protected async onMessage(_ws: Socket, message: string): Promise<void> {
     console.log('Message received:', message);
   }
 
-  protected async onClose(ws: Socket): Promise<void> {
+  protected async onClose(_ws: Socket): Promise<void> {
     console.log('Client disconnected');
   }
-
-}`;
+}
+`;
 
     this._code = this._code + websocketClass;
 

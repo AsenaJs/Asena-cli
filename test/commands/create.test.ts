@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import stripJsonComments from 'strip-json-comments';
+import { FRAMEWORK_PACKAGES, TSCONFIG } from '../../lib/constants';
 import { Create } from '../../lib/commands/Create';
 import { getAdapterInstallPackages } from '../../lib/helpers';
 
@@ -73,18 +75,16 @@ describe('Create command CLI arguments', () => {
     expect(noEslintOption).toBeDefined();
   });
 
-  it('should have prettier options', () => {
+  it('should have format options and keep the prettier options as deprecated aliases', () => {
     const create = new Create();
     const command = create.command();
 
     const options = command.options;
 
-    const prettierOption = options.find((opt) => opt.long === '--prettier');
-    const noPrettierOption = options.find((opt) => opt.long === '--no-prettier');
-
-    expect(prettierOption).toBeDefined();
-
-    expect(noPrettierOption).toBeDefined();
+    expect(options.find((opt) => opt.long === '--format')?.description).toContain('bun fmt');
+    expect(options.find((opt) => opt.long === '--no-format')).toBeDefined();
+    expect(options.find((opt) => opt.long === '--prettier')?.description).toBe('Deprecated, use --format');
+    expect(options.find((opt) => opt.long === '--no-prettier')?.description).toBe('Deprecated, use --no-format');
   });
 
   it('should have skip-install option', () => {
@@ -110,6 +110,8 @@ describe('Create command CLI arguments', () => {
       '--no-logger',
       '--eslint',
       '--no-eslint',
+      '--format',
+      '--no-format',
       '--prettier',
       '--no-prettier',
       '--skip-install',
@@ -167,7 +169,7 @@ describe('Create command package.json generation', () => {
       adapter: 'hono',
       logger: false,
       eslint: true,
-      prettier: false,
+      format: false,
     };
 
     await (create as any).createPackageJson(projectPath);
@@ -181,17 +183,16 @@ describe('Create command package.json generation', () => {
     expect(packageJson.scripts['lint:fix']).toBe('eslint . --fix');
   });
 
-  it('should include prettier scripts when prettier is enabled', async () => {
+  it('should include bun fmt scripts when formatting is enabled', async () => {
     const create = new Create();
     const projectPath = tempDir;
 
-    // Set preference to include prettier
     (create as any).preference = {
       projectName: 'TestProject',
       adapter: 'hono',
       logger: false,
       eslint: false,
-      prettier: true,
+      format: true,
     };
 
     await (create as any).createPackageJson(projectPath);
@@ -200,22 +201,22 @@ describe('Create command package.json generation', () => {
     const packageJsonContent = await Bun.file(packageJsonPath).text();
     const packageJson = JSON.parse(packageJsonContent);
 
-    // Verify prettier scripts exist
-    expect(packageJson.scripts.format).toBe('prettier --write .');
-    expect(packageJson.scripts['format:check']).toBe('prettier --check .');
+    expect(packageJson.scripts.format).toBe('bun fmt --no-config');
+    expect(packageJson.scripts['format:check']).toBe('bun fmt --check --no-config');
+    // A script named fmt would shadow the built-in `bun fmt`.
+    expect(packageJson.scripts.fmt).toBeUndefined();
   });
 
-  it('should include combined check scripts when both eslint and prettier are enabled', async () => {
+  it('should include combined check scripts when both eslint and formatting are enabled', async () => {
     const create = new Create();
     const projectPath = tempDir;
 
-    // Set preference to include both eslint and prettier
     (create as any).preference = {
       projectName: 'TestProject',
       adapter: 'hono',
       logger: false,
       eslint: true,
-      prettier: true,
+      format: true,
     };
 
     await (create as any).createPackageJson(projectPath);
@@ -227,23 +228,23 @@ describe('Create command package.json generation', () => {
     // Verify all scripts exist
     expect(packageJson.scripts.lint).toBe('eslint .');
     expect(packageJson.scripts['lint:fix']).toBe('eslint . --fix');
-    expect(packageJson.scripts.format).toBe('prettier --write .');
-    expect(packageJson.scripts['format:check']).toBe('prettier --check .');
+    expect(packageJson.scripts.format).toBe('bun fmt --no-config');
+    expect(packageJson.scripts['format:check']).toBe('bun fmt --check --no-config');
     expect(packageJson.scripts.check).toBe('bun run lint && bun run format:check');
     expect(packageJson.scripts['check:fix']).toBe('bun run lint:fix && bun run format');
   });
 
-  it('should not include eslint/prettier scripts when disabled', async () => {
+  it('should not include eslint/format scripts when disabled', async () => {
     const create = new Create();
     const projectPath = tempDir;
 
-    // Set preference to exclude both eslint and prettier
+    // Set preference to exclude both eslint and formatting
     (create as any).preference = {
       projectName: 'TestProject',
       adapter: 'hono',
       logger: false,
       eslint: false,
-      prettier: false,
+      format: false,
     };
 
     await (create as any).createPackageJson(projectPath);
@@ -252,7 +253,7 @@ describe('Create command package.json generation', () => {
     const packageJsonContent = await Bun.file(packageJsonPath).text();
     const packageJson = JSON.parse(packageJsonContent);
 
-    // Verify eslint/prettier scripts do NOT exist
+    // Verify eslint/format scripts do NOT exist
     expect(packageJson.scripts.lint).toBeUndefined();
     expect(packageJson.scripts['lint:fix']).toBeUndefined();
     expect(packageJson.scripts.format).toBeUndefined();
@@ -302,7 +303,7 @@ describe('Create command package.json generation', () => {
       adapter: 'hono',
       logger: true,
       eslint: true,
-      prettier: true,
+      format: true,
     };
 
     await (create as any).createPackageJson(projectPath, true);
@@ -323,13 +324,22 @@ describe('Create command package.json generation', () => {
     expect(packageJson.dependencies['hono']).toBe('latest');
     expect(packageJson.dependencies['zod']).toBe('^4');
 
+    // asena doctor requires them as direct dependencies.
+    for (const pkg of FRAMEWORK_PACKAGES) {
+      expect(packageJson.dependencies[pkg]).toBe('latest');
+    }
+
     // Should have devDependencies
     expect(packageJson.devDependencies).toBeDefined();
     expect(packageJson.devDependencies['@types/bun']).toBe('latest');
-    expect(packageJson.devDependencies['typescript']).toBe('latest');
+    // With ESLint the TS 7 compiler rides on `@typescript/native`; `typescript` keeps the TS 6 API that
+    // typescript-eslint loads. See TYPESCRIPT_WITH_ESLINT_DEV_DEPENDENCIES.
+    expect(packageJson.devDependencies['typescript']).toBe('npm:@typescript/typescript6@^6.0.2');
+    expect(packageJson.devDependencies['@typescript/native']).toBe('npm:typescript@^7.0.2');
     expect(packageJson.devDependencies['@asenajs/asena-cli']).toBe('latest');
     expect(packageJson.devDependencies['eslint']).toBe('latest');
-    expect(packageJson.devDependencies['prettier']).toBe('latest');
+    expect(packageJson.devDependencies['eslint-config-prettier']).toBe('latest');
+    expect(packageJson.devDependencies['prettier']).toBeUndefined();
   });
 
   it('should not include dependencies when skipInstall is false', async () => {
@@ -355,7 +365,7 @@ describe('Create command package.json generation', () => {
       adapter: 'ergenecore',
       logger: false,
       eslint: false,
-      prettier: false,
+      format: false,
     };
 
     await (create as any).createPackageJson(projectPath, true);
@@ -385,15 +395,64 @@ describe('Create command package.json generation', () => {
         adapter,
         logger: false,
         eslint: false,
-        prettier: false,
+        format: false,
       };
 
       await (create as any).createPackageJson(tempDir, true);
 
       const packageJson = JSON.parse(await Bun.file(join(tempDir, 'package.json')).text());
-      const written = Object.keys(packageJson.dependencies).filter((key) => key !== '@asenajs/asena');
+      const written = Object.keys(packageJson.dependencies);
 
-      expect(written.sort()).toEqual(Object.keys(getAdapterInstallPackages(adapter)).sort());
+      expect(written.sort()).toEqual(
+        [...FRAMEWORK_PACKAGES, ...Object.keys(getAdapterInstallPackages(adapter))].sort(),
+      );
     }
+  });
+
+  it('writes a strict tsconfig with the bun types, since TypeScript 7 defaults types to none', () => {
+    const compilerOptions = JSON.parse(stripJsonComments(TSCONFIG)).compilerOptions;
+
+    expect(compilerOptions.strict).toBe(true);
+    expect(compilerOptions.strictNullChecks).toBeUndefined();
+    expect(compilerOptions.types).toEqual(['bun']);
+  });
+
+  it('adds a typecheck script to every scaffold', async () => {
+    const create = new Create();
+
+    (create as any).preference = {
+      projectName: 'TestProject',
+      adapter: 'hono',
+      logger: false,
+      eslint: false,
+      format: false,
+    };
+
+    await (create as any).createPackageJson(tempDir, true);
+
+    const packageJson = JSON.parse(await Bun.file(join(tempDir, 'package.json')).text());
+
+    expect(packageJson.scripts.typecheck).toBe('tsc --noEmit');
+  });
+
+  it('installs plain TypeScript 7 without ESLint, and the side-by-side layout with it', async () => {
+    const create = new Create();
+    const base = { projectName: 'TestProject', adapter: 'hono', logger: false, format: false } as const;
+
+    (create as any).preference = { ...base, eslint: false };
+    await (create as any).createPackageJson(tempDir, true);
+
+    const withoutEslint = JSON.parse(await Bun.file(join(tempDir, 'package.json')).text()).devDependencies;
+
+    expect(withoutEslint['typescript']).toBe('^7.0.2');
+    expect(withoutEslint['@typescript/native']).toBeUndefined();
+
+    (create as any).preference = { ...base, eslint: true };
+    await (create as any).createPackageJson(tempDir, true);
+
+    const withEslint = JSON.parse(await Bun.file(join(tempDir, 'package.json')).text()).devDependencies;
+
+    expect(withEslint['typescript']).toBe('npm:@typescript/typescript6@^6.0.2');
+    expect(withEslint['@typescript/native']).toBe('npm:typescript@^7.0.2');
   });
 });

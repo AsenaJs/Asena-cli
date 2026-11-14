@@ -1,23 +1,41 @@
+import { devNull } from 'node:os';
 import path from 'node:path';
 import { $ } from 'bun';
 import { Command } from 'commander';
 import inquirer from 'inquirer';
 import ora, { type Ora } from 'ora';
 import { AsenaLoggerCreator, AsenaServerHandler, ControllerHandler, ImportHandler } from '../codeBuilder';
-import {
-  ESLINT_INSTALLATIONS,
-  ESLINT_WITH_PRETTIER_INSTALLATIONS,
-  GITIGNORE,
-  PRETTIER,
-  PRETTIER_IGNORE,
-  PRETTIER_INSTALLATIONS,
-  TSCONFIG,
-} from '../constants';
-import { getAdapterFunctionName, getAdapterInstallPackages, getControllerImports, getRootImports } from '../helpers';
+import { BUNFIG_FMT, GITIGNORE, TSCONFIG } from '../constants';
+import { getAdapterFunctionName, getControllerImports, getRootImports } from '../helpers';
 import { ImportType } from '../types';
+import { runningCliVersion } from './cliInstall';
+import { installCommands, installManifest, installSelection } from './createInstallCommands';
 import { Init } from './Init';
 import type { BaseCommand } from '../types/baseCommand';
 import type { ProjectSetupOptions } from '../types/create';
+
+const TABLE_HEADER = /^\s*\[(?!\[)/;
+
+const isTable = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const fmtTable = (settings: object): Record<string, unknown> =>
+  'fmt' in settings && isTable(settings.fmt) ? settings.fmt : {};
+
+const SCAFFOLD_FMT = fmtTable(Bun.TOML.parse(BUNFIG_FMT));
+
+const tomlValue = (value: unknown): string =>
+  Array.isArray(value) ? `[${value.map(tomlValue).join(', ')}]` : JSON.stringify(value);
+
+const fmtLine = (key: string) => `${key} = ${tomlValue(SCAFFOLD_FMT[key])}`;
+
+const parsesTo = (text: string, expected: object) => {
+  try {
+    return Bun.deepEquals(Bun.TOML.parse(text), expected);
+  } catch {
+    return false;
+  }
+};
 
 export class Create implements BaseCommand {
   private preference: ProjectSetupOptions = {
@@ -25,7 +43,7 @@ export class Create implements BaseCommand {
     adapter: 'hono',
     logger: true,
     eslint: true,
-    prettier: true,
+    format: true,
   };
 
   public command() {
@@ -37,17 +55,20 @@ export class Create implements BaseCommand {
       .option('--no-logger', 'Skip asena logger setup')
       .option('--eslint', 'Setup ESLint')
       .option('--no-eslint', 'Skip ESLint setup')
-      .option('--prettier', 'Setup Prettier')
-      .option('--no-prettier', 'Skip Prettier setup')
+      .option('--format', 'Set up formatting with bun fmt')
+      .option('--no-format', 'Skip formatting setup')
+      .option('--prettier', 'Deprecated, use --format')
+      .option('--no-prettier', 'Deprecated, use --no-format')
       .option('--skip-install', 'Skip dependency installation (useful for monorepos)')
-      .action(async (projectName, options) => {
+      .action(async (projectName, options, command: Command) => {
+        const format = this.formatFlag(options, command);
         const spinner = ora('Creating asena project...');
 
         try {
           // If no argument provided or '.' provided, create in current folder
           const currentFolder = !projectName || projectName === '.';
 
-          await this.create(currentFolder, spinner, options, projectName);
+          await this.create(currentFolder, spinner, runningCliVersion(command), { ...options, format }, projectName);
 
           console.log('\x1b[32m%s\x1b[0m', '\nAsena project created.');
 
@@ -56,11 +77,29 @@ export class Create implements BaseCommand {
           spinner.stop();
 
           console.error('Create failed: ', error);
+          process.exitCode = 1;
         }
       });
   }
 
-  private async create(currentFolder: boolean, spinner: Ora, options?: any, projectName?: string) {
+  private formatFlag({ format, prettier }: { format?: boolean; prettier?: boolean }, command: Command) {
+    if (prettier === undefined) return format;
+
+    const alias = prettier ? '--prettier' : '--no-prettier';
+    const replacement = prettier ? '--format' : '--no-format';
+
+    if (format !== undefined && format !== prettier) {
+      command.error(
+        `error: ${format ? '--format' : '--no-format'} and ${alias} disagree (${alias} is a deprecated alias of ${replacement})`,
+      );
+    }
+
+    console.warn(`${alias} is deprecated, use ${replacement} (formatting is done by bun fmt)`);
+
+    return prettier;
+  }
+
+  private async create(currentFolder: boolean, spinner: Ora, cliVersion: string, options?: any, projectName?: string) {
     this.preference = await this.askQuestions(currentFolder, options, projectName);
 
     const skipInstall = options?.skipInstall === true;
@@ -74,6 +113,8 @@ export class Create implements BaseCommand {
 
     const projectPath = currentFolder ? process.cwd() : path.resolve(process.cwd(), this.preference.projectName);
 
+    if (this.preference.format) await this.createFormatConfig(projectPath);
+
     await this.createPackageJson(projectPath, skipInstall);
 
     await this.createDefaultController(projectPath);
@@ -85,30 +126,16 @@ export class Create implements BaseCommand {
     if (!currentFolder) process.chdir(projectPath);
 
     if (!skipInstall) {
-      await this.installPreRequests();
+      await this.installPackages();
     }
 
-    if (this.preference.eslint) {
-      if (skipInstall) {
-        await this.createEslintConfig();
-      } else {
-        await this.installAndCreateEslint();
-      }
-    }
-
-    if (this.preference.prettier) {
-      if (skipInstall) {
-        await this.createPrettierConfig();
-      } else {
-        await this.installAndCreatePrettier();
-      }
-    }
+    if (this.preference.eslint) await this.createEslintConfig();
 
     await this.createTsConfig();
 
     await this.createGitignore(projectPath);
 
-    await new Init().exec(this.preference.adapter, skipInstall);
+    await new Init().exec(cliVersion, this.preference.adapter, skipInstall);
   }
 
   private async createDefaultIndexFile(projectPath: string) {
@@ -173,6 +200,7 @@ export class Create implements BaseCommand {
       start: 'bun src/index.ts',
       build: 'asena build',
       'start:prod': 'bun run dist/index.asena.js',
+      typecheck: 'tsc --noEmit',
     };
 
     // Add ESLint scripts if enabled
@@ -181,14 +209,14 @@ export class Create implements BaseCommand {
       scripts['lint:fix'] = 'eslint . --fix';
     }
 
-    // Add Prettier scripts if enabled
-    if (this.preference.prettier) {
-      scripts['format'] = 'prettier --write .';
-      scripts['format:check'] = 'prettier --check .';
+    // --no-config stops bun fmt from reading a Prettier config in a parent directory; [fmt] still applies
+    if (this.preference.format) {
+      scripts['format'] = 'bun fmt --no-config';
+      scripts['format:check'] = 'bun fmt --check --no-config';
     }
 
     // Add combined check scripts if both are enabled
-    if (this.preference.eslint && this.preference.prettier) {
+    if (this.preference.eslint && this.preference.format) {
       scripts['check'] = 'bun run lint && bun run format:check';
       scripts['check:fix'] = 'bun run lint:fix && bun run format';
     }
@@ -202,70 +230,28 @@ export class Create implements BaseCommand {
     // When skip-install is set, write dependencies directly to package.json
     // so the user can run `bun install` later
     if (skipInstall) {
-      const dependencies: Record<string, string> = {
-        '@asenajs/asena': 'latest',
-        // The adapter and the peers it declares but does not provide - hono and zod. Written out
-        // rather than left to the package manager's auto-install, so they survive a clean install.
-        ...getAdapterInstallPackages(this.preference.adapter),
-      };
-
-      if (this.preference.logger) {
-        dependencies['@asenajs/asena-logger'] = 'latest';
-      }
-
-      const devDependencies: Record<string, string> = {
-        '@types/bun': 'latest',
-        typescript: 'latest',
-        '@asenajs/asena-cli': 'latest',
-      };
-
-      if (this.preference.eslint) {
-        for (const pkg of ESLINT_INSTALLATIONS) {
-          devDependencies[pkg] = 'latest';
-        }
-
-        if (this.preference.prettier) {
-          for (const pkg of ESLINT_WITH_PRETTIER_INSTALLATIONS) {
-            devDependencies[pkg] = 'latest';
-          }
-        }
-      }
-
-      if (this.preference.prettier) {
-        devDependencies['prettier'] = 'latest';
-      }
+      const { dependencies, devDependencies } = installManifest(installSelection(this.preference));
 
       packageJson['dependencies'] = dependencies;
-      packageJson['devDependencies'] = devDependencies;
+      packageJson['devDependencies'] = { ...devDependencies, '@asenajs/asena-cli': 'latest' };
     }
 
-    await Bun.write(projectPath + '/package.json', JSON.stringify(packageJson, null, 2));
+    await Bun.write(projectPath + '/package.json', JSON.stringify(packageJson, null, 2) + '\n');
   }
 
-  private async installPreRequests() {
-    // The adapter plus its peers. `bun add` records them in the project's package.json, which the
-    // package manager's own peer auto-install would not - and an undeclared peer is a dependency
-    // that disappears on the next clean install.
-    const packages = Object.entries(getAdapterInstallPackages(this.preference.adapter)).map(
-      ([name, version]) => `${name}@${version}`,
-    );
-
-    await $`bun add @asenajs/asena ${packages}`.quiet();
-
-    if (this.preference.logger) {
-      await $`bun add @asenajs/asena-logger`.quiet();
+  private async installPackages() {
+    for (const command of installCommands(this.preference)) {
+      await $`${command}`.quiet();
     }
-
-    await $`bun add -D @types/bun typescript`.quiet();
   }
 
   private getEslintConfig(): string {
-    const usePrettier = this.preference.prettier;
+    const useFormat = this.preference.format;
 
     return `// @ts-check
 const eslint = require('@eslint/js');
 const tseslint = require('typescript-eslint');
-${usePrettier ? "const eslintConfigPrettier = require('eslint-config-prettier');" : ''}
+${useFormat ? "const eslintConfigPrettier = require('eslint-config-prettier');" : ''}
 
 module.exports = tseslint.config(
   // ESLint recommended rules
@@ -274,7 +260,7 @@ module.exports = tseslint.config(
   // TypeScript ESLint recommended rules
   ...tseslint.configs.recommendedTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
-${usePrettier ? '\n  // Prettier config to disable conflicting rules\n  eslintConfigPrettier,\n' : ''}
+${useFormat ? '\n  // Turn off the rules that conflict with bun fmt\n  eslintConfigPrettier,\n' : ''}
   // Global ignores
   {
     ignores: [
@@ -324,9 +310,6 @@ ${usePrettier ? '\n  // Prettier config to disable conflicting rules\n  eslintCo
       // Allow require() in specific cases (Bun compatibility)
       '@typescript-eslint/no-require-imports': 'off',
 
-      // Disable rules that require strictNullChecks (tsconfig has strict: false)
-      '@typescript-eslint/prefer-nullish-coalescing': 'off',
-
       // Allow any in union types (common in adapter interfaces)
       '@typescript-eslint/no-redundant-type-constituents': 'off',
 
@@ -350,37 +333,81 @@ ${usePrettier ? '\n  // Prettier config to disable conflicting rules\n  eslintCo
     await Bun.write(process.cwd() + '/eslint.config.cjs', eslintConfig);
   }
 
-  private async createPrettierConfig() {
-    await Bun.write(process.cwd() + '/.prettierrc.js', PRETTIER);
-    await Bun.write(process.cwd() + '/.prettierignore', PRETTIER_IGNORE);
-  }
+  private async createFormatConfig(projectPath: string) {
+    const bunfigPath = path.join(projectPath, 'bunfig.toml');
+    const bunfig = Bun.file(bunfigPath);
+    const existing = (await bunfig.exists()) ? await bunfig.text() : '';
 
-  private async installAndCreateEslint() {
-    // Install base ESLint packages
-    const output = await $`bun add -D ${ESLINT_INSTALLATIONS}`.quiet();
+    if (!existing.trim()) {
+      await Bun.write(bunfigPath, BUNFIG_FMT);
 
-    if (output.exitCode !== 0) return;
-
-    // Install prettier integration if prettier is enabled
-    if (this.preference.prettier) {
-      await $`bun add -D ${ESLINT_WITH_PRETTIER_INSTALLATIONS}`.quiet();
+      return;
     }
 
-    // Generate and write dynamic config
-    const eslintConfig = this.getEslintConfig();
-    await Bun.write(process.cwd() + '/eslint.config.cjs', eslintConfig);
+    const { text, kept } = this.mergeFmtTable(existing, bunfigPath);
 
-    return output.stderr.toString() === '';
+    await Bun.write(bunfigPath, text);
+
+    // The kept text has its own layout, which format:check would report. --no-script and --ignore-path keep a fmt
+    // script or an ignore file already in the directory from skipping it; asena create replaces .gitignore later.
+    const formatted = await $`bun fmt --no-config --no-script --ignore-path=${devNull} bunfig.toml`
+      .cwd(projectPath)
+      .quiet()
+      .nothrow();
+
+    if (formatted.exitCode !== 0) {
+      await Bun.write(bunfigPath, existing);
+
+      throw new Error(
+        `${bunfigPath} could not be formatted by bun fmt, left it unchanged:\n${formatted.stderr.toString().trim()}`,
+      );
+    }
+
+    if (kept.length) {
+      console.warn(
+        `${bunfigPath} keeps what its [fmt] table sets for ${kept.join(', ')} (asena create sets ` +
+          `${kept.map(fmtLine).join(', ')}); bun run format:check follows the table, so run bun run format if it reports the generated files`,
+      );
+    }
   }
 
-  private async installAndCreatePrettier() {
-    const output = await $`bun add -D ${PRETTIER_INSTALLATIONS}`.quiet();
+  private mergeFmtTable(existing: string, bunfigPath: string): { text: string; kept: string[] } {
+    let settings: object;
 
-    await Bun.write(process.cwd() + '/.prettierrc.js', PRETTIER);
+    try {
+      settings = Bun.TOML.parse(existing);
+    } catch (error) {
+      throw new Error(`${bunfigPath} is not valid TOML: ${error instanceof Error ? error.message : String(error)}`);
+    }
 
-    await Bun.write(process.cwd() + '/.prettierignore', PRETTIER_IGNORE);
+    if (!('fmt' in settings)) return { text: `${existing.trimEnd()}\n\n${BUNFIG_FMT}`, kept: [] };
 
-    return output.stderr.toString() === '';
+    const keys = Object.keys(SCAFFOLD_FMT);
+    const own = fmtTable(settings);
+    const missing = keys.filter((key) => !(key in own));
+    const kept = keys.filter((key) => key in own && !Bun.deepEquals(own[key], SCAFFOLD_FMT[key]));
+
+    if (!missing.length) return { text: existing, kept };
+
+    const expected = {
+      ...settings,
+      fmt: { ...own, ...Object.fromEntries(missing.map((key) => [key, SCAFFOLD_FMT[key]])) },
+    };
+    const lines = existing.split('\n');
+
+    // A [fmt] line can sit inside a multi-line string and the header can be quoted, so the parser picks the header.
+    for (const [index, line] of lines.entries()) {
+      if (!TABLE_HEADER.test(line)) continue;
+
+      const text = [...lines.slice(0, index + 1), ...missing.map(fmtLine), ...lines.slice(index + 1)].join('\n');
+
+      if (parsesTo(text, expected)) return { text, kept };
+    }
+
+    throw new Error(
+      `${bunfigPath} defines fmt without a [fmt] header, so asena create cannot add its keys to it; ` +
+        'move them under a [fmt] header or pass --no-format',
+    );
   }
 
   private async createTsConfig() {
@@ -402,7 +429,7 @@ ${usePrettier ? '\n  // Prettier config to disable conflicting rules\n  eslintCo
       (options.adapter !== undefined ||
         options.logger !== undefined ||
         options.eslint !== undefined ||
-        options.prettier !== undefined);
+        options.format !== undefined);
 
     // If CLI options provided, use them for non-interactive mode
     if (hasCliOptions) {
@@ -416,7 +443,7 @@ ${usePrettier ? '\n  // Prettier config to disable conflicting rules\n  eslintCo
         adapter: options.adapter || 'hono',
         logger: options.logger !== undefined ? options.logger : true,
         eslint: options.eslint !== undefined ? options.eslint : true,
-        prettier: options.prettier !== undefined ? options.prettier : true,
+        format: options.format !== undefined ? options.format : true,
       };
     }
 
@@ -460,8 +487,8 @@ ${usePrettier ? '\n  // Prettier config to disable conflicting rules\n  eslintCo
       },
       {
         type: 'confirm',
-        name: 'prettier',
-        message: 'Do you want to setup Prettier?[Yes by default]',
+        name: 'format',
+        message: 'Set up formatting (bun fmt)?',
         default: true,
       },
     );
@@ -473,7 +500,7 @@ ${usePrettier ? '\n  // Prettier config to disable conflicting rules\n  eslintCo
       adapter: answers.adapter,
       logger: answers.logger,
       eslint: answers.eslint,
-      prettier: answers.prettier,
+      format: answers.format,
     };
   }
 }

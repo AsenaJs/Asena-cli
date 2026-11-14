@@ -7,9 +7,8 @@ export class ServerConfigHandler {
 
   public addConfigClass(className: string) {
     const configClass = `\n@Config()
-export class ${className} extends ConfigService {
-
-}`;
+export class ${className} extends ConfigService {}
+`;
 
     this._code = this._code + configClass;
 
