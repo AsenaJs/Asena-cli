@@ -189,26 +189,11 @@ const TSC_VERSION_7: Check = {
 const TYPECHECK: Check = { name: 'typecheck', args: ['run', 'typecheck'] };
 const DOCTOR: Check = { name: 'doctor', args: [CLI, 'doctor'] };
 
-const installedVersion = (dir: string, name: string): string | undefined => {
-  const manifest = path.join(dir, 'node_modules', name, 'package.json');
-
-  return fs.existsSync(manifest) ? JSON.parse(fs.readFileSync(manifest, 'utf8')).version : undefined;
-};
-
-// node_modules/prettier must be absent. The one exception: @asenajs/asena-cli depends on @changesets/cli, whose
-// 2.x line requires prettier@2 through @changesets/* packages. Anything else that brings Prettier fails.
-const prettierInstalled = async (dir: string): Promise<string[]> => {
-  if (!fs.existsSync(path.join(dir, 'node_modules/prettier'))) return [];
-
-  const why = await run(dir, ['why', 'prettier', '--top']);
-  const requiredBy = [...why.output.matchAll(/[├└]─ (.+?) \(requires /g)].map(([, by]) => by ?? '');
-  const onlyChangesets2 =
-    installedVersion(dir, '@changesets/cli')?.startsWith('2.') === true &&
-    requiredBy.length > 0 &&
-    requiredBy.every((by) => by.startsWith('@changesets/'));
-
-  return onlyChangesets2 ? [] : [`node_modules/prettier is installed:\n${why.output}`];
-};
+// Whatever package brings it, an editor's Prettier integration would format with node_modules/prettier.
+const prettierInstalled = async (dir: string): Promise<string[]> =>
+  fs.existsSync(path.join(dir, 'node_modules/prettier'))
+    ? [`node_modules/prettier is installed:\n${(await run(dir, ['why', 'prettier', '--top'])).output}`]
+    : [];
 
 type InstallPreference = Parameters<typeof installSelection>[0];
 
