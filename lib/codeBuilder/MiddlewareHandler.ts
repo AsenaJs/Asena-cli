@@ -22,7 +22,7 @@ export class MiddlewareHandler {
 
     const classEndIndex = RegexHelper.getElementIndexByName(this._code, 'Middleware', serviceName);
 
-    if (!classEndIndex) throw new Error('Controller is not exists');
+    if (!classEndIndex) throw new Error('Middleware does not exist');
 
     const head = this._code.substring(0, classEndIndex).trimEnd();
 
