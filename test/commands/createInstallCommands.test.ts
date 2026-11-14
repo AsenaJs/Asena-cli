@@ -13,6 +13,15 @@ const ALL_OPTION_SETS = (['hono', 'ergenecore'] as const).flatMap((adapter) =>
 // Package name of a `bun add` argument: `@scope/name@spec`, `name@spec` or a bare name.
 const nameOf = (argument: string) => /^((?:@[^@/]+\/)?[^@]+)(?:@.*)?$/.exec(argument)?.[1] ?? argument;
 
+// Real names rather than ESLINT_INSTALLATIONS, so that moving a package out of that list cannot hide it.
+const ESLINT_PACKAGES = [
+  'eslint',
+  '@eslint/js',
+  '@typescript-eslint/parser',
+  '@typescript-eslint/eslint-plugin',
+  'typescript-eslint',
+];
+
 describe('installCommands', () => {
   it('adds the framework packages and the adapter as direct dependencies', () => {
     const [core] = installCommands(defaults);
@@ -65,10 +74,18 @@ describe('installCommands', () => {
     expect(installCommands({ ...defaults, logger: false })[0]).not.toContain('@asenajs/asena-logger');
   });
 
-  it('never installs the ESLint or Prettier integration when those are disabled', () => {
-    const [, devDependencies] = installCommands({ ...defaults, eslint: false, format: false });
+  it('never installs the ESLint packages or eslint-config-prettier when ESLint or formatting is disabled', () => {
+    const names = (eslint: boolean, format: boolean) =>
+      installCommands({ ...defaults, eslint, format }).flatMap((command) => command.map(nameOf));
 
-    expect(devDependencies.join(' ')).not.toMatch(/eslint|prettier-integration/);
+    for (const format of [true, false]) {
+      for (const name of [...ESLINT_PACKAGES, 'eslint-config-prettier']) {
+        expect(names(false, format)).not.toContain(name);
+      }
+    }
+
+    expect(names(true, false)).toContain('eslint');
+    expect(names(true, false)).not.toContain('eslint-config-prettier');
   });
 });
 
