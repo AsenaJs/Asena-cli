@@ -13,7 +13,7 @@ export class Commands {
   public constructor() {
     this.program.name('asena');
 
-    this.program.version('0.13.1');
+    this.program.version('0.14.0');
 
     this.program.addCommand(new Create().command());
 

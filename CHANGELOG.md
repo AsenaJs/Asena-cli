@@ -1,5 +1,21 @@
 # @asenajs/asena-cli
 
+## 0.14.0
+
+### Minor Changes
+
+- 80a5dfd: Projects created by `asena create` format with `bun fmt` instead of Prettier. With formatting enabled, the scaffold writes a `[fmt]` table to `bunfig.toml` and the scripts `format` (`bun fmt --no-config`) and `format:check` (`bun fmt --check --no-config`). A `bunfig.toml` that is already there keeps its other settings and is formatted with `bun fmt` once the table is added. When it already has a `[fmt]` table, `asena create` adds the keys that table does not set and keeps the values it does set: `format:check` follows those values, and `asena create` names the ones that differ from its own, because the generated files may then need one `bun run format`. It no longer installs `prettier` or writes `.prettierrc.js` and `.prettierignore`; `eslint-config-prettier` is still installed with ESLint. `bun fmt` needs Bun 1.4.4 or later. That applies to `asena create` itself as well when it formats a `bunfig.toml` that was already there; with an older Bun, use `--no-format` for such a directory.
+  
+  `asena create --format` / `--no-format` choose whether formatting is set up; it is set up by default, and the interactive question is "Set up formatting (bun fmt)?". `--prettier` / `--no-prettier` are deprecated aliases of `--format` / `--no-format`: they still work and print a warning. Passing `--format` together with `--no-prettier`, or `--no-format` with `--prettier`, is an error.
+
+### Patch Changes
+
+- db128b2: `asena create` exits with code 1 when it fails, for example when the target directory holds a `bunfig.toml` that is not valid TOML, so a script or CI step that runs it sees the failure. It still prints `Create failed:` with the error.
+- 6e6f626: `asena generate` writes its `require` and `import type` lines as `const { Service } = require('@asenajs/asena/decorators');` and `import type { Context } from '...';` in a project whose `tsconfig.json` `module` is not an ES module kind, such as `CommonJS`, so the generated file passes `bun fmt --check`.
+- f52a58c: `asena create` and `asena init` install the version of the CLI that is running instead of the one found on `PATH`. Neither command needs a global `asena` binary any more.
+- 0cd064f: `asena create` projects now pass their own `lint`, `format:check`, `tsc` and `asena doctor` checks on TypeScript 7 with `strict: true`. The scaffold installs `@eslint/js` and `reflect-metadata`, adds a `typecheck` script, and writes the generated sources in Prettier's style. `asena generate controller` no longer imports names that the empty class does not use.
+- 847c87e: The CLI's toolchain moves to TypeScript 7 (`@typescript/native`, with TypeScript 6 kept as `typescript` for ESLint). The `typescript` peer range now also accepts `^6.0.0` and `^7.0.0`. Emitted declarations are unchanged apart from quote style in three `.d.ts` files.
+
 ## 0.13.1
 
 ### Patch Changes
