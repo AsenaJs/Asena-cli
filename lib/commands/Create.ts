@@ -311,14 +311,14 @@ ${useFormat ? '\n  // Turn off the rules that conflict with bun fmt\n  eslintCon
   private async createFormatConfig(projectPath: string) {
     const bunfigPath = path.join(projectPath, 'bunfig.toml');
     const bunfig = Bun.file(bunfigPath);
+    const existing = (await bunfig.exists()) ? await bunfig.text() : '';
 
-    if (!(await bunfig.exists())) {
+    if (!existing.trim()) {
       await Bun.write(bunfigPath, BUNFIG_FMT);
 
       return;
     }
 
-    const existing = await bunfig.text();
     let settings: object;
 
     try {
@@ -333,7 +333,19 @@ ${useFormat ? '\n  // Turn off the rules that conflict with bun fmt\n  eslintCon
       return;
     }
 
-    await Bun.write(bunfigPath, existing.trim() ? `${existing.trimEnd()}\n\n${BUNFIG_FMT}` : BUNFIG_FMT);
+    await Bun.write(bunfigPath, `${existing.trimEnd()}\n\n${BUNFIG_FMT}`);
+
+    // The kept text has its own layout, which the project's format:check would report. --no-script: a fmt
+    // script in a package.json already in the directory would run in place of the formatter.
+    const formatted = await $`bun fmt --no-config --no-script bunfig.toml`.cwd(projectPath).quiet().nothrow();
+
+    if (formatted.exitCode !== 0) {
+      await Bun.write(bunfigPath, existing);
+
+      throw new Error(
+        `${bunfigPath} could not be formatted by bun fmt, left it unchanged:\n${formatted.stderr.toString().trim()}`,
+      );
+    }
   }
 
   private async createTsConfig() {

@@ -144,6 +144,35 @@ describe('asena create formatting setup', () => {
     expect(formatCheck).toMatchObject({ exitCode: 0 });
   });
 
+  it('formats a bunfig.toml that is already there, so the project passes its own format:check', async () => {
+    const existing = '# install settings\n[install]\nexact=true\n';
+    const { exitCode, files, formatCheck } = await createProject([], { 'bunfig.toml': existing });
+
+    expect(exitCode).toBe(0);
+    expect(files['bunfig.toml']).toStartWith('# install settings\n[install]\nexact = true\n\n[fmt]\n');
+    expect(Bun.TOML.parse(files['bunfig.toml'] ?? '')).toEqual({ install: { exact: true }, fmt: EXPECTED_FMT });
+    expect(formatCheck).toMatchObject({ exitCode: 0 });
+  });
+
+  it('formats that bunfig.toml with bun fmt, not with a fmt script of a package.json that is already there', async () => {
+    const { files, formatCheck } = await createProject([], {
+      'bunfig.toml': '[install]\nexact=true\n',
+      'package.json': JSON.stringify({ scripts: { fmt: 'echo not the formatter' } }),
+    });
+
+    expect(files['bunfig.toml']).toStartWith('[install]\nexact = true\n\n[fmt]\n');
+    expect(formatCheck).toMatchObject({ exitCode: 0 });
+  });
+
+  it('leaves a bunfig.toml that bun fmt cannot format as it was and stops before it writes anything else', async () => {
+    const existing = 'logLevel="nope"\n';
+    const { stderr, files } = await createProject([], { 'bunfig.toml': existing });
+
+    expect(stderr).toContain('bunfig.toml could not be formatted by bun fmt, left it unchanged');
+    expect(stderr).toContain('Invalid log level');
+    expect(files).toEqual({ 'bunfig.toml': existing });
+  });
+
   it('leaves a [fmt] table that bunfig.toml already has as it is and says so', async () => {
     const existing = '[fmt]\nprintWidth = 80\n';
     const { exitCode, stderr, files } = await createProject([], { 'bunfig.toml': existing });
