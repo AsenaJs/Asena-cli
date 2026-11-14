@@ -177,13 +177,42 @@ describe('asena create formatting setup', () => {
     expect(files).toEqual({ 'bunfig.toml': existing });
   });
 
-  it('leaves a [fmt] table that bunfig.toml already has as it is and says so', async () => {
-    const existing = '[fmt]\nprintWidth = 80\n';
-    const { exitCode, stderr, files } = await createProject([], { 'bunfig.toml': existing });
+  it('adds the keys that a [fmt] table already in bunfig.toml does not set, so the project passes its own format:check', async () => {
+    const existing = '[install]\nexact = true\n\n[fmt]\n# wide lines\nprintWidth = 120\n';
+    const { exitCode, stderr, files, formatCheck } = await createProject([], { 'bunfig.toml': existing });
 
     expect(exitCode).toBe(0);
-    expect(files['bunfig.toml']).toBe(existing);
-    expect(stderr).toContain('bunfig.toml already has a [fmt] table, left it unchanged');
+    expect(Bun.TOML.parse(files['bunfig.toml'] ?? '')).toEqual({ install: { exact: true }, fmt: EXPECTED_FMT });
+    expect(files['bunfig.toml']).toContain('# wide lines\nprintWidth = 120\n');
+    expect(stderr).not.toContain('[fmt]');
+    expect(formatCheck).toMatchObject({ exitCode: 0 });
+  });
+
+  it('keeps the values that a [fmt] table already in bunfig.toml sets, names those that differ, and format:check follows them', async () => {
+    const existing = '[fmt]\nprintWidth = 80\nsingleQuote = false\n';
+    const { exitCode, stderr, files, formatCheck } = await createProject([], { 'bunfig.toml': existing });
+
+    expect(exitCode).toBe(0);
+    expect(Bun.TOML.parse(files['bunfig.toml'] ?? '')).toEqual({
+      fmt: { ...EXPECTED_FMT, printWidth: 80, singleQuote: false },
+    });
+    expect(stderr).toContain(
+      'bunfig.toml keeps what its [fmt] table sets for printWidth, singleQuote (asena create sets printWidth = 120, ' +
+        'singleQuote = true); bun run format:check follows the table, so run bun run format if it reports the generated files',
+    );
+    expect(formatCheck).toMatchObject({ exitCode: 1 });
+    expect(formatCheck?.stdout).toContain('src/index.ts');
+  });
+
+  it('refuses a fmt table that bunfig.toml defines without a [fmt] header and exits 1 before it writes anything', async () => {
+    const existing = 'fmt = { printWidth = 120 }\n';
+    const { exitCode, stderr, files } = await createProject([], { 'bunfig.toml': existing });
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain(
+      'bunfig.toml defines fmt without a [fmt] header, so asena create cannot add its keys to it',
+    );
+    expect(files).toEqual({ 'bunfig.toml': existing });
   });
 
   it('refuses a bunfig.toml that is not valid TOML and exits 1 before it writes anything', async () => {

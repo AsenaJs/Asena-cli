@@ -13,6 +13,16 @@ import { Init } from './Init';
 import type { BaseCommand } from '../types/baseCommand';
 import type { ProjectSetupOptions } from '../types/create';
 
+const FMT_HEADER = /^[ \t]*\[[ \t]*fmt[ \t]*\][ \t]*(?:#.*)?$/m;
+
+const isTable = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const fmtTable = (settings: object): Record<string, unknown> =>
+  'fmt' in settings && isTable(settings.fmt) ? settings.fmt : {};
+
+const fmtKey = (line: string) => line.slice(0, line.indexOf(' = '));
+
 export class Create implements BaseCommand {
   private preference: ProjectSetupOptions = {
     projectName: 'AsenaProject',
@@ -320,21 +330,9 @@ ${useFormat ? '\n  // Turn off the rules that conflict with bun fmt\n  eslintCon
       return;
     }
 
-    let settings: object;
+    const { text, kept } = this.mergeFmtTable(existing, bunfigPath);
 
-    try {
-      settings = Bun.TOML.parse(existing);
-    } catch (error) {
-      throw new Error(`${bunfigPath} is not valid TOML: ${error instanceof Error ? error.message : String(error)}`);
-    }
-
-    if ('fmt' in settings) {
-      console.warn(`${bunfigPath} already has a [fmt] table, left it unchanged`);
-
-      return;
-    }
-
-    await Bun.write(bunfigPath, `${existing.trimEnd()}\n\n${BUNFIG_FMT}`);
+    await Bun.write(bunfigPath, text);
 
     // The kept text has its own layout, which the project's format:check would report. --no-script: a fmt
     // script in a package.json already in the directory would run in place of the formatter.
@@ -347,6 +345,43 @@ ${useFormat ? '\n  // Turn off the rules that conflict with bun fmt\n  eslintCon
         `${bunfigPath} could not be formatted by bun fmt, left it unchanged:\n${formatted.stderr.toString().trim()}`,
       );
     }
+
+    if (kept.length) {
+      console.warn(
+        `${bunfigPath} keeps what its [fmt] table sets for ${kept.map(fmtKey).join(', ')} (asena create sets ` +
+          `${kept.join(', ')}); bun run format:check follows the table, so run bun run format if it reports the generated files`,
+      );
+    }
+  }
+
+  private mergeFmtTable(existing: string, bunfigPath: string): { text: string; kept: string[] } {
+    let settings: object;
+
+    try {
+      settings = Bun.TOML.parse(existing);
+    } catch (error) {
+      throw new Error(`${bunfigPath} is not valid TOML: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    if (!('fmt' in settings)) return { text: `${existing.trimEnd()}\n\n${BUNFIG_FMT}`, kept: [] };
+
+    const pins = BUNFIG_FMT.trimEnd().split('\n').slice(1);
+    const own = fmtTable(settings);
+    const missing = pins.filter((line) => !(fmtKey(line) in own));
+    const text = missing.length
+      ? existing.replace(FMT_HEADER, (header) => `${header}\n${missing.join('\n')}`)
+      : existing;
+    const merged = fmtTable(Bun.TOML.parse(text));
+    const ours = fmtTable(Bun.TOML.parse(BUNFIG_FMT));
+
+    if (pins.some((line) => !(fmtKey(line) in merged))) {
+      throw new Error(
+        `${bunfigPath} defines fmt without a [fmt] header, so asena create cannot add its keys to it; ` +
+          'move them under a [fmt] header or pass --no-format',
+      );
+    }
+
+    return { text, kept: pins.filter((line) => !Bun.deepEquals(merged[fmtKey(line)], ours[fmtKey(line)])) };
   }
 
   private async createTsConfig() {
