@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { installCommands, installManifest, installSelection } from '../../lib/commands/createInstallCommands';
-import { DOCTOR_REQUIRED_DEPENDENCIES } from '../../lib/constants';
+import { FRAMEWORK_PACKAGES } from '../../lib/constants';
 
 const defaults = { adapter: 'hono', logger: true, eslint: true, format: true } as const;
 
@@ -14,11 +14,11 @@ const ALL_OPTION_SETS = (['hono', 'ergenecore'] as const).flatMap((adapter) =>
 const nameOf = (argument: string) => /^((?:@[^@/]+\/)?[^@]+)(?:@.*)?$/.exec(argument)?.[1] ?? argument;
 
 describe('installCommands', () => {
-  it('adds the core with the doctor-required packages and the adapter as direct dependencies', () => {
+  it('adds the framework packages and the adapter as direct dependencies', () => {
     const [core] = installCommands(defaults);
 
     expect(core.slice(0, 3)).toEqual(['bun', 'add', '@asenajs/asena']);
-    for (const name of DOCTOR_REQUIRED_DEPENDENCIES) {
+    for (const name of FRAMEWORK_PACKAGES) {
       expect(core).toContain(name);
     }
     expect(core).toContain('@asenajs/hono-adapter@latest');

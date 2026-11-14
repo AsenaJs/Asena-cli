@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdtemp, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { DOCTOR_REQUIRED_DEPENDENCIES } from '../../lib/constants/create';
+import { FRAMEWORK_PACKAGES } from '../../lib/constants/framework';
 import { checkDirectDependencies } from '../../lib/doctor/checks/directDependencies';
 
 describe('checkDirectDependencies', () => {
@@ -20,11 +20,12 @@ describe('checkDirectDependencies', () => {
     writeFile(join(projectDir, 'package.json'), JSON.stringify({ dependencies }));
 
   const everyRequiredPackage = (): Record<string, string> =>
-    Object.fromEntries(['@asenajs/asena', ...DOCTOR_REQUIRED_DEPENDENCIES].map((name) => [name, 'latest']));
+    Object.fromEntries(FRAMEWORK_PACKAGES.map((name) => [name, 'latest']));
 
   // Pinned by name: the loop below makes no assertion when the shared list is empty.
-  it('requires reflect-metadata, which the scaffold declares and the doctor checks', () => {
-    expect(DOCTOR_REQUIRED_DEPENDENCIES).toContain('reflect-metadata');
+  it('requires @asenajs/asena and reflect-metadata, which the scaffold declares and the doctor checks', () => {
+    expect(FRAMEWORK_PACKAGES).toContain('@asenajs/asena');
+    expect(FRAMEWORK_PACKAGES).toContain('reflect-metadata');
   });
 
   it('passes when every package the scaffold declares is a direct dependency', async () => {
@@ -33,9 +34,9 @@ describe('checkDirectDependencies', () => {
     expect((await checkDirectDependencies(projectDir)).ok).toBe(true);
   });
 
-  // The scaffold writes DOCTOR_REQUIRED_DEPENDENCIES; the doctor must require exactly those, or a
-  // package added to one and not the other leaves a freshly scaffolded project failing its own doctor.
-  for (const name of DOCTOR_REQUIRED_DEPENDENCIES) {
+  // The scaffold writes FRAMEWORK_PACKAGES; the doctor must require exactly those, or a package
+  // added to one and not the other leaves a freshly scaffolded project failing its own doctor.
+  for (const name of FRAMEWORK_PACKAGES) {
     it(`fails when the scaffolded package ${name} is not a direct dependency`, async () => {
       const dependencies = everyRequiredPackage();
 

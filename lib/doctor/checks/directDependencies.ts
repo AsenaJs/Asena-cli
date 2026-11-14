@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type { CheckResult } from '../../types';
 import { ADAPTER_PACKAGES, ADAPTER_PEER_PACKAGES } from '../../constants/adapters';
-import { DOCTOR_REQUIRED_DEPENDENCIES } from '../../constants/create';
+import { FRAMEWORK_PACKAGES } from '../../constants/framework';
 
 export const DIRECT_DEPENDENCIES_NAME = 'direct-dependencies';
 
@@ -43,7 +43,7 @@ export const checkDirectDependencies = async (cwd: string): Promise<CheckResult>
 
   const { pkg } = read;
 
-  const required: string[] = ['@asenajs/asena', ...DOCTOR_REQUIRED_DEPENDENCIES];
+  const required: string[] = [...FRAMEWORK_PACKAGES];
 
   for (const [adapter, adapterPackage] of Object.entries(ADAPTER_PACKAGES) as [
     keyof typeof ADAPTER_PACKAGES,

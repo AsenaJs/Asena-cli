@@ -64,10 +64,6 @@ sortPackageJson = false
 ignorePatterns = ["coverage/", "bun.lockb", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "*.md"]
 `;
 
-// Not a dependency of asena itself in the generated project, but `asena doctor` requires each of these
-// as a direct dependency. Both install paths and the doctor rule read this list, so they cannot drift apart.
-export const DOCTOR_REQUIRED_DEPENDENCIES = ['reflect-metadata'];
-
 export const ESLINT_INSTALLATIONS = [
   'eslint',
   '@eslint/js',

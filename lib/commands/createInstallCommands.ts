@@ -1,7 +1,7 @@
 import {
-  DOCTOR_REQUIRED_DEPENDENCIES,
   ESLINT_INSTALLATIONS,
   ESLINT_WITH_FORMAT_INSTALLATIONS,
+  FRAMEWORK_PACKAGES,
   TYPESCRIPT_DEV_DEPENDENCIES,
   TYPESCRIPT_WITH_ESLINT_DEV_DEPENDENCIES,
 } from '../constants';
@@ -28,10 +28,7 @@ const pinned = (record: Record<string, string>): InstallPackage[] =>
 
 export const installSelection = (options: InstallOptions): InstallSelection => {
   // The adapter and its peers: an undeclared peer is not written to package.json by the package manager.
-  const dependencies = [
-    ...unpinned(['@asenajs/asena', ...DOCTOR_REQUIRED_DEPENDENCIES]),
-    ...pinned(getAdapterInstallPackages(options.adapter)),
-  ];
+  const dependencies = [...unpinned(FRAMEWORK_PACKAGES), ...pinned(getAdapterInstallPackages(options.adapter))];
 
   if (options.logger) dependencies.push(...unpinned(['@asenajs/asena-logger']));
 

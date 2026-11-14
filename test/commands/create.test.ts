@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import stripJsonComments from 'strip-json-comments';
-import { DOCTOR_REQUIRED_DEPENDENCIES, TSCONFIG } from '../../lib/constants';
+import { FRAMEWORK_PACKAGES, TSCONFIG } from '../../lib/constants';
 import { Create } from '../../lib/commands/Create';
 import { getAdapterInstallPackages } from '../../lib/helpers';
 
@@ -324,8 +324,8 @@ describe('Create command package.json generation', () => {
     expect(packageJson.dependencies['hono']).toBe('latest');
     expect(packageJson.dependencies['zod']).toBe('^4');
 
-    // asena doctor requires it as a direct dependency.
-    for (const pkg of DOCTOR_REQUIRED_DEPENDENCIES) {
+    // asena doctor requires them as direct dependencies.
+    for (const pkg of FRAMEWORK_PACKAGES) {
       expect(packageJson.dependencies[pkg]).toBe('latest');
     }
 
@@ -401,10 +401,10 @@ describe('Create command package.json generation', () => {
       await (create as any).createPackageJson(tempDir, true);
 
       const packageJson = JSON.parse(await Bun.file(join(tempDir, 'package.json')).text());
-      const written = Object.keys(packageJson.dependencies).filter((key) => key !== '@asenajs/asena');
+      const written = Object.keys(packageJson.dependencies);
 
       expect(written.sort()).toEqual(
-        [...Object.keys(getAdapterInstallPackages(adapter)), ...DOCTOR_REQUIRED_DEPENDENCIES].sort(),
+        [...FRAMEWORK_PACKAGES, ...Object.keys(getAdapterInstallPackages(adapter))].sort(),
       );
     }
   });
