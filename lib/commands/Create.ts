@@ -14,7 +14,7 @@ import { Init } from './Init';
 import type { BaseCommand } from '../types/baseCommand';
 import type { ProjectSetupOptions } from '../types/create';
 
-const FMT_HEADER = /^[ \t]*\[[ \t]*fmt[ \t]*\][ \t]*(?:#.*)?$/m;
+const TABLE_HEADER = /^\s*\[(?!\[)/;
 
 const isTable = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -28,6 +28,14 @@ const tomlValue = (value: unknown): string =>
   Array.isArray(value) ? `[${value.map(tomlValue).join(', ')}]` : JSON.stringify(value);
 
 const fmtLine = (key: string) => `${key} = ${tomlValue(SCAFFOLD_FMT[key])}`;
+
+const parsesTo = (text: string, expected: object) => {
+  try {
+    return Bun.deepEquals(Bun.TOML.parse(text), expected);
+  } catch {
+    return false;
+  }
+};
 
 export class Create implements BaseCommand {
   private preference: ProjectSetupOptions = {
@@ -377,19 +385,29 @@ ${useFormat ? '\n  // Turn off the rules that conflict with bun fmt\n  eslintCon
     const keys = Object.keys(SCAFFOLD_FMT);
     const own = fmtTable(settings);
     const missing = keys.filter((key) => !(key in own));
-    const text = missing.length
-      ? existing.replace(FMT_HEADER, (header) => `${header}\n${missing.map(fmtLine).join('\n')}`)
-      : existing;
-    const merged = fmtTable(Bun.TOML.parse(text));
+    const kept = keys.filter((key) => key in own && !Bun.deepEquals(own[key], SCAFFOLD_FMT[key]));
 
-    if (keys.some((key) => !(key in merged))) {
-      throw new Error(
-        `${bunfigPath} defines fmt without a [fmt] header, so asena create cannot add its keys to it; ` +
-          'move them under a [fmt] header or pass --no-format',
-      );
+    if (!missing.length) return { text: existing, kept };
+
+    const expected = {
+      ...settings,
+      fmt: { ...own, ...Object.fromEntries(missing.map((key) => [key, SCAFFOLD_FMT[key]])) },
+    };
+    const lines = existing.split('\n');
+
+    // A [fmt] line can sit inside a multi-line string and the header can be quoted, so the parser picks the header.
+    for (const [index, line] of lines.entries()) {
+      if (!TABLE_HEADER.test(line)) continue;
+
+      const text = [...lines.slice(0, index + 1), ...missing.map(fmtLine), ...lines.slice(index + 1)].join('\n');
+
+      if (parsesTo(text, expected)) return { text, kept };
     }
 
-    return { text, kept: keys.filter((key) => !Bun.deepEquals(merged[key], SCAFFOLD_FMT[key])) };
+    throw new Error(
+      `${bunfigPath} defines fmt without a [fmt] header, so asena create cannot add its keys to it; ` +
+        'move them under a [fmt] header or pass --no-format',
+    );
   }
 
   private async createTsConfig() {
