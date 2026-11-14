@@ -4,6 +4,7 @@ import path from 'node:path';
 import { describe, expect, it, spyOn } from 'bun:test';
 import inquirer from 'inquirer';
 import { Create } from '../../lib/commands/Create';
+import { BUNFIG_FMT } from '../../lib/constants/create';
 
 const CLI = path.resolve(import.meta.dir, '../../bin/asena.ts');
 
@@ -52,8 +53,8 @@ interface CreateRun {
   formatCheck?: Spawned;
 }
 
-const spawn = async (cwd: string, args: string[]): Promise<Spawned> => {
-  const proc = Bun.spawn([process.execPath, ...args], { cwd, stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' });
+const spawn = async (cwd: string, args: string[], env?: Record<string, string | undefined>): Promise<Spawned> => {
+  const proc = Bun.spawn([process.execPath, ...args], { cwd, env, stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' });
   const [stdout, stderr, exitCode] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
@@ -73,9 +74,13 @@ const readTree = (dir: string): Record<string, string> =>
       )
     : {};
 
-// Runs the real `asena create app --skip-install` with `args` beside an `app` directory that already holds
-// `existing`, returns every file it left there, and runs the project's format:check when it has one.
-const runCreate = async (args: string[], existing: Record<string, string> = {}): Promise<CreateRun> => {
+// Runs the real `asena create app --skip-install` with `args` and `env` beside an `app` directory that already
+// holds `existing` (paths relative to `app`), returns every file left in `app`, and runs its format:check if any.
+const runCreate = async (
+  args: string[],
+  existing: Record<string, string> = {},
+  env?: Record<string, string | undefined>,
+): Promise<CreateRun> => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'asena-create-format-'));
   const dir = path.join(root, 'app');
 
@@ -85,7 +90,7 @@ const runCreate = async (args: string[], existing: Record<string, string> = {}):
       fs.writeFileSync(path.join(dir, file), text);
     }
 
-    const created = await spawn(root, [CLI, 'create', 'app', '--skip-install', ...args]);
+    const created = await spawn(root, [CLI, 'create', 'app', '--skip-install', ...args], env);
     const files = readTree(dir);
     const scripts = files['package.json'] ? JSON.parse(files['package.json']).scripts : undefined;
     const formatCheck = scripts?.['format:check'] ? await spawn(dir, ['run', 'format:check']) : undefined;
@@ -96,8 +101,11 @@ const runCreate = async (args: string[], existing: Record<string, string> = {}):
   }
 };
 
-const createProject = (flags: string[], existing: Record<string, string> = {}) =>
-  runCreate(['--adapter', 'hono', ...flags], existing);
+const createProject = (
+  flags: string[],
+  existing: Record<string, string> = {},
+  env?: Record<string, string | undefined>,
+) => runCreate(['--adapter', 'hono', ...flags], existing, env);
 
 const prettierEntries = (names: string[]) => names.filter((name) => name.includes('prettier'));
 
@@ -137,6 +145,25 @@ describe('asena create formatting setup', () => {
     expect(files['eslint.config.cjs']).not.toContain('prettier');
   });
 
+  it('writes the [fmt] table into a blank bunfig.toml without running bun fmt', async () => {
+    const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'asena-no-bun-fmt-'));
+    // A bun without fmt, as before Bun 1.4.4, that hands every other command to this one.
+    const bunWithoutFmt = `#!/bin/sh\n[ "$1" = fmt ] && exit 1\nexec '${process.execPath}' "$@"\n`;
+    const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env['PATH'] ?? ''}` };
+
+    try {
+      fs.writeFileSync(path.join(bin, 'bun'), bunWithoutFmt, { mode: 0o755 });
+
+      const { exitCode, files, formatCheck } = await createProject([], { 'bunfig.toml': ' \n\t\n' }, env);
+
+      expect(exitCode).toBe(0);
+      expect(files['bunfig.toml']).toBe(BUNFIG_FMT);
+      expect(formatCheck).toMatchObject({ exitCode: 0 });
+    } finally {
+      fs.rmSync(bin, { recursive: true, force: true });
+    }
+  });
+
   it('adds the [fmt] table to a bunfig.toml that is already there and keeps what it holds', async () => {
     const existing = '[install]\nexact = true\n';
     const { exitCode, files, formatCheck } = await createProject([], { 'bunfig.toml': existing });
@@ -171,6 +198,17 @@ describe('asena create formatting setup', () => {
     const { exitCode, files, formatCheck } = await createProject([], {
       'bunfig.toml': '[install]\nexact=true\n',
       '.gitignore': 'bunfig.toml\n',
+    });
+
+    expect(exitCode).toBe(0);
+    expect(files['bunfig.toml']).toStartWith('[install]\nexact = true\n\n[fmt]\n');
+    expect(formatCheck).toMatchObject({ exitCode: 0 });
+  });
+
+  it('formats that bunfig.toml under its own [fmt] table when a parent directory has a Prettier config', async () => {
+    const { exitCode, files, formatCheck } = await createProject([], {
+      '../.prettierrc.json': '{}',
+      'bunfig.toml': '[install]\nexact=true\n',
     });
 
     expect(exitCode).toBe(0);
