@@ -53,7 +53,7 @@ interface CreateRun {
 }
 
 const spawn = async (cwd: string, args: string[]): Promise<Spawned> => {
-  const proc = Bun.spawn([process.execPath, ...args], { cwd, stdout: 'pipe', stderr: 'pipe' });
+  const proc = Bun.spawn([process.execPath, ...args], { cwd, stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' });
   const [stdout, stderr, exitCode] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
@@ -73,9 +73,9 @@ const readTree = (dir: string): Record<string, string> =>
       )
     : {};
 
-// Runs the real `asena create app --skip-install` beside an `app` directory that already holds `existing`,
-// returns every file it left there, and runs the project's format:check when it has one.
-const createProject = async (flags: string[], existing: Record<string, string> = {}): Promise<CreateRun> => {
+// Runs the real `asena create app --skip-install` with `args` beside an `app` directory that already holds
+// `existing`, returns every file it left there, and runs the project's format:check when it has one.
+const runCreate = async (args: string[], existing: Record<string, string> = {}): Promise<CreateRun> => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'asena-create-format-'));
   const dir = path.join(root, 'app');
 
@@ -85,7 +85,7 @@ const createProject = async (flags: string[], existing: Record<string, string> =
       fs.writeFileSync(path.join(dir, file), text);
     }
 
-    const created = await spawn(root, [CLI, 'create', 'app', '--adapter', 'hono', '--skip-install', ...flags]);
+    const created = await spawn(root, [CLI, 'create', 'app', '--skip-install', ...args]);
     const files = readTree(dir);
     const scripts = files['package.json'] ? JSON.parse(files['package.json']).scripts : undefined;
     const formatCheck = scripts?.['format:check'] ? await spawn(dir, ['run', 'format:check']) : undefined;
@@ -95,6 +95,9 @@ const createProject = async (flags: string[], existing: Record<string, string> =
     fs.rmSync(root, { recursive: true, force: true });
   }
 };
+
+const createProject = (flags: string[], existing: Record<string, string> = {}) =>
+  runCreate(['--adapter', 'hono', ...flags], existing);
 
 const prettierEntries = (names: string[]) => names.filter((name) => name.includes('prettier'));
 
@@ -290,6 +293,22 @@ describe('asena create formatting flags', () => {
       expect(run.exitCode).toBe(1);
       expect(run.stderr).toContain(`error: ${format} and ${alias} disagree`);
       expect(run.files).toEqual({});
+    });
+  }
+
+  const ALONE: [string, string][] = [
+    ['--format', '--format'],
+    ['--no-format', '--no-format'],
+    ['--prettier', '--format'],
+    ['--no-prettier', '--no-format'],
+  ];
+
+  for (const [flag, same] of ALONE) {
+    it(`${flag} alone, without --adapter, asks nothing and creates what --adapter hono ${same} creates`, async () => {
+      const run = await runCreate([flag]);
+
+      expect(run.exitCode).toBe(0);
+      expect(run.files).toEqual((await createOnce([same])).files);
     });
   }
 });
