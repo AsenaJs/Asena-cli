@@ -61,12 +61,12 @@ type GenerateInternals = Record<GeneratorMethod, () => Promise<void>> & {
 };
 
 // Runs each generator's real build path in a project for the given adapter and captures what it would write.
-const generatorOutputs = async (adapter: AdapterType): Promise<Record<string, string>> => {
+const generatorOutputs = async (adapter: AdapterType, module = 'ESNext'): Promise<Record<string, string>> => {
   const projectDir = await mkdtemp(join(tmpdir(), 'asena-format-'));
   const previousCwd = process.cwd();
 
   try {
-    await Bun.write(join(projectDir, 'tsconfig.json'), JSON.stringify({ compilerOptions: { module: 'ESNext' } }));
+    await Bun.write(join(projectDir, 'tsconfig.json'), JSON.stringify({ compilerOptions: { module } }));
     await Bun.write(join(projectDir, '.asena/config.json'), JSON.stringify({ adapter }));
     process.chdir(projectDir);
 
@@ -93,6 +93,12 @@ const generatorOutputs = async (adapter: AdapterType): Promise<Record<string, st
   }
 };
 
+// Generate writes each file with exactly one final newline; these are the files it would write.
+const writtenFiles = (outputs: Record<string, string>) =>
+  Object.fromEntries(
+    Object.entries(outputs).map(([generator, code]) => [`src/${generator}.ts`, code.replace(/\n*$/, '\n')]),
+  );
+
 // The emitted text is what a generated project's format:check, tsc and lint read. These pin the
 // exact output so a template that drifts from the formatter's style fails here, not in a scaffold.
 describe('generated source is written in the style bun fmt expects', () => {
@@ -103,6 +109,25 @@ describe('generated source is written in the style bun fmt expects', () => {
     );
 
     expect(code).toBe("import { AsenaServer, Controller } from '@asenajs/asena';\n");
+  });
+
+  it('emits require and import type lines as `const { A, B } = require(...)` with a final newline', () => {
+    const code = new ImportHandler('', ImportType.REQUIRE).importToCode(
+      {
+        '@asenajs/asena/decorators': ['Middleware', 'ExceptionHandler'],
+        '@asenajs/hono-adapter': ['type Context', 'MiddlewareService'],
+      },
+      ImportType.REQUIRE,
+    );
+
+    expect(code).toBe(
+      [
+        "const { Middleware, ExceptionHandler } = require('@asenajs/asena/decorators');",
+        "import type { Context } from '@asenajs/hono-adapter';",
+        "const { MiddlewareService } = require('@asenajs/hono-adapter');",
+        '',
+      ].join('\n'),
+    );
   });
 
   it('emits an empty controller with no blank lines in its body and routes inserted into it', () => {
@@ -189,12 +214,21 @@ describe('generated source is written in the style bun fmt expects', () => {
 
   for (const adapter of ['hono', 'ergenecore'] as const) {
     it(`emits every ${adapter} generator output formatted for bun fmt under the shipped [fmt] table`, async () => {
-      const outputs = await generatorOutputs(adapter);
-      // Generate writes each file with exactly one final newline; check what it would write.
-      const files = Object.fromEntries(
-        Object.entries(outputs).map(([generator, code]) => [`src/${generator}.ts`, code.replace(/\n*$/, '\n')]),
-      );
+      const files = writtenFiles(await generatorOutputs(adapter));
 
+      expect(Object.keys(files)).toHaveLength(Object.keys(GENERATOR_METHODS).length);
+      expect(await bunFmtCheck(files)).toEqual({
+        exitCode: 0,
+        unformatted: [],
+        summary: `All ${Object.keys(files).length + 1} files are formatted.`,
+      });
+    });
+
+    it(`emits every ${adapter} generator output formatted for bun fmt when the tsconfig module is CommonJS`, async () => {
+      const outputs = await generatorOutputs(adapter, 'CommonJS');
+      const files = writtenFiles(outputs);
+
+      for (const code of Object.values(outputs)) expect(code).toContain(' = require(');
       expect(Object.keys(files)).toHaveLength(Object.keys(GENERATOR_METHODS).length);
       expect(await bunFmtCheck(files)).toEqual({
         exitCode: 0,

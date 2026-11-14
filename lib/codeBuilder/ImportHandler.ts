@@ -67,8 +67,8 @@ export class ImportHandler {
     const values = imports.filter((name) => !name.startsWith('type '));
 
     return (
-      (types.length > 0 ? `import type {${types.join(',')}} from '${from}'; \n` : '') +
-      (values.length > 0 ? `const {${values.join(',')}} = require('${from}'); \n` : '')
+      (types.length > 0 ? `import type { ${types.join(', ')} } from '${from}';\n` : '') +
+      (values.length > 0 ? `const { ${values.join(', ')} } = require('${from}');\n` : '')
     );
   }
 
