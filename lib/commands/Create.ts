@@ -53,6 +53,7 @@ export class Create implements BaseCommand {
           spinner.stop();
 
           console.error('Create failed: ', error);
+          process.exitCode = 1;
         }
       });
   }

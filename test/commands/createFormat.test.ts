@@ -164,10 +164,11 @@ describe('asena create formatting setup', () => {
     expect(formatCheck).toMatchObject({ exitCode: 0 });
   });
 
-  it('leaves a bunfig.toml that bun fmt cannot format as it was and stops before it writes anything else', async () => {
+  it('leaves a bunfig.toml that bun fmt cannot format as it was and exits 1 before it writes anything else', async () => {
     const existing = 'logLevel="nope"\n';
-    const { stderr, files } = await createProject([], { 'bunfig.toml': existing });
+    const { exitCode, stderr, files } = await createProject([], { 'bunfig.toml': existing });
 
+    expect(exitCode).toBe(1);
     expect(stderr).toContain('bunfig.toml could not be formatted by bun fmt, left it unchanged');
     expect(stderr).toContain('Invalid log level');
     expect(files).toEqual({ 'bunfig.toml': existing });
@@ -182,9 +183,10 @@ describe('asena create formatting setup', () => {
     expect(stderr).toContain('bunfig.toml already has a [fmt] table, left it unchanged');
   });
 
-  it('refuses a bunfig.toml that is not valid TOML before it writes anything', async () => {
-    const { stderr, files } = await createProject([], { 'bunfig.toml': '[fmt\n' });
+  it('refuses a bunfig.toml that is not valid TOML and exits 1 before it writes anything', async () => {
+    const { exitCode, stderr, files } = await createProject([], { 'bunfig.toml': '[fmt\n' });
 
+    expect(exitCode).toBe(1);
     expect(stderr).toContain('bunfig.toml is not valid TOML');
     expect(files).toEqual({ 'bunfig.toml': '[fmt\n' });
   });
