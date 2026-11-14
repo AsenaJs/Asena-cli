@@ -1,5 +1,11 @@
 # @asenajs/asena-cli
 
+## 0.13.1
+
+### Patch Changes
+
+- d58dd1f: `@changesets/cli` is no longer installed with the CLI. It is release tooling of this repository and was listed under `dependencies` by mistake.
+
 ## 0.13.0
 
 ### Minor Changes
